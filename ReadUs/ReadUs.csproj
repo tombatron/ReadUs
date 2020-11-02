@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.IO.Pipelines" Version="4.7.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReadUs.Encoder\ReadUs.Encoder.csproj" />
+    <ProjectReference Include="..\ReadUs.Parser\ReadUs.Parser.csproj" />
+  </ItemGroup>
+
+</Project>
