@@ -1,5 +1,7 @@
-﻿using ReadUs.Parser;
+﻿using ReadUs.Exceptions;
+using ReadUs.Parser;
 using System;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.Parser.Parser;
@@ -26,10 +28,7 @@ namespace ReadUs
 
             var result = Parse(rawResult);
 
-            if (result.Type == ResultType.Error)
-            {
-                throw new Exception("(╯°□°）╯︵ ┻━┻");
-            }
+            EvaluateResultAndThrow(result);
         }
 
         public async Task<string> GetAsync(string key)
@@ -39,6 +38,8 @@ namespace ReadUs
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
 
             var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
 
             return result.ToString();
         }
@@ -51,10 +52,7 @@ namespace ReadUs
 
             var result = Parse(rawResult);
 
-            if (result.Type == ResultType.Error)
-            {
-                throw new Exception("(╯°□°）╯︵ ┻━┻");
-            }
+            EvaluateResultAndThrow(result);
         }
 
         public Task<BlockingPopResult> BlPopAsync(params string[] key) =>
@@ -76,10 +74,7 @@ namespace ReadUs
 
             var result = Parse(rawResult);
 
-            if (result.Type == ResultType.Error)
-            {
-                throw new Exception(result.ToString());
-            }
+            EvaluateResultAndThrow(result);
 
             return (BlockingPopResult)result;
         }
@@ -103,10 +98,7 @@ namespace ReadUs
 
             var result = Parse(rawResult);
 
-            if (result.Type == ResultType.Error)
-            {
-                throw new Exception(result.ToString());
-            }
+            EvaluateResultAndThrow(result);
 
             return (BlockingPopResult)result;
         }
@@ -119,6 +111,14 @@ namespace ReadUs
              * from disposing of this instance and then continuing to use it is there?
              */
             _pool.ReturnConnection(_connection);
+        }
+
+        private static void EvaluateResultAndThrow(ParseResult result, [CallerMemberName] string callingMember = "")
+        {
+            if (result.Type == ResultType.Error)
+            {
+                throw new RedisServerException($"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}");
+            }
         }
     }
 }
