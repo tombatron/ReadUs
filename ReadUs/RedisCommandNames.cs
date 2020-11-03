@@ -9,5 +9,7 @@
         internal const string Set = "SET";
 
         internal const string BlPop = "BLPOP";
+
+        internal const string BrPop = "BRPOP";
     }
 }

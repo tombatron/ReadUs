@@ -84,6 +84,33 @@ namespace ReadUs
             return (BlockingPopResult)result;
         }
 
+        public Task<BlockingPopResult> BrPopAsync(params string[] key) =>
+            BrPopAsync(TimeSpan.MaxValue, key);
+
+        public async Task<BlockingPopResult> BrPopAsync(TimeSpan timeout, params string[] key)
+        {
+            var parameters = new object[key.Length + 2];
+
+            parameters[0] = BrPop;
+
+            Array.Copy(key, 0, parameters, 1, key.Length);
+
+            parameters[parameters.Length - 1] = 0;
+
+            var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(rawCommand, timeout).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            if (result.Type == ResultType.Error)
+            {
+                throw new Exception(result.ToString());
+            }
+
+            return (BlockingPopResult)result;
+        }
+
         public void Dispose()
         {
             /*
