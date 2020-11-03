@@ -1,13 +1,13 @@
 ﻿namespace ReadUs
 {
-    public static class RedisCommandNames
+    internal static class RedisCommandNames
     {
-        public const string Select = "SELECT";
+        internal const string Select = "SELECT";
 
-        public const string Get = "GET";
+        internal const string Get = "GET";
 
-        public const string Set = "SET";
+        internal const string Set = "SET";
 
-        public const string BlPop = "BLPOP";
+        internal const string BlPop = "BLPOP";
     }
 }
