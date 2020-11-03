@@ -11,5 +11,9 @@
         internal const string BlPop = "BLPOP";
 
         internal const string BrPop = "BRPOP";
+
+        internal const string LPush = "LPUSH";
+
+        internal const string RPush = "RPUSH";
     }
 }

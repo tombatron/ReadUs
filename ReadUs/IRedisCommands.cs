@@ -18,5 +18,9 @@ namespace ReadUs
         Task<BlockingPopResult> BrPopAsync(params string[] key);
 
         Task<BlockingPopResult> BrPopAsync(TimeSpan timeout, params string[] key);
+
+        Task<int> LPushAsync(string key, params string[] element);
+
+        Task<int> RPushAsync(string key, params string[] element);
     }
 }
