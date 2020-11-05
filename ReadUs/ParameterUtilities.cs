@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("ReadUs.Tests")]
 namespace ReadUs
 {
     internal static class ParameterUtilities
