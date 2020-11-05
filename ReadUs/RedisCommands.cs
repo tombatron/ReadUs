@@ -1,13 +1,12 @@
 ﻿using ReadUs.Exceptions;
 using ReadUs.Parser;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.Parser.Parser;
 using static ReadUs.RedisCommandNames;
+using static ReadUs.ParameterUtilities;
 
 namespace ReadUs
 {
@@ -163,36 +162,6 @@ namespace ReadUs
             else
             {
                 throw new Exception($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
-            }
-        }
-
-        private static object[] CombineParameters(params object[] parameters) =>
-            UnwindObjectArray(parameters).ToArray();
-
-        private static IEnumerable<object> UnwindObjectArray(object[] objects)
-        {
-            foreach (var obj in objects)
-            {
-                if (obj.GetType().IsArray)
-                {
-                    var objArray = obj as object[];
-
-                    if (objArray is null)
-                    {
-                        yield return objArray;
-
-                        continue;
-                    }
-
-                    foreach (var obj2 in UnwindObjectArray(objArray))
-                    {
-                        yield return obj2;
-                    }
-                }
-                else
-                {
-                    yield return obj;
-                }
             }
         }
     }
