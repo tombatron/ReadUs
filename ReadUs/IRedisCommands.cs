@@ -22,5 +22,7 @@ namespace ReadUs
         Task<int> LPushAsync(string key, params string[] element);
 
         Task<int> RPushAsync(string key, params string[] element);
+
+        Task<int> LlenAsync(string key);
     }
 }

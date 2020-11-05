@@ -68,6 +68,23 @@ namespace ReadUs.Tests.Integration
             Assert.Equal("Never eat soggy waffles.", retrievedValue);
         }
 
+        [Fact]
+        public async Task Llen_Gets_List_Length()
+        {
+            var testKey = Guid.NewGuid().ToString("N");
+
+            using var commands = await _pool.GetAsync();
+
+            var initialLength = await commands.LlenAsync(testKey);
+
+            await commands.LPushAsync(testKey, "Yo");
+
+            var finalLength = await commands.LlenAsync(testKey);
+
+            Assert.Equal(0, initialLength);
+            Assert.Equal(1, finalLength);
+        }
+
         public void Dispose()
         {
             _pool.Dispose();

@@ -1,6 +1,7 @@
 ﻿using ReadUs.Exceptions;
 using ReadUs.Parser;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -61,13 +62,7 @@ namespace ReadUs
 
         public async Task<BlockingPopResult> BlPopAsync(TimeSpan timeout, params string[] key)
         {
-            var parameters = new object[key.Length + 2];
-
-            parameters[0] = BlPop;
-
-            Array.Copy(key, 0, parameters, 1, key.Length);
-
-            parameters[parameters.Length - 1] = 0;
+            var parameters = CombineParameters(BlPop, key, timeout);
 
             var rawCommand = Encode(parameters);
 
@@ -85,13 +80,7 @@ namespace ReadUs
 
         public async Task<BlockingPopResult> BrPopAsync(TimeSpan timeout, params string[] key)
         {
-            var parameters = new object[key.Length + 2];
-
-            parameters[0] = BrPop;
-
-            Array.Copy(key, 0, parameters, 1, key.Length);
-
-            parameters[parameters.Length - 1] = 0;
+            var parameters = CombineParameters(BrPop, key, timeout);
 
             var rawCommand = Encode(parameters);
 
@@ -106,11 +95,7 @@ namespace ReadUs
 
         public async Task<int> LPushAsync(string key, params string[] element)
         {
-            var parameters = new object[element.Length + 1];
-
-            parameters[0] = LPush;
-
-            Array.Copy(element, 0, parameters, 1, element.Length);
+            var parameters = CombineParameters(LPush, key, element);
 
             var rawCommand = Encode(parameters);
 
@@ -125,13 +110,22 @@ namespace ReadUs
 
         public async Task<int> RPushAsync(string key, params string[] element)
         {
-            var parameters = new object[element.Length + 1];
-
-            parameters[0] = RPush;
-
-            Array.Copy(element, 0, parameters, 1, element.Length);
+            var parameters = CombineParameters(RPush, key, element);
 
             var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
+
+            return ParseAndReturnInt(result);
+        }
+
+        public async Task<int> LlenAsync(string key)
+        {
+            var rawCommand = Encode(Llen, key);
 
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
 
@@ -169,6 +163,36 @@ namespace ReadUs
             else
             {
                 throw new Exception($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
+            }
+        }
+
+        private static object[] CombineParameters(params object[] parameters) =>
+            UnwindObjectArray(parameters).ToArray();
+
+        private static IEnumerable<object> UnwindObjectArray(object[] objects)
+        {
+            foreach (var obj in objects)
+            {
+                if (obj.GetType().IsArray)
+                {
+                    var objArray = obj as object[];
+
+                    if (objArray is null)
+                    {
+                        yield return objArray;
+
+                        continue;
+                    }
+
+                    foreach (var obj2 in UnwindObjectArray(objArray))
+                    {
+                        yield return obj2;
+                    }
+                }
+                else
+                {
+                    yield return obj;
+                }
             }
         }
     }

@@ -15,5 +15,7 @@
         internal const string LPush = "LPUSH";
 
         internal const string RPush = "RPUSH";
+
+        internal const string Llen = "LLEN";
     }
 }
