@@ -10,8 +10,8 @@ namespace ReadUs
         private readonly string _serverAddress;
         private readonly int _serverPort;
 
-        private readonly ConcurrentQueue<IReadUsConnection> _backingPool = new ConcurrentQueue<IReadUsConnection>();
-        private readonly List<IReadUsConnection> _allConnections = new List<IReadUsConnection>();
+        private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
+        private readonly List<IRedisConnection> _allConnections = new List<IRedisConnection>();
 
         public RedisCommandsPool(string serverAddress, int serverPort)
         {
@@ -19,16 +19,16 @@ namespace ReadUs
             _serverPort = serverPort;
         }
 
-        public async Task<IRedisCommands> GetAsync()
+        public async Task<IRedisDatabase> GetAsync()
         {
             var connection = GetReadUsConnection();
 
             await connection.ConnectAsync();
 
-            return new RedisCommands(connection, this);
+            return new RedisDatabase(connection, this);
         }
 
-        private IReadUsConnection GetReadUsConnection()
+        private IRedisConnection GetReadUsConnection()
         {
             if (_backingPool.TryDequeue(out var connection))
             {
@@ -36,7 +36,7 @@ namespace ReadUs
             }
             else
             {
-                var newConnection = new ReadUsConnection(_serverAddress, _serverPort);
+                var newConnection = new RedisConnection(_serverAddress, _serverPort);
 
                 _allConnections.Add(newConnection);
 
@@ -44,7 +44,7 @@ namespace ReadUs
             }
         }
 
-        internal void ReturnConnection(IReadUsConnection connection)
+        internal void ReturnConnection(IRedisConnection connection)
         {
             _backingPool.Enqueue(connection);
         }

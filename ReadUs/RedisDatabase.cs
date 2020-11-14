@@ -10,12 +10,12 @@ using static ReadUs.ParameterUtilities;
 
 namespace ReadUs
 {
-    public class RedisCommands : IRedisCommands, IDisposable
+    public class RedisDatabase : IRedisDatabase, IDisposable
     {
-        private readonly IReadUsConnection _connection;
+        private readonly IRedisConnection _connection;
         private readonly RedisCommandsPool _pool;
 
-        public RedisCommands(IReadUsConnection connection, RedisCommandsPool pool)
+        public RedisDatabase(IRedisConnection connection, RedisCommandsPool pool)
         {
             _connection = connection;
             _pool = pool;

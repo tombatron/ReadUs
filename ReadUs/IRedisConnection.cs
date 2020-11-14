@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace ReadUs
 {
-    public interface IReadUsConnection : IDisposable
+    public interface IRedisConnection : IDisposable
     {
         bool IsConnected { get; }
 

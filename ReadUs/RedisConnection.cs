@@ -10,33 +10,33 @@ using static ReadUs.StandardValues;
 
 namespace ReadUs
 {
-    public sealed class ReadUsConnection : IReadUsConnection
+    public sealed class RedisConnection : IRedisConnection
     {
         private readonly IPEndPoint _endPoint;
         private readonly Socket _socket;
         private readonly TimeSpan _commandTimeout;
 
-        public ReadUsConnection(string address, int port) :
+        public RedisConnection(string address, int port) :
             this(address, port, TimeSpan.FromSeconds(30))
         { }
 
-        public ReadUsConnection(string address, int port, TimeSpan commandTimeout) :
+        public RedisConnection(string address, int port, TimeSpan commandTimeout) :
             this(IPAddress.Parse(address), port, commandTimeout)
         { }
 
-        public ReadUsConnection(IPAddress address, int port) :
+        public RedisConnection(IPAddress address, int port) :
             this(address, port, TimeSpan.FromSeconds(30))
         { }
 
-        public ReadUsConnection(IPAddress address, int port, TimeSpan commandTimeout) :
+        public RedisConnection(IPAddress address, int port, TimeSpan commandTimeout) :
             this(new IPEndPoint(address, port), commandTimeout)
         { }
 
-        public ReadUsConnection(IPEndPoint endPoint) :
+        public RedisConnection(IPEndPoint endPoint) :
             this(endPoint, TimeSpan.FromSeconds(30))
         { }
 
-        public ReadUsConnection(IPEndPoint endPoint, TimeSpan commandTimeout)
+        public RedisConnection(IPEndPoint endPoint, TimeSpan commandTimeout)
         {
             _endPoint = endPoint;
             _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
