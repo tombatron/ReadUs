@@ -4,8 +4,8 @@ namespace ReadUs.Encoder
 {
     public static class Encoder
     {
-        internal const string CarriageReturnLineFeed = "\r\n";
-        internal const string NullBulkString = "$-1\r\n\r\n";
+        private const string CarriageReturnLineFeed = "\r\n";
+        private const string NullBulkString = "$-1\r\n\r\n";
 
         public static byte[] Encode(params object[] items)
         {

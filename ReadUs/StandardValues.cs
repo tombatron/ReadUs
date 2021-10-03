@@ -2,7 +2,7 @@
 {
     internal static class StandardValues
     {
-        internal static readonly byte[] CarriageReturnLineFeed = new byte[] { 13, 10 };
+        internal static readonly byte[] CarriageReturnLineFeed = { 13, 10 };
 
         internal const byte BulkStringHeader = 36;
         internal const byte ArrayHeader = 42;
