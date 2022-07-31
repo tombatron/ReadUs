@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace ReadUs
 {
-    public sealed class RedisCommandsPool : IDisposable
+    public class RedisCommandsPool : IDisposable
     {
         private readonly string _serverAddress;
         private readonly int _serverPort;
@@ -23,7 +23,10 @@ namespace ReadUs
         {
             var connection = GetReadUsConnection();
 
-            await connection.ConnectAsync();
+            if (!connection.IsConnected)
+            {
+                await connection.ConnectAsync();    
+            }
 
             return new RedisDatabase(connection, this);
         }
@@ -34,20 +37,16 @@ namespace ReadUs
             {
                 return connection;
             }
-            else
-            {
-                var newConnection = new RedisConnection(_serverAddress, _serverPort);
 
-                _allConnections.Add(newConnection);
+            var newConnection = new RedisConnection(_serverAddress, _serverPort);
 
-                return newConnection;
-            }
+            _allConnections.Add(newConnection);
+
+            return newConnection;
         }
 
-        internal void ReturnConnection(IRedisConnection connection)
-        {
+        internal void ReturnConnection(IRedisConnection connection) =>
             _backingPool.Enqueue(connection);
-        }
 
         public void Dispose()
         {

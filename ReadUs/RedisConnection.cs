@@ -77,16 +77,17 @@ namespace ReadUs
                     bytesReceived = await _socket.ReceiveAsync(buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false);
                 }
 
-                var timeoutTask = Task.Delay(timeout);
+                var timeoutTask = Task.Delay(timeout, cancellationToken);
                 
                 if(await Task.WhenAny(timeoutTask, ReceiveBytes()) == timeoutTask)
                 {
+                    // TODO: Custom exception here. 
                     throw new Exception("Timeout expired.");
                 }
 
                 if (bytesReceived == 0)
                 {
-                    await Task.Delay(10);
+                    await Task.Delay(10, cancellationToken);
                 }
                 else
                 {
@@ -94,7 +95,7 @@ namespace ReadUs
 
                     if (IsResponseComplete(bytesReceived, buffer.Span))
                     {
-                        pipe.Writer.Complete();
+                        await pipe.Writer.CompleteAsync();
 
                         break;
                     }

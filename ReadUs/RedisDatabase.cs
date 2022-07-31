@@ -23,6 +23,8 @@ namespace ReadUs
 
         public async Task SelectAsync(int databaseId)
         {
+            CheckIfDisposed();
+            
             var rawCommand = Encode(Select, databaseId);
 
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
@@ -34,6 +36,8 @@ namespace ReadUs
 
         public async Task<string> GetAsync(string key)
         {
+            CheckIfDisposed();
+            
             var rawCommand = Encode(Get, key);
 
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
@@ -47,6 +51,8 @@ namespace ReadUs
 
         public async Task SetAsync(string key, string value)
         {
+            CheckIfDisposed();
+            
             var rawCommand = Encode(Set, key, value);
 
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
@@ -61,6 +67,8 @@ namespace ReadUs
 
         public async Task<BlockingPopResult> BlPopAsync(TimeSpan timeout, params string[] key)
         {
+            CheckIfDisposed();
+            
             var parameters = CombineParameters(BlPop, key, timeout);
 
             var rawCommand = Encode(parameters);
@@ -79,6 +87,8 @@ namespace ReadUs
 
         public async Task<BlockingPopResult> BrPopAsync(TimeSpan timeout, params string[] key)
         {
+            CheckIfDisposed();
+            
             var parameters = CombineParameters(BrPop, key, timeout);
 
             var rawCommand = Encode(parameters);
@@ -94,6 +104,8 @@ namespace ReadUs
 
         public async Task<int> LPushAsync(string key, params string[] element)
         {
+            CheckIfDisposed();
+            
             var parameters = CombineParameters(LPush, key, element);
 
             var rawCommand = Encode(parameters);
@@ -109,6 +121,8 @@ namespace ReadUs
 
         public async Task<int> RPushAsync(string key, params string[] element)
         {
+            CheckIfDisposed();
+            
             var parameters = CombineParameters(RPush, key, element);
 
             var rawCommand = Encode(parameters);
@@ -124,6 +138,8 @@ namespace ReadUs
 
         public async Task<int> LlenAsync(string key)
         {
+            CheckIfDisposed();
+            
             var rawCommand = Encode(Llen, key);
 
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
@@ -135,14 +151,21 @@ namespace ReadUs
             return ParseAndReturnInt(result);
         }
 
+        private bool _isDisposed = false;
+
         public void Dispose()
         {
-            /*
-             * Something to think about here. Once the connection is returned to the pool it could be
-             * used by another instance of RedisCommands. But there's nothing really stopping someone
-             * from disposing of this instance and then continuing to use it is there?
-             */
             _pool.ReturnConnection(_connection);
+
+            _isDisposed = false;
+        }
+
+        private void CheckIfDisposed()
+        {
+            if (_isDisposed)
+            {
+                throw new RedisDatabaseDisposedException("This instance of `RedisDatabase` has already been disposed.");
+            }
         }
 
         private static void EvaluateResultAndThrow(ParseResult result, [CallerMemberName] string callingMember = "")
