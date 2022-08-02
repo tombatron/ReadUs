@@ -11,18 +11,18 @@ namespace ReadUs
 
         Task SetAsync(string key, string value);
 
-        Task<BlockingPopResult> BlPopAsync(params string[] key);
+        Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key);
 
-        Task<BlockingPopResult> BlPopAsync(TimeSpan timeout, params string[] key);
+        Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key);
 
-        Task<BlockingPopResult> BrPopAsync(params string[] key);
+        Task<BlockingPopResult> BlockingRightPopAsync(params string[] key);
 
-        Task<BlockingPopResult> BrPopAsync(TimeSpan timeout, params string[] key);
+        Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key);
 
-        Task<int> LPushAsync(string key, params string[] element);
+        Task<int> LeftPushAsync(string key, params string[] element);
 
-        Task<int> RPushAsync(string key, params string[] element);
+        Task<int> RightPushAsync(string key, params string[] element);
 
-        Task<int> LlenAsync(string key);
+        Task<int> ListLengthAsync(string key);
     }
 }

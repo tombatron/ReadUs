@@ -7,8 +7,8 @@ namespace ReadUs
 {
     public class RedisCommandsPool : IDisposable
     {
-        private readonly string _serverAddress;
-        private readonly int _serverPort;
+        protected readonly string _serverAddress;
+        protected readonly int _serverPort;
 
         private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<IRedisConnection> _allConnections = new List<IRedisConnection>();

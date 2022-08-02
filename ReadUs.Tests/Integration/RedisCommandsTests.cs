@@ -10,7 +10,7 @@ namespace ReadUs.Tests.Integration
 
         public RedisCommandsTests()
         {
-            _pool = new RedisCommandsPool("::1", 6379);
+            _pool = new RedisCommandsPool("tombaserver.local", 6379);
         }
 
         [Fact]
@@ -75,11 +75,11 @@ namespace ReadUs.Tests.Integration
 
             using var commands = await _pool.GetAsync();
 
-            var initialLength = await commands.LlenAsync(testKey);
+            var initialLength = await commands.ListLengthAsync(testKey);
 
-            await commands.LPushAsync(testKey, "Yo");
+            await commands.LeftPushAsync(testKey, "Yo");
 
-            var finalLength = await commands.LlenAsync(testKey);
+            var finalLength = await commands.ListLengthAsync(testKey);
 
             Assert.Equal(0, initialLength);
             Assert.Equal(1, finalLength);

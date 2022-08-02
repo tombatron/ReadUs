@@ -8,14 +8,21 @@
 
         internal const string Set = "SET";
 
-        internal const string BlPop = "BLPOP";
+        internal const string BlockingLeftPop = "BLPOP";
 
-        internal const string BrPop = "BRPOP";
+        internal const string BlockingRightPop = "BRPOP";
 
-        internal const string LPush = "LPUSH";
+        internal const string LeftPush = "LPUSH";
 
-        internal const string RPush = "RPUSH";
+        internal const string RightPush = "RPUSH";
 
-        internal const string Llen = "LLEN";
+        internal const string ListLength = "LLEN";
+
+        internal const string Cluster = "CLUSTER";
+
+        internal static class ClusterSubcommands
+        {
+            internal const string Nodes = "NODES";
+        }
     }
 }

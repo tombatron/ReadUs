@@ -62,14 +62,14 @@ namespace ReadUs
             EvaluateResultAndThrow(result);
         }
 
-        public Task<BlockingPopResult> BlPopAsync(params string[] key) =>
-            BlPopAsync(TimeSpan.MaxValue, key);
+        public Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key) =>
+            BlockingLeftPopAsync(TimeSpan.MaxValue, key);
 
-        public async Task<BlockingPopResult> BlPopAsync(TimeSpan timeout, params string[] key)
+        public async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key)
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(BlPop, key, timeout);
+            var parameters = CombineParameters(BlockingLeftPop, key, timeout);
 
             var rawCommand = Encode(parameters);
 
@@ -82,14 +82,14 @@ namespace ReadUs
             return (BlockingPopResult)result;
         }
 
-        public Task<BlockingPopResult> BrPopAsync(params string[] key) =>
-            BrPopAsync(TimeSpan.MaxValue, key);
+        public Task<BlockingPopResult> BlockingRightPopAsync(params string[] key) =>
+            BlockingRightPopAsync(TimeSpan.MaxValue, key);
 
-        public async Task<BlockingPopResult> BrPopAsync(TimeSpan timeout, params string[] key)
+        public async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key)
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(BrPop, key, timeout);
+            var parameters = CombineParameters(BlockingRightPop, key, timeout);
 
             var rawCommand = Encode(parameters);
 
@@ -102,11 +102,11 @@ namespace ReadUs
             return (BlockingPopResult)result;
         }
 
-        public async Task<int> LPushAsync(string key, params string[] element)
+        public async Task<int> LeftPushAsync(string key, params string[] element)
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(LPush, key, element);
+            var parameters = CombineParameters(LeftPush, key, element);
 
             var rawCommand = Encode(parameters);
 
@@ -119,11 +119,11 @@ namespace ReadUs
             return ParseAndReturnInt(result);
         }
 
-        public async Task<int> RPushAsync(string key, params string[] element)
+        public async Task<int> RightPushAsync(string key, params string[] element)
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(RPush, key, element);
+            var parameters = CombineParameters(RightPush, key, element);
 
             var rawCommand = Encode(parameters);
 
@@ -136,11 +136,11 @@ namespace ReadUs
             return ParseAndReturnInt(result);
         }
 
-        public async Task<int> LlenAsync(string key)
+        public async Task<int> ListLengthAsync(string key)
         {
             CheckIfDisposed();
             
-            var rawCommand = Encode(Llen, key);
+            var rawCommand = Encode(ListLength, key);
 
             var rawResult = await _connection.SendCommandAsync(rawCommand).ConfigureAwait(false);
 

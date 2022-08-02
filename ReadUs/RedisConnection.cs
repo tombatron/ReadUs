@@ -21,7 +21,7 @@ namespace ReadUs
         { }
 
         public RedisConnection(string address, int port, TimeSpan commandTimeout) :
-            this(IPAddress.Parse(address), port, commandTimeout)
+            this(ResolveIpAddress(address), port, commandTimeout)
         { }
 
         public RedisConnection(IPAddress address, int port) :
@@ -45,11 +45,66 @@ namespace ReadUs
 
         public bool IsConnected { get; private set; }
 
+        public void Connect()
+        {
+            _socket.Connect(_endPoint);
+
+            IsConnected = true;
+        }
+
         public async Task ConnectAsync()
         {
             await _socket.ConnectAsync(_endPoint);
 
             IsConnected = true;
+        }
+
+        public byte[] SendCommand(byte[] command, TimeSpan timeout)
+        {
+            var pipe = new Pipe();
+
+            _socket.Send(command, SocketFlags.None);
+
+            while (true)
+            {
+                var buffer = pipe.Writer.GetMemory(512);
+                int bytesReceived = default;
+
+                try
+                {
+                    bytesReceived = _socket.Receive(buffer.Span, SocketFlags.None);
+                }
+                catch (SocketException ex)
+                {
+                    throw new Exception("Command timeout expired.", ex);
+                }
+
+                if (bytesReceived == 0)
+                {
+                    Thread.Sleep(10); // There's gotta be a better way I guess?
+                }
+                else
+                {
+                    pipe.Writer.Advance(bytesReceived);
+
+                    if (IsResponseComplete(bytesReceived, buffer.Span))
+                    {
+                        pipe.Writer.Complete();
+
+                        break;
+                    }
+                }
+            }
+            
+            if (pipe.Reader.TryRead(out var readResult))
+            {
+                return readResult.Buffer.ToArray();
+            }
+            else
+            {
+                // TODO: This better...
+                throw new Exception("I guess we didn't get anything...");
+            }
         }
 
         public Task<byte[]> SendCommandAsync(byte[] command) =>
@@ -188,6 +243,25 @@ namespace ReadUs
             }
 
             return true;
+        }
+
+        private static IPAddress ResolveIpAddress(string address)
+        {
+            // We're starting with a string. We're assuming that the string is an IP address but
+            // just in case let's check. 
+            if (IPAddress.TryParse(address, out var ipAddress))
+            {
+                // Looks like we were right, let's return the parsed IP address.
+                return ipAddress;
+            }
+            
+            // OK, it looks like it wasn't an IP address, let's see if we can assume this is a 
+            // host name... This will throw if the provided address does not resolve.
+            var resolvedAddresses = Dns.GetHostAddresses(address);
+
+            // I'm not really sure what to do with multiple results yet so we're just going to
+            // pick the first one. 
+            return resolvedAddresses[0];
         }
     }
 }
