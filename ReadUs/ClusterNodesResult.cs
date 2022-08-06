@@ -67,7 +67,7 @@ namespace ReadUs
         
         public int ConfigEpoch { get; private set; }
         
-        public string LinkState { get; private set; }
+        public ClusterNodeLinkState LinkState { get; private set; }
         
         public SlotRange[] SlotRanges { get; private set; }
 
@@ -108,8 +108,11 @@ namespace ReadUs
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             ConfigEpoch = int.Parse(rawLine[startIndex..nextSpaceIndex]);
-            
-            
+
+            startIndex = nextSpaceIndex + 1;
+            nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
+
+            LinkState = rawLine[startIndex..nextSpaceIndex];
         }
     }
 }

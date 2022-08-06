@@ -71,7 +71,7 @@ namespace ReadUs.Tests
             {
                 var item = new ClusterNodesResultItem(SamplePrimaryEntry);
 
-                Assert.Equal("connected", item.LinkState);
+                Assert.IsType<ClusterNodeLinkStateConnected>(item.LinkState);
             }
 
             [Fact]
