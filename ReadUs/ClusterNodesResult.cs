@@ -59,7 +59,7 @@ namespace ReadUs
         /// <summary>
         /// This will be null if this node is a primary.
         /// </summary>
-        public string PrimaryId { get; private set; }
+        public ClusterNodePrimaryId PrimaryId { get; private set; }
         
         public long PingSent { get; private set; }
         
@@ -88,6 +88,11 @@ namespace ReadUs
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             Flags = rawLine[startIndex..nextSpaceIndex];
+
+            startIndex = nextSpaceIndex + 1;
+            nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
+
+            PrimaryId = rawLine[startIndex..nextSpaceIndex];
         }
     }
 }
