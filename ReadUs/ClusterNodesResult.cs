@@ -54,7 +54,7 @@ namespace ReadUs
 
         public ClusterNodeAddress Address { get; private set; }
         
-        public string[] Flags { get; private set; }
+        public ClusterNodeFlags Flags { get; private set; }
         
         /// <summary>
         /// This will be null if this node is a primary.
@@ -83,6 +83,11 @@ namespace ReadUs
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             Address = rawLine[startIndex..nextSpaceIndex];
+
+            startIndex = nextSpaceIndex + 1;
+            nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
+
+            Flags = rawLine[startIndex..nextSpaceIndex];
         }
     }
 }

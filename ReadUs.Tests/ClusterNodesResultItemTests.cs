@@ -31,8 +31,7 @@ namespace ReadUs.Tests
             {
                 var item = new ClusterNodesResultItem(SamplePrimaryEntryWithMultipleFlags);
 
-                Assert.Equal("myself", item.Flags[0]);
-                Assert.Equal("master", item.Flags[1]);
+                Assert.NotNull(item.Flags);
             }
 
             [Fact]
