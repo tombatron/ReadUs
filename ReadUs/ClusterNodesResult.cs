@@ -105,7 +105,13 @@ namespace ReadUs
             startIndex = nextSpaceIndex + 1;
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
-            LinkState = rawLine[startIndex..nextSpaceIndex];
+            LinkState = rawLine[startIndex..(nextSpaceIndex == -1 ? rawLine.Length - 1 : nextSpaceIndex)];
+            
+            // If the `nextSpaceIndex` is -1 at this point this is a secondary node and won't have `slots` defined.
+            if (nextSpaceIndex == -1)
+            {
+                return;
+            }
 
             startIndex = nextSpaceIndex + 1;
 
