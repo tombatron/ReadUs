@@ -23,7 +23,7 @@ namespace ReadUs
 
             private (int start, int end) Initialize(char[] rawData)
             {
-                var separatorPosition = Array.IndexOf(rawData, "-", 0);
+                var separatorPosition = Array.IndexOf(rawData, '-', 0);
                 
                 if (separatorPosition == -1)
                 {
@@ -32,7 +32,7 @@ namespace ReadUs
                     return (slot, slot);
                 }
 
-                return (int.Parse(rawData[..separatorPosition]), int.Parse(rawData[separatorPosition..]));
+                return (int.Parse(rawData[..separatorPosition]), int.Parse(rawData[(separatorPosition + 1)..]));
             }
 
             internal static SlotRange Create(int begin, int end) =>
@@ -79,6 +79,20 @@ namespace ReadUs
                 
                 return other.End < End ? 1 : 0;
             }
+
+            public static bool operator ==(SlotRange lhs, SlotRange rhs)
+            {
+                if (lhs is null && rhs is null)
+                {
+                    return true;
+                }
+                
+                return lhs?.Equals(rhs) ?? false;
+            }
+
+            public static bool operator !=(SlotRange lhs, SlotRange rhs) =>
+                !(lhs == rhs);
+
         }
 
         private SlotRange[] _slots;
@@ -92,7 +106,7 @@ namespace ReadUs
         public static implicit operator ClusterSlots(char[] rawValue)
         {
             int startPosition = 0;
-            int nextDelimiter = Array.IndexOf(rawValue, ' ', startPosition);
+            
 
             var slots = new List<SlotRange>();
             
@@ -100,9 +114,11 @@ namespace ReadUs
             {
                 SlotRange range;
                 
+                int nextDelimiter = Array.IndexOf(rawValue, ' ', startPosition);
+                
                 if (nextDelimiter == -1)
                 {
-                    range = new SlotRange(rawValue);
+                    range = new SlotRange(rawValue[startPosition..]);
                     
                     startPosition = rawValue.Length;
                 }
@@ -165,5 +181,19 @@ namespace ReadUs
 
             return false;
         }
+
+        public static bool operator ==(ClusterSlots lhs, ClusterSlots rhs)
+        {
+            if (lhs is null && rhs is null)
+            {
+                return true;
+            }
+            
+            return lhs?.Equals(rhs) ?? false;
+        }
+            
+
+        public static bool operator !=(ClusterSlots lhs, ClusterSlots rhs) =>
+            !(lhs == rhs);
     }
 }
