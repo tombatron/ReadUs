@@ -93,6 +93,23 @@ namespace ReadUs
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             PrimaryId = rawLine[startIndex..nextSpaceIndex];
+
+            startIndex = nextSpaceIndex + 1;
+            nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
+
+            PingSent = long.Parse(rawLine[startIndex..nextSpaceIndex]);
+
+            startIndex = nextSpaceIndex + 1;
+            nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
+
+            PongReceived = long.Parse(rawLine[startIndex..nextSpaceIndex]);
+
+            startIndex = nextSpaceIndex + 1;
+            nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
+
+            ConfigEpoch = int.Parse(rawLine[startIndex..nextSpaceIndex]);
+            
+            
         }
     }
 }
