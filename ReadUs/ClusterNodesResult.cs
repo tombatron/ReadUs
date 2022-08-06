@@ -38,13 +38,6 @@ namespace ReadUs
         }
     }
 
-    public class SlotRange
-    {
-        public int BeginRange { get; }
-        
-        public int EndRange { get; }
-    }
-
     public class ClusterNodesResultItem
     {
         public ClusterNodesResultItem(char[] rawLine) => 
@@ -69,7 +62,7 @@ namespace ReadUs
         
         public ClusterNodeLinkState LinkState { get; private set; }
         
-        public SlotRange[] SlotRanges { get; private set; }
+        public ClusterSlots Slots { get; private set; }
 
         private void InitializeValues(char[] rawLine)
         {
@@ -113,6 +106,10 @@ namespace ReadUs
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             LinkState = rawLine[startIndex..nextSpaceIndex];
+
+            startIndex = nextSpaceIndex + 1;
+
+            Slots = rawLine[startIndex..];
         }
     }
 }

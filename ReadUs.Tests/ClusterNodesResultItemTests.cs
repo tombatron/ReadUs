@@ -8,7 +8,7 @@ namespace ReadUs.Tests
         {
             private static char[] SamplePrimaryEntry = "65d8df12f4515df293cbdf8d5014dc6273621bfc 192.168.86.40:7001@17001 master - 0 1659439685901 19 connected 5461-10922".ToCharArray();
             private static char[] SampleSecondaryEntry = "64f88596fec6e244d4f87fa5b702654b36848c35 192.168.86.40:7005@17005 slave 361a0b693ee878c23d0a45c16f965c15ea1e37e6 0 1659439685000 17 connected".ToCharArray();
-            private static char[] SamplePrimaryEntryWithMultipleFlags = "361a0b693ee878c23d0a45c16f965c15ea1e37e6 192.168.86.40:7000@17000 myself,master - 0 1659439684000 17 connected 0-5460".ToCharArray();
+            private static char[] SamplePrimaryEntryWithMultipleFlags = "361a0b693ee878c23d0a45c16f965c15ea1e37e6 192.168.86.40:7000@17000 myself,master - 0 1659439684000 17 connected 5461-6999 7002 7004-10922".ToCharArray();
             
             [Fact]
             public void TheId()
@@ -77,11 +77,9 @@ namespace ReadUs.Tests
             [Fact]
             public void TheSlotRanges()
             {
-                var item = new ClusterNodesResultItem(SamplePrimaryEntry);
+                var item = new ClusterNodesResultItem(SamplePrimaryEntryWithMultipleFlags);
 
-                Assert.NotNull(item.SlotRanges);
-                Assert.Equal(5461, item.SlotRanges[0].BeginRange);
-                Assert.Equal(10922, item.SlotRanges[1].EndRange);
+                Assert.NotNull(item.Slots);
             }
         }
     }
