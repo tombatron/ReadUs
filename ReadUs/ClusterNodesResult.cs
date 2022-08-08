@@ -2,12 +2,17 @@
 using System.Collections;
 using System.Collections.Generic;
 using ReadUs.Parser;
+using static ReadUs.Parser.Parser;
 
 namespace ReadUs
 {
     public class ClusterNodesResult : IEnumerable<ClusterNodesResultItem>
     {
         private readonly ParseResult _parsedResult;
+
+        public ClusterNodesResult(byte[] rawResult) : this(Parse(rawResult))
+        {
+        }
 
         public ClusterNodesResult(ParseResult parsedResult) =>
             _parsedResult = parsedResult;
