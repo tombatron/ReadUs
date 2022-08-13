@@ -5,20 +5,13 @@
         private static readonly ClusterNodeLinkStateConnected _connected = new ClusterNodeLinkStateConnected();
         private static readonly ClusterNodeLinkStateDisconnected _disconnected = new ClusterNodeLinkStateDisconnected();
         
-        public static implicit operator ClusterNodeLinkState(char[] rawValue)
-        {
-            if (rawValue[0] == 'c')
+        public static implicit operator ClusterNodeLinkState(char[] rawValue) =>
+            rawValue[0] switch
             {
-                return _connected;
-            }
-
-            if (rawValue[0] == 'd')
-            {
-                return _disconnected;
-            }
-            
-            return default;
-        }
+                'c' => _connected,
+                'd' => _disconnected,
+                _ => default
+            };
     }
 
     public sealed class ClusterNodeLinkStateConnected : ClusterNodeLinkState
