@@ -16,5 +16,23 @@ namespace ReadUs.Tests
                 Assert.Equal(expectation, flags);
             }
         }
+
+        public class ImplicitConversionTo
+        {
+            [Theory]
+            [InlineData("myself,master", ClusterNodeRole.Primary)]
+            [InlineData("master", ClusterNodeRole.Primary)]
+            [InlineData("slave", ClusterNodeRole.Secondary)]
+            [InlineData("myself,slave", ClusterNodeRole.Secondary)]
+            [InlineData("whatever", ClusterNodeRole.Undefined)]
+            public void ClusterNodeRoleSucceeds(string rawValue, ClusterNodeRole expectedNodeRole)
+            {
+                ClusterNodeFlags flags = rawValue.ToCharArray();
+
+                ClusterNodeRole role = flags;
+
+                Assert.Equal(expectedNodeRole, role);
+            }
+        }
     }
 }

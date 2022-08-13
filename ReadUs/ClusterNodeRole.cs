@@ -1,7 +1,8 @@
 namespace ReadUs
 {
-    public enum ClusterNodeType
+    public enum ClusterNodeRole
     {
+        Undefined,
         Primary,
         Secondary
     }
