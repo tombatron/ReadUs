@@ -8,6 +8,11 @@ namespace ReadUs
     {
         public bool IsConnected => throw new NotImplementedException();
 
+        public void Connect()
+        {
+            
+        }
+
         public Task ConnectAsync()
         {
             throw new NotImplementedException();

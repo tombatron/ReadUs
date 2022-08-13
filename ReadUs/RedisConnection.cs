@@ -11,7 +11,7 @@ using static ReadUs.StandardValues;
 namespace ReadUs
 {
     // TODO: Let's put in the ability to name connections...
-    public sealed class RedisConnection : IRedisConnection
+    public class RedisConnection : IRedisConnection
     {
         private readonly IPEndPoint _endPoint;
         private readonly Socket _socket;

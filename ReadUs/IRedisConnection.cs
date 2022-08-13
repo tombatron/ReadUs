@@ -16,6 +16,8 @@ namespace ReadUs
 
         Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
 
+        void Connect();
+
         Task ConnectAsync();
     }
 }
