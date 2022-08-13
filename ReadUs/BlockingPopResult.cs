@@ -28,6 +28,7 @@ namespace ReadUs
             }
             else
             {
+                // TODO: Throw custom exception here.
                 throw new Exception("We expected a result that was a multi-bulk here.");
             }
         }
