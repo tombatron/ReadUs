@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,7 +9,7 @@ namespace ReadUs
         public class SlotRange : IComparable<SlotRange>
         {
             public int Begin { get; }
-            
+
             public int End { get; }
 
             internal SlotRange(char[] rawValue) =>
@@ -24,7 +24,7 @@ namespace ReadUs
             private (int start, int end) Initialize(char[] rawData)
             {
                 var separatorPosition = Array.IndexOf(rawData, '-', 0);
-                
+
                 if (separatorPosition == -1)
                 {
                     var slot = int.Parse(rawData);
@@ -76,7 +76,7 @@ namespace ReadUs
                 {
                     return -1;
                 }
-                
+
                 return other.End < End ? 1 : 0;
             }
 
@@ -86,7 +86,7 @@ namespace ReadUs
                 {
                     return true;
                 }
-                
+
                 return lhs?.Equals(rhs) ?? false;
             }
 
@@ -102,30 +102,42 @@ namespace ReadUs
 
         public ClusterSlots(IEnumerable<SlotRange> slots) =>
             _slots = slots.ToArray();
-        
+
+        public bool ContainsSlot(int slotNumber)
+        {
+            foreach (var slot in _slots)
+            {
+                if (slot.Begin <= slotNumber && slot.End >= slotNumber)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public static implicit operator ClusterSlots(char[] rawValue)
         {
             int startPosition = 0;
-            
+
 
             var slots = new List<SlotRange>();
-            
+
             while (startPosition < rawValue.Length)
             {
                 SlotRange range;
-                
+
                 int nextDelimiter = Array.IndexOf(rawValue, ' ', startPosition);
-                
+
                 if (nextDelimiter == -1)
                 {
                     range = new SlotRange(rawValue[startPosition..]);
-                    
+
                     startPosition = rawValue.Length;
                 }
                 else
                 {
                     range = new SlotRange(rawValue[startPosition..nextDelimiter]);
-                    
+
                     startPosition = nextDelimiter + 1;
                 }
 
@@ -141,7 +153,7 @@ namespace ReadUs
             {
                 return 0;
             }
-            
+
             int hashCode = 0;
 
             for (var i = 0; i < _slots.Length; i++)
@@ -181,17 +193,15 @@ namespace ReadUs
 
             return false;
         }
-
         public static bool operator ==(ClusterSlots lhs, ClusterSlots rhs)
         {
             if (lhs is null && rhs is null)
             {
                 return true;
             }
-            
+
             return lhs?.Equals(rhs) ?? false;
         }
-            
 
         public static bool operator !=(ClusterSlots lhs, ClusterSlots rhs) =>
             !(lhs == rhs);
