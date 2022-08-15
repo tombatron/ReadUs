@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using static ReadUs.RedisKeyUtilities;
 
 namespace ReadUs
 {
@@ -23,40 +24,34 @@ namespace ReadUs
 
         public bool IsConnected => this.All(x => x.IsConnected);
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command)
-        {
-            return default;
-        }
+        public Task<byte[]> SendCommandAsync(string key, byte[] command) =>
+            SendCommandAsync(ComputeHashSlot(key), command);
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command)
         {
             throw new NotImplementedException();
         }
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout)
-        {
-            return default;
-        }
+        public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout) =>
+            SendCommandAsync(ComputeHashSlot(key), command, timeout);
+
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout)
         {
             throw new NotImplementedException();
         }
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command, CancellationToken cancellation)
-        {
-            return default;
-        }
+        public Task<byte[]> SendCommandAsync(string key, byte[] command, CancellationToken cancellation) =>
+            SendCommandAsync(ComputeHashSlot(key), command, cancellation);
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command, CancellationToken cancellation)
         {
             throw new NotImplementedException();
         }
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
-        {
-            return default;
-        }
+        public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            SendCommandAsync(ComputeHashSlot(key), command, timeout, cancellationToken);
+
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
         {
