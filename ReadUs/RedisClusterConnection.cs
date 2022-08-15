@@ -58,6 +58,9 @@ namespace ReadUs
             throw new NotImplementedException();
         }
 
+        private IRedisNodeConnection GetNodeForSlot(int slot) => 
+            this.FirstOrDefault(x => x.Slots.ContainsSlot(slot));
+
         public void Connect()
         {
             foreach (var connection in this)
