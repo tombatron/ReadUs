@@ -29,7 +29,9 @@ namespace ReadUs
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command)
         {
-            throw new NotImplementedException();
+            var node = GetNodeForSlot(slot);
+            
+            return node.SendCommandAsync(command);
         }
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout) =>
@@ -38,7 +40,9 @@ namespace ReadUs
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout)
         {
-            throw new NotImplementedException();
+            var node = GetNodeForSlot(slot);
+
+            return node.SendCommandAsync(command, timeout);
         }
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, CancellationToken cancellation) =>
@@ -46,7 +50,9 @@ namespace ReadUs
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command, CancellationToken cancellation)
         {
-            throw new NotImplementedException();
+            var node = GetNodeForSlot(slot);
+
+            return node.SendCommandAsync(command, cancellation);
         }
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
@@ -55,7 +61,9 @@ namespace ReadUs
 
         private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
         {
-            throw new NotImplementedException();
+            var node = GetNodeForSlot(slot);
+
+            return node.SendCommandAsync(command, timeout, cancellationToken);
         }
 
         private IRedisNodeConnection GetNodeForSlot(int slot) => 
