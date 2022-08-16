@@ -6,6 +6,8 @@ namespace ReadUs
 {
     public class RedisClusterCommandsPool : RedisCommandsPool
     {
+        private ClusterNodesResult _existingClusterNodes;
+
         public RedisClusterCommandsPool(string serverAddress, int serverPort) : 
             base(serverAddress, serverPort) => ResolveClusterNodes();
 
@@ -24,7 +26,9 @@ namespace ReadUs
             // addresses, role, and slots assigned to each node. 
             var nodes = new ClusterNodesResult(rawResult);
 
-            // Start a subprocess to monitor all of the connections to each node. 
+            // TODO: Think about how to make this more robust. This won't survive any kind of change
+            //       to the cluster. 
+            _existingClusterNodes = nodes;
         }
     }
 }
