@@ -10,7 +10,7 @@ using static ReadUs.ParameterUtilities;
 
 namespace ReadUs
 {
-    public class RedisDatabase : IRedisDatabase, IDisposable
+    public class RedisDatabase : IRedisDatabase
     {
         private readonly IRedisConnection _connection;
         private readonly RedisCommandsPool _pool;
