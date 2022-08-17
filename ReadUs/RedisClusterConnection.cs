@@ -27,44 +27,38 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(string key, byte[] command) =>
             SendCommandAsync(ComputeHashSlot(key), command);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command)
-        {
-            var node = GetNodeForSlot(slot);
-            
-            return node.SendCommandAsync(command);
-        }
+        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command) =>
+            SendCommandAsync(ComputeHashSlot(keys), command);
+
+        private Task<byte[]> SendCommandAsync(int slot, byte[] command) =>
+            GetNodeForSlot(slot).SendCommandAsync(command);
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout) =>
             SendCommandAsync(ComputeHashSlot(key), command, timeout);
 
+        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, TimeSpan timeout) =>
+            SendCommandAsync(ComputeHashSlot(keys), command, timeout);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout)
-        {
-            var node = GetNodeForSlot(slot);
-
-            return node.SendCommandAsync(command, timeout);
-        }
+        private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout) =>
+            GetNodeForSlot(slot).SendCommandAsync(command, timeout);
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, CancellationToken cancellation) =>
             SendCommandAsync(ComputeHashSlot(key), command, cancellation);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command, CancellationToken cancellation)
-        {
-            var node = GetNodeForSlot(slot);
+        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, CancellationToken cancellation) =>
+            SendCommandAsync(ComputeHashSlot(keys), command, cancellation);
 
-            return node.SendCommandAsync(command, cancellation);
-        }
+        private Task<byte[]> SendCommandAsync(int slot, byte[] command, CancellationToken cancellation) =>
+            GetNodeForSlot(slot).SendCommandAsync(command, cancellation);
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             SendCommandAsync(ComputeHashSlot(key), command, timeout, cancellationToken);
 
+        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            SendCommandAsync(ComputeHashSlot(keys), command, timeout, cancellationToken);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
-        {
-            var node = GetNodeForSlot(slot);
-
-            return node.SendCommandAsync(command, timeout, cancellationToken);
-        }
+        private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            GetNodeForSlot(slot).SendCommandAsync(command, timeout, cancellationToken);
 
         private IRedisNodeConnection GetNodeForSlot(int slot) => 
             this.FirstOrDefault(x => x.Slots.ContainsSlot(slot));

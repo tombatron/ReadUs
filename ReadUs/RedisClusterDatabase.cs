@@ -24,32 +24,41 @@ namespace ReadUs
         public Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key) =>
             BlockingLeftPopAsync(TimeSpan.MaxValue, key);
 
-        public Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key)
+        public async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key)
         {
-            // Need to implement multi-key handling. 
-            throw new NotImplementedException();
+            CheckIfDisposed();
 
-            // CheckIfDisposed();
+            var parameters = CombineParameters(BlockingLeftPop, key, timeout);
 
-            // var parameters = CombineParameters(BlockingLeftPop, key, timeout);
+            var rawCommand = Encode(parameters);
 
-            // var rawCommand = Encode(parameters);
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand, timeout).ConfigureAwait(false);
 
-            // var rawResult = await _connection.SendCommandAsync(key, rawCommand, timeout).ConfigureAwait(false);
+            var result = Parse(rawResult);
 
-            // var result = Parse(rawResult);
+            EvaluateResultAndThrow(result);
 
-            // EvaluateResultAndThrow(result);
-
-            // return (BlockingPopResult)result;
+            return (BlockingPopResult)result;
         }
 
         public Task<BlockingPopResult> BlockingRightPopAsync(params string[] key) =>
             BlockingRightPopAsync(TimeSpan.MaxValue, key);
 
-        public Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key)
+        public async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key)
         {
-            throw new NotImplementedException();
+            CheckIfDisposed();
+
+            var parameters = CombineParameters(BlockingLeftPop, key, timeout);
+
+            var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand, timeout).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
+
+            return (BlockingPopResult)result;
         }
 
         public async Task<string> GetAsync(string key)

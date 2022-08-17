@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 
 namespace ReadUs
@@ -55,6 +56,37 @@ namespace ReadUs
             }
 
             return crc % 16_384;
+        }
+
+        public static int ComputeHashSlot(string[] keys)
+        {
+            if (keys is null || keys.Length < 1)
+            {
+                throw new Exception("Can't compute a hash slot unless you give me some keys to hash.");
+            }
+
+            if (keys.Length == 1)
+            {
+                return ComputeHashSlot(keys[0]);
+            }
+
+            // We'll set the "anchor" slot here...
+            int firstSlot = ComputeHashSlot(keys[0]);
+
+            // Next we'll continue to check the rest of the keys to make sure that they
+            // all live in the same slot.
+            for(var i = 1; i < keys.Length; i++)
+            {
+                int nextSlot = ComputeHashSlot(keys[i]);
+
+                if (firstSlot != nextSlot)
+                {
+                    throw new Exception("Not all keys are in the same slot and that's a problem.");
+                }
+            }
+
+            // We've made it this far, let's go ahead and return the needed slot.
+            return firstSlot;
         }
 
         private static byte[] ExtractHashableKey(string key)
