@@ -21,20 +21,31 @@ namespace ReadUs
             _pool = pool;
         }
 
-        public Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key)
-        {
-            throw new NotImplementedException();
-        }
+        public Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key) =>
+            BlockingLeftPopAsync(TimeSpan.MaxValue, key);
 
         public Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key)
         {
+            // Need to implement multi-key handling. 
             throw new NotImplementedException();
+
+            // CheckIfDisposed();
+
+            // var parameters = CombineParameters(BlockingLeftPop, key, timeout);
+
+            // var rawCommand = Encode(parameters);
+
+            // var rawResult = await _connection.SendCommandAsync(key, rawCommand, timeout).ConfigureAwait(false);
+
+            // var result = Parse(rawResult);
+
+            // EvaluateResultAndThrow(result);
+
+            // return (BlockingPopResult)result;
         }
 
-        public Task<BlockingPopResult> BlockingRightPopAsync(params string[] key)
-        {
-            throw new NotImplementedException();
-        }
+        public Task<BlockingPopResult> BlockingRightPopAsync(params string[] key) =>
+            BlockingRightPopAsync(TimeSpan.MaxValue, key);
 
         public Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key)
         {
@@ -56,19 +67,53 @@ namespace ReadUs
             return result.ToString();
         }
 
-        public Task<int> LeftPushAsync(string key, params string[] element)
+        public async Task<int> LeftPushAsync(string key, params string[] element)
         {
-            throw new NotImplementedException();
+            CheckIfDisposed();
+
+            var parameters = CombineParameters(LeftPush, key, element);
+
+            var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
+
+            return ParseAndReturnInt(result);
         }
 
-        public Task<int> ListLengthAsync(string key)
+        public async Task<int> ListLengthAsync(string key)
         {
-            throw new NotImplementedException();
+            CheckIfDisposed();
+
+            var rawCommand = Encode(ListLength, key);
+
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
+
+            return ParseAndReturnInt(result);
         }
 
-        public Task<int> RightPushAsync(string key, params string[] element)
+        public async Task<int> RightPushAsync(string key, params string[] element)
         {
-            throw new NotImplementedException();
+            CheckIfDisposed();
+
+            var parameters = CombineParameters(RightPush, key, element);
+
+            var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
+
+            return ParseAndReturnInt(result);
         }
 
         public Task SelectAsync(int databaseId)
@@ -80,9 +125,17 @@ namespace ReadUs
             return Task.CompletedTask;
         }
 
-        public Task SetAsync(string key, string value)
+        public async Task SetAsync(string key, string value)
         {
-            throw new NotImplementedException();
+            CheckIfDisposed();
+
+            var rawCommand = Encode(Set, key, value);
+
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
         }
 
         private bool _isDisposed = false;
@@ -107,6 +160,19 @@ namespace ReadUs
             if (result.Type == ResultType.Error)
             {
                 throw new RedisServerException($"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}");
+            }
+        }
+
+        // TODO: Move this and the duplication in `RedisDatabase` to a shared utility class. 
+        private static int ParseAndReturnInt(ParseResult result, [CallerMemberName] string callingMember = "")
+        {
+            if (result.Type == ResultType.Integer)
+            {
+                return int.Parse(result.ToString());
+            }
+            else
+            {
+                throw new Exception($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
             }
         }
     }
