@@ -28,7 +28,7 @@ namespace ReadUs
                 await connection.ConnectAsync();    
             }
 
-            return new RedisDatabase(connection, this);
+            return new RedisSingleInstanceDatabase(connection, this);
         }
 
         private IRedisConnection GetReadUsConnection()
