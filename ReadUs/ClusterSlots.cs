@@ -103,7 +103,7 @@ namespace ReadUs
         public ClusterSlots(IEnumerable<SlotRange> slots) =>
             _slots = slots.ToArray();
 
-        public bool ContainsSlot(int slotNumber)
+        public bool ContainsSlot(uint slotNumber)
         {
             foreach (var slot in _slots)
             {

@@ -9,7 +9,8 @@ namespace ReadUs.Tests
         [InlineData("hello world", 15_332)]
         [InlineData("{hashtag}0983u4f098e4r0982j0948", 13_784)]
         [InlineData("{hashtag}this is a mundane key", 13_784)]
-        public void ItCanComputeHashSlot(string key, int expectedSlot)
+        [InlineData("goodbye", 9_354)]
+        public void ItCanComputeHashSlot(string key, uint expectedSlot)
         {
             var computedSlot = RedisKeyUtilities.ComputeHashSlot(key);
 

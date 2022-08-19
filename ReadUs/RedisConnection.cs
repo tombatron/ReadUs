@@ -13,7 +13,8 @@ namespace ReadUs
     // TODO: Let's put in the ability to name connections...
     public class RedisConnection : IRedisConnection
     {
-        private readonly IPEndPoint _endPoint;
+        public IPEndPoint EndPoint { get; }
+
         private readonly Socket _socket;
         private readonly TimeSpan _commandTimeout;
 
@@ -39,7 +40,7 @@ namespace ReadUs
 
         public RedisConnection(IPEndPoint endPoint, TimeSpan commandTimeout)
         {
-            _endPoint = endPoint;
+            EndPoint = endPoint;
             _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _commandTimeout = commandTimeout;
         }
@@ -48,14 +49,14 @@ namespace ReadUs
 
         public void Connect()
         {
-            _socket.Connect(_endPoint);
+            _socket.Connect(EndPoint);
 
             IsConnected = true;
         }
 
         public async Task ConnectAsync()
         {
-            await _socket.ConnectAsync(_endPoint);
+            await _socket.ConnectAsync(EndPoint);
 
             IsConnected = true;
         }
@@ -96,7 +97,7 @@ namespace ReadUs
                     }
                 }
             }
-            
+
             if (pipe.Reader.TryRead(out var readResult))
             {
                 return readResult.Buffer.ToArray();
@@ -134,8 +135,8 @@ namespace ReadUs
                 }
 
                 var timeoutTask = Task.Delay(timeout, cancellationToken);
-                
-                if(await Task.WhenAny(timeoutTask, ReceiveBytes()) == timeoutTask)
+
+                if (await Task.WhenAny(timeoutTask, ReceiveBytes()) == timeoutTask)
                 {
                     // TODO: Custom exception here. 
                     throw new Exception("Timeout expired.");
@@ -255,7 +256,7 @@ namespace ReadUs
                 // Looks like we were right, let's return the parsed IP address.
                 return ipAddress;
             }
-            
+
             // OK, it looks like it wasn't an IP address, let's see if we can assume this is a 
             // host name... This will throw if the provided address does not resolve.
             var resolvedAddresses = Dns.GetHostAddresses(address);

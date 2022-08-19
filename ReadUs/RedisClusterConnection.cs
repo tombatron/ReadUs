@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -9,7 +10,7 @@ namespace ReadUs
 {
     // RedisClusterConnection is essentially just a collection of connections to the various
     // redis cluster nodes. 
-    public class RedisClusterConnection : List<IRedisNodeConnection>, IDisposable
+    public class RedisClusterConnection : List<RedisNodeConnection>, IDisposable
     {
         public RedisClusterConnection(ClusterNodesResult nodes) =>
             InitializeConnections(nodes);
@@ -30,7 +31,7 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(string[] keys, byte[] command) =>
             SendCommandAsync(ComputeHashSlot(keys), command);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command) =>
+        private Task<byte[]> SendCommandAsync(uint slot, byte[] command) =>
             GetNodeForSlot(slot).SendCommandAsync(command);
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout) =>
@@ -39,7 +40,7 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, TimeSpan timeout) =>
             SendCommandAsync(ComputeHashSlot(keys), command, timeout);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout) =>
+        private Task<byte[]> SendCommandAsync(uint slot, byte[] command, TimeSpan timeout) =>
             GetNodeForSlot(slot).SendCommandAsync(command, timeout);
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, CancellationToken cancellation) =>
@@ -48,7 +49,7 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, CancellationToken cancellation) =>
             SendCommandAsync(ComputeHashSlot(keys), command, cancellation);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command, CancellationToken cancellation) =>
+        private Task<byte[]> SendCommandAsync(uint slot, byte[] command, CancellationToken cancellation) =>
             GetNodeForSlot(slot).SendCommandAsync(command, cancellation);
 
         public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
@@ -57,17 +58,24 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             SendCommandAsync(ComputeHashSlot(keys), command, timeout, cancellationToken);
 
-        private Task<byte[]> SendCommandAsync(int slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+        private Task<byte[]> SendCommandAsync(uint slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             GetNodeForSlot(slot).SendCommandAsync(command, timeout, cancellationToken);
 
-        private IRedisNodeConnection GetNodeForSlot(int slot) => 
-            this.FirstOrDefault(x => x.Slots.ContainsSlot(slot));
+        private IRedisNodeConnection GetNodeForSlot(uint slot)
+        {
+            var node = this.FirstOrDefault(x => !(x.Slots is null) && x.Slots.ContainsSlot(slot));
+
+            return node;
+        }
+
 
         public void Connect()
         {
             foreach (var connection in this)
             {
                 connection.Connect();
+
+                Console.WriteLine($"{connection.EndPoint.Address}:{connection.EndPoint.Port} connected.");
             }
         }
 
@@ -76,6 +84,8 @@ namespace ReadUs
             foreach (var connection in this)
             {
                 await connection.ConnectAsync();
+
+                Trace.WriteLine($"{connection.EndPoint.Address}:{connection.EndPoint.Port} connected.");
             }
         }
 

@@ -10,14 +10,14 @@ namespace ReadUs.Tests
         {
             [Theory]
             [MemberData(nameof(PositiveCases))]
-            public void ReturnTrueIfSlotIsInRange(ClusterSlots testSlots, int expectedSlot)
+            public void ReturnTrueIfSlotIsInRange(ClusterSlots testSlots, uint expectedSlot)
             {
                 Assert.True(testSlots.ContainsSlot(expectedSlot));
             }
 
             [Theory]
             [MemberData(nameof(NegativeCases))]
-            public void ReturnFalseIfSlotIsNotInRange(ClusterSlots testSlots, int missingSlot)
+            public void ReturnFalseIfSlotIsNotInRange(ClusterSlots testSlots, uint missingSlot)
             {
                 Assert.False(testSlots.ContainsSlot(missingSlot));
             }

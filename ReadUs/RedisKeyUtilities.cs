@@ -5,7 +5,7 @@ namespace ReadUs
 {
     public static class RedisKeyUtilities
     {
-        private static readonly int[] crc16tab = {
+        private static readonly uint[] crc16tab = {
             0x0000,0x1021,0x2042,0x3063,0x4084,0x50a5,0x60c6,0x70e7,
             0x8108,0x9129,0xa14a,0xb16b,0xc18c,0xd1ad,0xe1ce,0xf1ef,
             0x1231,0x0210,0x3273,0x2252,0x52b5,0x4294,0x72f7,0x62d6,
@@ -41,14 +41,14 @@ namespace ReadUs
         };
 
         // Adapted From: https://redis.io/docs/reference/cluster-spec/#appendix
-        public static int ComputeHashSlot(string key)
+        public static uint ComputeHashSlot(string key)
         {
             var keyBytes = ExtractHashableKey(key);
             var position = 0;
 
-            int counter;
+            uint counter;
 
-            int crc = 0;
+            uint crc = 0;
 
             for (counter = 0; counter < keyBytes.Length; counter++)
             {
@@ -58,7 +58,7 @@ namespace ReadUs
             return crc % 16_384;
         }
 
-        public static int ComputeHashSlot(string[] keys)
+        public static uint ComputeHashSlot(string[] keys)
         {
             if (keys is null || keys.Length < 1)
             {
@@ -71,13 +71,13 @@ namespace ReadUs
             }
 
             // We'll set the "anchor" slot here...
-            int firstSlot = ComputeHashSlot(keys[0]);
+            uint firstSlot = ComputeHashSlot(keys[0]);
 
             // Next we'll continue to check the rest of the keys to make sure that they
             // all live in the same slot.
             for(var i = 1; i < keys.Length; i++)
             {
-                int nextSlot = ComputeHashSlot(keys[i]);
+                uint nextSlot = ComputeHashSlot(keys[i]);
 
                 if (firstSlot != nextSlot)
                 {
