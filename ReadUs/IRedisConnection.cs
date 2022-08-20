@@ -12,6 +12,8 @@ namespace ReadUs
 
         byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout);
 
+        byte[] SendCommand(byte[] command, TimeSpan timeout);
+
         Task<byte[]> SendCommandAsync(RedisKey key, byte[] command);
 
         Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command);
@@ -27,6 +29,8 @@ namespace ReadUs
         Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
 
         Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
+
+        Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
 
         void Connect();
 

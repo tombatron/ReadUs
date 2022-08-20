@@ -1,12 +1,13 @@
-using System;
-using System.Threading.Tasks;
 using ReadUs.Exceptions;
+using ReadUs.Parser;
+using System;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
+using static ReadUs.ParameterUtilities;
 using static ReadUs.Parser.Parser;
 using static ReadUs.RedisCommandNames;
-using static ReadUs.ParameterUtilities;
-using ReadUs.Parser;
-using System.Runtime.CompilerServices;
 
 namespace ReadUs
 {
@@ -21,18 +22,18 @@ namespace ReadUs
             _pool = pool;
         }
 
-        public Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key) =>
-            BlockingLeftPopAsync(TimeSpan.MaxValue, key);
+        public Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys) =>
+            BlockingLeftPopAsync(TimeSpan.MaxValue, keys);
 
-        public async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key)
+        public async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
         {
             CheckIfDisposed();
 
-            var parameters = CombineParameters(BlockingLeftPop, key, timeout);
+            var parameters = CombineParameters(BlockingLeftPop, keys, timeout);
 
             var rawCommand = Encode(parameters);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand, timeout).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(keys, rawCommand, timeout).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -41,18 +42,18 @@ namespace ReadUs
             return (BlockingPopResult)result;
         }
 
-        public Task<BlockingPopResult> BlockingRightPopAsync(params string[] key) =>
-            BlockingRightPopAsync(TimeSpan.MaxValue, key);
+        public Task<BlockingPopResult> BlockingRightPopAsync(params RedisKey[] keys) =>
+            BlockingRightPopAsync(TimeSpan.MaxValue, keys);
 
-        public async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key)
+        public async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
         {
             CheckIfDisposed();
 
-            var parameters = CombineParameters(BlockingLeftPop, key, timeout);
+            var parameters = CombineParameters(BlockingLeftPop, keys, timeout);
 
             var rawCommand = Encode(parameters);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand, timeout).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(keys, rawCommand, timeout).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -61,13 +62,16 @@ namespace ReadUs
             return (BlockingPopResult)result;
         }
 
-        public async Task<string> GetAsync(string key)
+        public Task<string> GetAsync(RedisKey key) =>
+            GetAsync(key, CancellationToken.None);
+
+        public async Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken)
         {
             CheckIfDisposed();
 
             var rawCommand = Encode(Get, key);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand, cancellationToken).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -76,7 +80,7 @@ namespace ReadUs
             return result.ToString();
         }
 
-        public async Task<int> LeftPushAsync(string key, params string[] element)
+        public async Task<int> LeftPushAsync(RedisKey key, params string[] element)
         {
             CheckIfDisposed();
 
@@ -93,7 +97,7 @@ namespace ReadUs
             return ParseAndReturnInt(result);
         }
 
-        public async Task<int> ListLengthAsync(string key)
+        public async Task<int> ListLengthAsync(RedisKey key)
         {
             CheckIfDisposed();
 
@@ -108,7 +112,7 @@ namespace ReadUs
             return ParseAndReturnInt(result);
         }
 
-        public async Task<int> RightPushAsync(string key, params string[] element)
+        public async Task<int> RightPushAsync(RedisKey key, params string[] element)
         {
             CheckIfDisposed();
 
@@ -125,7 +129,10 @@ namespace ReadUs
             return ParseAndReturnInt(result);
         }
 
-        public Task SelectAsync(int databaseId)
+        public Task SelectAsync(int databaseId) =>
+            SelectAsync(databaseId, CancellationToken.None);
+
+        public Task SelectAsync(int databaseId, CancellationToken cancellationToken)
         {
             CheckIfDisposed();
 
@@ -134,13 +141,16 @@ namespace ReadUs
             return Task.CompletedTask;
         }
 
-        public async Task SetAsync(string key, string value)
+        public Task SetAsync(RedisKey key, string value) =>
+            SetAsync(key, value, CancellationToken.None);
+
+        public async Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken)
         {
             CheckIfDisposed();
 
             var rawCommand = Encode(Set, key, value);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(key, rawCommand, cancellationToken).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 

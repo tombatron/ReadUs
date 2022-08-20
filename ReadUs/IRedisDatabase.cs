@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ReadUs
@@ -7,22 +8,28 @@ namespace ReadUs
     {
         Task SelectAsync(int databaseId);
 
-        Task<string> GetAsync(string key);
+        Task SelectAsync(int databaseId, CancellationToken cancellationToken);
 
-        Task SetAsync(string key, string value);
+        Task<string> GetAsync(RedisKey key);
 
-        Task<BlockingPopResult> BlockingLeftPopAsync(params string[] key);
+        Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken);
 
-        Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params string[] key);
+        Task SetAsync(RedisKey key, string value);
 
-        Task<BlockingPopResult> BlockingRightPopAsync(params string[] key);
+        Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken);
 
-        Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params string[] key);
+        Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys);
 
-        Task<int> LeftPushAsync(string key, params string[] element);
+        Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys);
 
-        Task<int> RightPushAsync(string key, params string[] element);
+        Task<BlockingPopResult> BlockingRightPopAsync(params RedisKey[] keys);
 
-        Task<int> ListLengthAsync(string key);
+        Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys);
+
+        Task<int> LeftPushAsync(RedisKey key, params string[] element);
+
+        Task<int> RightPushAsync(RedisKey key, params string[] element);
+
+        Task<int> ListLengthAsync(RedisKey key);
     }
 }

@@ -27,6 +27,9 @@ namespace ReadUs
         public byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
             GetNodeForKeys(keys).SendCommand(keys, command, timeout);
 
+        public byte[] SendCommand(byte[] command, TimeSpan timeout) =>
+            this.First().SendCommand(command, timeout);
+
         public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command) =>
             SendCommandAsync(key.ToArray(), command);
 
@@ -50,6 +53,10 @@ namespace ReadUs
 
         public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             GetNodeForKeys(keys).SendCommandAsync(keys, command, timeout, cancellationToken);
+
+        // This is kind of chunky. I want to revisit this...
+        public Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            throw new NotImplementedException("Cluster commands require keys...");
 
         private IRedisNodeConnection GetNodeForKey(RedisKey key) =>
             this.FirstOrDefault(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
