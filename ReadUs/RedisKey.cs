@@ -17,5 +17,7 @@ namespace ReadUs
 
         public static implicit operator RedisKey(string keyName) =>
             new RedisKey(keyName);
+
+        internal RedisKey[] ToArray() => new RedisKey[] { this };
     }
 }

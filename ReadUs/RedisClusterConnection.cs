@@ -10,12 +10,9 @@ namespace ReadUs
 {
     // RedisClusterConnection is essentially just a collection of connections to the various
     // redis cluster nodes. 
-    public class RedisClusterConnection : List<RedisNodeConnection>, IDisposable
+    public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnection
     {
-        public RedisClusterConnection(ClusterNodesResult nodes) =>
-            InitializeConnections(nodes);
-
-        private void InitializeConnections(ClusterNodesResult nodes)
+        public RedisClusterConnection(ClusterNodesResult nodes)
         {
             foreach (var node in nodes)
             {
@@ -25,47 +22,49 @@ namespace ReadUs
 
         public bool IsConnected => this.All(x => x.IsConnected);
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command) =>
-            SendCommandAsync(ComputeHashSlot(key), command);
+        public byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout) =>
+            SendCommand(key.ToArray(), command, timeout);
 
-        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command) =>
-            SendCommandAsync(ComputeHashSlot(keys), command);
+        public byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
+            GetNodeForKeys(keys).SendCommand(keys, command, timeout);
 
-        private Task<byte[]> SendCommandAsync(uint slot, byte[] command) =>
-            GetNodeForSlot(slot).SendCommandAsync(command);
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command) =>
+            SendCommandAsync(key.ToArray(), command);
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout) =>
-            SendCommandAsync(ComputeHashSlot(key), command, timeout);
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command) =>
+            GetNodeForKeys(keys).SendCommandAsync(keys, command);
 
-        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, TimeSpan timeout) =>
-            SendCommandAsync(ComputeHashSlot(keys), command, timeout);
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout) =>
+            SendCommandAsync(key.ToArray(), command, timeout);
 
-        private Task<byte[]> SendCommandAsync(uint slot, byte[] command, TimeSpan timeout) =>
-            GetNodeForSlot(slot).SendCommandAsync(command, timeout);
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
+            GetNodeForKeys(keys).SendCommandAsync(keys, command, timeout);
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command, CancellationToken cancellation) =>
-            SendCommandAsync(ComputeHashSlot(key), command, cancellation);
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, CancellationToken cancellationToken) =>
+            SendCommandAsync(key.ToArray(), command, cancellationToken);
 
-        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, CancellationToken cancellation) =>
-            SendCommandAsync(ComputeHashSlot(keys), command, cancellation);
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, CancellationToken cancellationToken) =>
+            GetNodeForKeys(keys).SendCommandAsync(keys, command, cancellationToken);
 
-        private Task<byte[]> SendCommandAsync(uint slot, byte[] command, CancellationToken cancellation) =>
-            GetNodeForSlot(slot).SendCommandAsync(command, cancellation);
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            SendCommandAsync(key.ToArray(), command, timeout, cancellationToken);
 
-        public Task<byte[]> SendCommandAsync(string key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            SendCommandAsync(ComputeHashSlot(key), command, timeout, cancellationToken);
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            GetNodeForKeys(keys).SendCommandAsync(keys, command, timeout, cancellationToken);
 
-        public Task<byte[]> SendCommandAsync(string[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            SendCommandAsync(ComputeHashSlot(keys), command, timeout, cancellationToken);
+        private IRedisNodeConnection GetNodeForKey(RedisKey key) =>
+            this.FirstOrDefault(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
 
-        private Task<byte[]> SendCommandAsync(uint slot, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            GetNodeForSlot(slot).SendCommandAsync(command, timeout, cancellationToken);
-
-        private IRedisNodeConnection GetNodeForSlot(uint slot)
+        private IRedisNodeConnection GetNodeForKeys(RedisKey[] keys)
         {
-            var node = this.FirstOrDefault(x => !(x.Slots is null) && x.Slots.ContainsSlot(slot));
+            // Check if the keys all belong to the same slot. 
+            if (!keys.All(x => x.Slot == keys[0].Slot))
+            {
+                throw new Exception("Multi-key operations against different slots isn't supported yet.");
+            }
 
-            return node;
+            // Everything is in the same slot so just go get a node. 
+            return GetNodeForKey(keys[0]);
         }
 
 
@@ -96,5 +95,7 @@ namespace ReadUs
                 connection.Dispose();
             }
         }
+
+
     }
 }

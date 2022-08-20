@@ -8,13 +8,25 @@ namespace ReadUs
     {
         bool IsConnected { get; }
 
-        Task<byte[]> SendCommandAsync(byte[] command);
+        byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout);
 
-        Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout);
+        byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout);
 
-        Task<byte[]> SendCommandAsync(byte[] command, CancellationToken cancellation);
+        Task<byte[]> SendCommandAsync(RedisKey key, byte[] command);
 
-        Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
+        Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command);
+
+        Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout);
+
+        Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout);
+
+        Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, CancellationToken cancellationToken);
+
+        Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, CancellationToken cancellationToken);
+
+        Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
+
+        Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
 
         void Connect();
 

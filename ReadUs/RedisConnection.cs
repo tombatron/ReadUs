@@ -61,7 +61,10 @@ namespace ReadUs
             IsConnected = true;
         }
 
-        public byte[] SendCommand(byte[] command, TimeSpan timeout)
+        public byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout) =>
+            SendCommand(new[] { key }, command, timeout);
+
+        public byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout)
         {
             var pipe = new Pipe();
 
@@ -109,16 +112,28 @@ namespace ReadUs
             }
         }
 
-        public Task<byte[]> SendCommandAsync(byte[] command) =>
-            SendCommandAsync(command, _commandTimeout);
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command) =>
+            SendCommandAsync(new[] { key }, command);
 
-        public Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout) =>
-            SendCommandAsync(command, timeout, CancellationToken.None);
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command) =>
+            SendCommandAsync(keys, command, _commandTimeout);
 
-        public Task<byte[]> SendCommandAsync(byte[] command, CancellationToken cancellationToken) =>
-            SendCommandAsync(command, _commandTimeout, cancellationToken);
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout) =>
+            SendCommandAsync(new[] { key }, command, timeout);
 
-        public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
+            SendCommandAsync(keys, command, timeout, CancellationToken.None);
+
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, CancellationToken cancellationToken) =>
+            SendCommandAsync(new RedisKey[] { key }, command, _commandTimeout, cancellationToken);
+
+        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, CancellationToken cancellationToken) =>
+            SendCommandAsync(keys, command, _commandTimeout, cancellationToken);
+
+        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
+            SendCommandAsync(new[] { key }, command, timeout, cancellationToken);
+
+        public async Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
         {
             var pipe = new Pipe();
 
