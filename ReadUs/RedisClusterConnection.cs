@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static ReadUs.RedisKeyUtilities;
 
 namespace ReadUs
 {
@@ -66,7 +65,6 @@ namespace ReadUs
             // Everything is in the same slot so just go get a node. 
             return GetNodeForKey(keys[0]);
         }
-
 
         public void Connect()
         {
