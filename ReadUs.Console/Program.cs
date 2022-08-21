@@ -13,7 +13,8 @@ namespace ReadUs.Console
 
             var db = await pool.GetAsync();
 
-            Console.WriteLine(Guid.NewGuid().ToString("n")[0..10]);
+            await db.SetAsync("hello", "world");
+            await db.SetAsync("goodnight", "moon");
 
             for(var i = 0; i < 10_000; i++)
             {

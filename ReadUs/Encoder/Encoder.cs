@@ -42,7 +42,16 @@ namespace ReadUs.Encoder
 
             var result = new StringBuilder();
 
-            var s = item.ToString();
+            string s;
+
+            if (item is RedisKey key)
+            {
+                s = key.Name;
+            }
+            else
+            {
+                s = item.ToString();
+            }
 
             result.Append('$');
             result.Append(s.Length.ToString());

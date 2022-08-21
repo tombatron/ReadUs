@@ -10,7 +10,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ReadUs.Encoder\ReadUs.Encoder.csproj" />
     <ProjectReference Include="..\ReadUs.Parser\ReadUs.Parser.csproj" />
   </ItemGroup>
 

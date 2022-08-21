@@ -1,16 +1,20 @@
 ﻿using System.Text;
 using Xunit;
 
-namespace ReadUs.Encoder.Tests
+namespace ReadUs.Tests.Encoder
 {
+    using ReadUs.Encoder;
+
     public class EncoderTests
     {
         [Fact]
         public void CanCreateASingleBulkString()
         {
-            var expectedByteArray = Encoding.Unicode.GetBytes("$6\r\nfoobar\r\n");
+            var expectedByteArray = Encoding.ASCII.GetBytes("$6\r\nfoobar\r\n");
 
             var result = Encoder.Encode("foobar");
+
+            var encodedResult = Encoding.ASCII.GetString(result);
 
             Assert.Equal(expectedByteArray, result);
         }
@@ -18,7 +22,7 @@ namespace ReadUs.Encoder.Tests
         [Fact]
         public void CanCreateANullBulkString()
         {
-            var expectedByteArray = Encoding.Unicode.GetBytes("$-1\r\n\r\n");
+            var expectedByteArray = Encoding.ASCII.GetBytes("$-1\r\n\r\n");
 
             var result = Encoder.Encode(null);
 
@@ -28,7 +32,7 @@ namespace ReadUs.Encoder.Tests
         [Fact]
         public void CanCreateArrayOfBulkStrings()
         {
-            var expectedByteArray = Encoding.Unicode.GetBytes("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
+            var expectedByteArray = Encoding.ASCII.GetBytes("*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n");
 
             var result = Encoder.Encode("foo", "bar");
 
