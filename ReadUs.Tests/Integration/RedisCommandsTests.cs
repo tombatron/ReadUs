@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -83,6 +84,25 @@ namespace ReadUs.Tests.Integration
 
             Assert.Equal(0, initialLength);
             Assert.Equal(1, finalLength);
+        }
+
+        [Fact]
+        public async Task CanSetMultiple()
+        {
+            var baseTestKey = $"{Guid.NewGuid().ToString("N")}:";
+
+            var firstKey = $"{baseTestKey}1";
+            var secondKey = $"{baseTestKey}2";
+
+            using var commands = await _pool.GetAsync();
+
+
+            var keysAndValues = new[]{
+                new KeyValuePair<RedisKey, string>(firstKey, "testing"),
+                new KeyValuePair<RedisKey, string>(secondKey, "testing")
+            };
+
+            await commands.SetMultipleAsync(keysAndValues);
         }
 
         public void Dispose()

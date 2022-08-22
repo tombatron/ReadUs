@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,5 +26,7 @@ namespace ReadUs
         Task<int> RightPushAsync(RedisKey key, params string[] element);
 
         Task<int> ListLengthAsync(RedisKey key);
+
+        Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default);
     }
 }

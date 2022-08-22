@@ -5,6 +5,7 @@ using static ReadUs.Encoder.Encoder;
 using static ReadUs.Parser.Parser;
 using static ReadUs.RedisCommandNames;
 using static ReadUs.ParameterUtilities;
+using System.Collections.Generic;
 
 namespace ReadUs
 {
@@ -65,6 +66,21 @@ namespace ReadUs
             EvaluateResultAndThrow(result);
 
             return (BlockingPopResult)result;
+        }
+
+        public override async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default)
+        {
+            CheckIfDisposed();
+
+            var parameters = CombineParameters(SetMultiple, keysAndValues);
+
+            var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(keysAndValues.Keys(), rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
         }
     }
 }

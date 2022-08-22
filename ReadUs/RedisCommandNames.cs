@@ -20,6 +20,8 @@
 
         internal const string Cluster = "CLUSTER";
 
+        internal const string SetMultiple = "MSET";
+
         internal static class ClusterSubcommands
         {
             internal const string Nodes = "NODES";

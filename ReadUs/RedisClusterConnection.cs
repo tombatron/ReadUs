@@ -100,7 +100,5 @@ namespace ReadUs
                 connection.Dispose();
             }
         }
-
-
     }
 }

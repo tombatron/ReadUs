@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
@@ -61,6 +62,12 @@ namespace ReadUs
             // No-Op, this command doesn't really do anything on clusters. 
 
             return Task.CompletedTask;
+        }
+
+        public override Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default)
+        {
+            return Task.CompletedTask;
+
         }
     }
 }

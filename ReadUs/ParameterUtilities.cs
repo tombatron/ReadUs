@@ -16,6 +16,18 @@ namespace ReadUs
             {
                 if (obj.GetType().IsArray)
                 {
+                    // TODO: Gonna need some testing here.
+                    if (obj is KeyValuePair<RedisKey, string>[] kvps)
+                    {
+                        foreach(var kvp in kvps)
+                        {
+                            yield return kvp.Key;
+                            yield return kvp.Value;
+                        }
+
+                        continue;
+                    }
+
                     var objArray = obj as object[];
 
                     if (objArray is null)

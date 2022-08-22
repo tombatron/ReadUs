@@ -1,6 +1,7 @@
 using ReadUs.Exceptions;
 using ReadUs.Parser;
 using System;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +32,8 @@ namespace ReadUs
         public abstract Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys);
 
         public abstract Task SelectAsync(int databaseId, CancellationToken cancellationToken = default);
+
+        public abstract Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default);
 
         public virtual async Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
         {
