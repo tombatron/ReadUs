@@ -7,9 +7,9 @@ using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
-    public class RedisClusterCommandsPool : IDisposable
+    public class RedisClusterCommandsPool : IRedisConnectionPool
     {
-        private readonly ConcurrentQueue<RedisClusterConnection> _backingPool = new ConcurrentQueue<RedisClusterConnection>();
+        private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<RedisClusterConnection> _allConnections = new List<RedisClusterConnection>();
 
         private ClusterNodesResult _existingClusterNodes;
@@ -37,7 +37,7 @@ namespace ReadUs
             _existingClusterNodes = nodes;
         }
 
-        public async Task<RedisClusterDatabase> GetAsync()
+        public async Task<IRedisDatabase> GetAsync()
         {
             var connection = GetReadUsConnection();
 
@@ -49,7 +49,7 @@ namespace ReadUs
             return new RedisClusterDatabase(connection, this);
         }
 
-        private RedisClusterConnection GetReadUsConnection()
+        private IRedisConnection GetReadUsConnection()
         {
             if (_backingPool.TryDequeue(out var connection))
             {
@@ -63,7 +63,7 @@ namespace ReadUs
             return newConnection;
         }
 
-        internal void ReturnConnection(RedisClusterConnection connection) =>
+        public void ReturnConnection(IRedisConnection connection) =>
             _backingPool.Enqueue(connection);
 
         public void Dispose()

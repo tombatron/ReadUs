@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace ReadUs
 {
-    public class RedisCommandsPool : IDisposable
+    public class RedisCommandsPool : IRedisConnectionPool
     {
         protected readonly string _serverAddress;
         protected readonly int _serverPort;
@@ -45,7 +45,7 @@ namespace ReadUs
             return newConnection;
         }
 
-        internal void ReturnConnection(IRedisConnection connection) =>
+        public void ReturnConnection(IRedisConnection connection) =>
             _backingPool.Enqueue(connection);
 
         public void Dispose()

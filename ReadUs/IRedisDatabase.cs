@@ -6,17 +6,11 @@ namespace ReadUs
 {
     public interface IRedisDatabase : IDisposable
     {
-        Task SelectAsync(int databaseId);
+        Task SelectAsync(int databaseId, CancellationToken cancellationToken = default);
 
-        Task SelectAsync(int databaseId, CancellationToken cancellationToken);
+        Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken = default);
 
-        Task<string> GetAsync(RedisKey key);
-
-        Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken);
-
-        Task SetAsync(RedisKey key, string value);
-
-        Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken);
+        Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default);
 
         Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys);
 
