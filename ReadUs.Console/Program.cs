@@ -1,4 +1,6 @@
-﻿
+﻿using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ReadUs.Console
@@ -13,17 +15,15 @@ namespace ReadUs.Console
 
             var db = await pool.GetAsync();
 
-            await db.SetAsync("hello", "world");
-            await db.SetAsync("goodnight", "moon");
+            var keyValues = Enumerable.Range(0, 100_000).Select(x=> new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever"));
 
-            for(var i = 0; i < 10_000; i++)
-            {
-                var key = Guid.NewGuid().ToString("n")[0..10];
+            var sw = Stopwatch.StartNew();
 
-                await db.SetAsync(key, ".");
+            await db.SetMultipleAsync(keyValues.ToArray());
 
-                Console.WriteLine($"Wrote: {key}");
-            }
+            sw.Stop();
+
+            Console.WriteLine($"Done in {sw.ElapsedMilliseconds}ms");
         }
     }
 }

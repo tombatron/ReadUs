@@ -21,6 +21,11 @@ namespace ReadUs
 
         public bool IsConnected => this.All(x => x.IsConnected);
 
+        // We need to look at the backing collection of connections, figure out if at least 
+        // one master node is available for each share of the keyspace. If there is, then
+        // we're not busy, else we're busy.
+        public bool IsBusy => throw new NotImplementedException();
+
         public byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout) =>
             SendCommand(key.ToArray(), command, timeout);
 

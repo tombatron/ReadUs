@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
@@ -64,10 +65,18 @@ namespace ReadUs
             return Task.CompletedTask;
         }
 
-        public override Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default)
+        public override async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default)
         {
-            return Task.CompletedTask;
+            var keyGroups = keysAndValues.GroupBy(x => x.Key.Slot);
 
+            var setMultipleTasks = new List<Task>();
+
+            foreach(var keyGroup in keyGroups)
+            {
+                setMultipleTasks.Add(base.SetMultipleAsync(keyGroup.ToArray(), cancellationToken));
+            }
+
+            await Task.WhenAll(setMultipleTasks);            
         }
     }
 }

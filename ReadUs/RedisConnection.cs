@@ -17,6 +17,7 @@ namespace ReadUs
 
         private readonly Socket _socket;
         private readonly TimeSpan _commandTimeout;
+        private readonly SemaphoreSlim _semaphore;
 
         public RedisConnection(string address, int port) :
             this(address, port, TimeSpan.FromSeconds(30))
@@ -43,9 +44,12 @@ namespace ReadUs
             EndPoint = endPoint;
             _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _commandTimeout = commandTimeout;
+            _semaphore = new SemaphoreSlim(1, 1);
         }
 
         public bool IsConnected { get; private set; }
+
+        public bool IsBusy => _semaphore.CurrentCount == 0;
 
         public void Connect()
         {
@@ -69,6 +73,8 @@ namespace ReadUs
 
         public byte[] SendCommand(byte[] command, TimeSpan timeout)
         {
+            _semaphore.Wait();
+
             var pipe = new Pipe();
 
             _socket.Send(command, SocketFlags.None);
@@ -106,7 +112,11 @@ namespace ReadUs
 
             if (pipe.Reader.TryRead(out var readResult))
             {
-                return readResult.Buffer.ToArray();
+                var result = readResult.Buffer.ToArray();
+
+                _semaphore.Release();
+
+                return result;
             }
             else
             {
@@ -141,6 +151,8 @@ namespace ReadUs
 
         public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
         {
+            await _semaphore.WaitAsync();
+
             var pipe = new Pipe();
 
             await _socket.SendAsync(command, SocketFlags.None, cancellationToken).ConfigureAwait(false);
@@ -184,6 +196,8 @@ namespace ReadUs
             var socketResult = responseResult.Buffer.ToArray();
 
             await pipe.Reader.CompleteAsync().ConfigureAwait(false);
+
+            _semaphore.Release();
 
             return socketResult;
         }

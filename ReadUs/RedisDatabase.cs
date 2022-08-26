@@ -33,7 +33,20 @@ namespace ReadUs
 
         public abstract Task SelectAsync(int databaseId, CancellationToken cancellationToken = default);
 
-        public abstract Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default);
+        public virtual async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default)
+        {
+            CheckIfDisposed();
+
+            var parameters = CombineParameters(SetMultiple, keysAndValues);
+
+            var rawCommand = Encode(parameters);
+
+            var rawResult = await _connection.SendCommandAsync(keysAndValues.Keys(), rawCommand).ConfigureAwait(false);
+
+            var result = Parse(rawResult);
+
+            EvaluateResultAndThrow(result);
+        }
 
         public virtual async Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
         {

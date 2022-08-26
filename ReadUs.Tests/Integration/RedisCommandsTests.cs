@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -103,6 +105,19 @@ namespace ReadUs.Tests.Integration
             };
 
             await commands.SetMultipleAsync(keysAndValues);
+        }
+
+        [Fact]
+        public void  Scratch()
+        {
+            var keys = Enumerable.Range(1, 16000).Select(x=> new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "")).ToArray();
+
+            var groups = keys.GroupBy(x=>x.Key.Slot);
+
+            foreach(var g in groups)
+            {
+                Debug.WriteLine(g);
+            }
         }
 
         public void Dispose()
