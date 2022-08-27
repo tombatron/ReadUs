@@ -8,8 +8,6 @@ namespace ReadUs
     {
         bool IsConnected { get; }
 
-        bool IsBusy { get; }
-
         byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout);
 
         byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout);
