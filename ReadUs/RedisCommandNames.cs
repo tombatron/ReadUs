@@ -18,13 +18,20 @@
 
         internal const string ListLength = "LLEN";
 
-        internal const string Cluster = "CLUSTER";
-
         internal const string SetMultiple = "MSET";
+
+        internal const string Cluster = "CLUSTER";
 
         internal static class ClusterSubcommands
         {
             internal const string Nodes = "NODES";
+        }
+
+        internal const string Client = "CLIENT";
+
+        internal static class ClientSubcommands
+        {
+            internal const string SetName = "SETNAME";
         }
     }
 }

@@ -7,7 +7,7 @@ namespace ReadUs.Tests.Integration
         [Fact]
         public void CanConnectToCluster()
         {
-            var pool = new RedisClusterCommandsPool("tombaserver.local", 7_000);
+            var pool = new RedisClusterCommandsPool("tombaserver.local", 7_000, 1);
         }
     }
 }

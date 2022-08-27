@@ -7,6 +7,8 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static ReadUs.Encoder.Encoder;
+using static ReadUs.RedisCommandNames;
 using static ReadUs.StandardValues;
 
 namespace ReadUs
@@ -19,6 +21,23 @@ namespace ReadUs
         private readonly Socket _socket;
         private readonly TimeSpan _commandTimeout;
         private readonly SemaphoreSlim _semaphore;
+
+        private static int _connectionCount = 0;
+
+        private string _connectionName;
+
+        public string ConnectionName
+        {
+            get
+            {
+                if (_connectionName is null)
+                {
+                    _connectionName = $"ReadUs_Connection_{++_connectionCount}";
+                }
+
+                return _connectionName;
+            }
+        }
 
         public RedisConnection(string address, int port) :
             this(address, port, TimeSpan.FromSeconds(30))
@@ -54,7 +73,7 @@ namespace ReadUs
 
         public void Connect()
         {
-            Trace.WriteLine($"Connected to: {EndPoint.Address}:{EndPoint.Port}");
+            Trace.WriteLine($"Connected {ConnectionName} to {EndPoint.Address}:{EndPoint.Port}.");
 
             _socket.Connect(EndPoint);
 
@@ -141,7 +160,7 @@ namespace ReadUs
             SendCommandAsync(keys, command, timeout, CancellationToken.None);
 
         public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, CancellationToken cancellationToken) =>
-            SendCommandAsync(new RedisKey[] { key}, command, _commandTimeout, cancellationToken);
+            SendCommandAsync(new RedisKey[] { key }, command, _commandTimeout, cancellationToken);
 
         public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, CancellationToken cancellationToken) =>
             SendCommandAsync(keys, command, _commandTimeout, cancellationToken);
@@ -210,7 +229,7 @@ namespace ReadUs
             _socket.Close();
             _socket.Dispose();
 
-            Trace.WriteLine($"Connection to {EndPoint.Address}:{EndPoint.Port} disposed.");
+            Trace.WriteLine($"Connection {ConnectionName} ({EndPoint.Address}:{EndPoint.Port}) disposed.");
         }
 
         private int _totalBytes = 0;
@@ -304,6 +323,13 @@ namespace ReadUs
             // I'm not really sure what to do with multiple results yet so we're just going to
             // pick the first one. 
             return resolvedAddresses[0];
+        }
+
+        private void SetConnectionClientName()
+        {
+            var rawCommand = Encode(Client, ClientSubcommands.SetName, ConnectionName);
+
+            this.SendCommand(rawCommand, TimeSpan.FromSeconds(5));
         }
     }
 }
