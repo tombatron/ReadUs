@@ -77,12 +77,18 @@ namespace ReadUs
 
             _socket.Connect(EndPoint);
 
+            SetConnectionClientName();
+
             IsConnected = true;
         }
 
-        public async Task ConnectAsync()
+        public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
             await _socket.ConnectAsync(EndPoint);
+
+            Trace.WriteLine($"Connected {ConnectionName} to {EndPoint.Address}:{EndPoint.Port}.");
+
+            await SetConnectionClientNameAsync(cancellationToken);
 
             IsConnected = true;
         }
@@ -171,7 +177,7 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             SendCommandAsync(command, timeout, cancellationToken);
 
-        public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
+        public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             await _semaphore.WaitAsync();
 
@@ -330,6 +336,13 @@ namespace ReadUs
             var rawCommand = Encode(Client, ClientSubcommands.SetName, ConnectionName);
 
             this.SendCommand(rawCommand, TimeSpan.FromSeconds(5));
+        }
+
+        private Task SetConnectionClientNameAsync(CancellationToken cancellationToken)
+        {
+            var rawCommand = Encode(Client, ClientSubcommands.SetName, ConnectionName);
+
+            return this.SendCommandAsync(rawCommand, TimeSpan.FromSeconds(5), cancellationToken);
         }
     }
 }

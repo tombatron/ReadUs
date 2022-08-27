@@ -15,11 +15,11 @@ namespace ReadUs.Console
 
             var db = await pool.GetAsync();
 
-            var keyValues = Enumerable.Range(0, 100_000).Select(x=> new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever"));
+            var keyValues = Enumerable.Range(0, 100_000).Select(x=> new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever")).ToArray();
 
             var sw = Stopwatch.StartNew();
 
-            await db.SetMultipleAsync(keyValues.ToArray());
+            await db.SetMultipleAsync(keyValues);
 
             sw.Stop();
 

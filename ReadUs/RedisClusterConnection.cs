@@ -11,8 +11,12 @@ namespace ReadUs
     // redis cluster nodes. 
     public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnection
     {
+        private readonly int _connectionsPerNode;
+
         public RedisClusterConnection(ClusterNodesResult nodes, int connectionsPerNode = 1)
         {
+            _connectionsPerNode = connectionsPerNode;
+
             foreach (var node in nodes)
             {
                 for (var i = 0; i < connectionsPerNode; i++)
@@ -61,25 +65,36 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             throw new NotImplementedException("Cluster commands require keys...");
 
+        private Random _rand = new Random();
+
         private IRedisNodeConnection GetNodeForKey(RedisKey key)
         {
-            // 1. Find all connections which serve the slot that we're interested in.
             var qualfiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
 
-            // 2. Find a connection that isn't busy. 
-            var idleConnection = qualfiedConnections.FirstOrDefault(x => !x.IsBusy);
+            var connection =  qualfiedConnections.ElementAt(_rand.Next(_connectionsPerNode));
 
-            if (idleConnection is null)
-            {
-                // 3. There are no idle connections so we'll just return the first connection and
-                //    make the caller wait... I guess. 
-                return qualfiedConnections.First();
-            }
-            else
-            {
-                // 4. We found an idle connection so let's just return that. 
-                return idleConnection;
-            }
+            Trace.WriteLine($"Using connection: {connection.ConnectionName}");
+
+            return connection;
+            // // 1. Find all connections which serve the slot that we're interested in.
+            // var qualfiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
+
+            // // 2. Find a connection that isn't busy. 
+            // var idleConnection = qualfiedConnections.FirstOrDefault(x => !x.IsBusy);
+
+            // if (idleConnection is null)
+            // {
+            //     Trace.WriteLine("Couldn't find an idle connection...");
+            //     // 3. There are no idle connections so we'll just return the first connection and
+            //     //    make the caller wait... I guess. 
+            //     return qualfiedConnections.First();
+            // }
+            // else
+            // {
+            //     Trace.WriteLine("Idle connection found.");
+            //     // 4. We found an idle connection so let's just return that. 
+            //     return idleConnection;
+            // }
         }
 
 
@@ -105,11 +120,11 @@ namespace ReadUs
             }
         }
 
-        public async Task ConnectAsync()
+        public async Task ConnectAsync(CancellationToken cancellationToken = default)
         {
             foreach (var connection in this)
             {
-                await connection.ConnectAsync();
+                await connection.ConnectAsync(cancellationToken);
 
                 Trace.WriteLine($"{connection.EndPoint.Address}:{connection.EndPoint.Port} connected.");
             }

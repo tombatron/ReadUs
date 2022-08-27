@@ -1,10 +1,10 @@
 ﻿using System.Text;
-using static ReadUs.StandardValues;
 
 namespace ReadUs.Encoder
 {
     public static class Encoder
     {
+        internal const string EncoderCarriageReturnLineFeed = "\r\n";
         internal const string NullBulkString = "$-1\r\n\r\n";
 
         public static byte[] Encode(params object[] items)
@@ -21,7 +21,7 @@ namespace ReadUs.Encoder
                 {
                     result.Append('*');
                     result.Append(items.Length.ToString());
-                    result.Append(CarriageReturnLineFeed);
+                    result.Append(EncoderCarriageReturnLineFeed);
                 }
 
                 foreach (var item in items)
@@ -55,9 +55,9 @@ namespace ReadUs.Encoder
 
             result.Append('$');
             result.Append(s.Length.ToString());
-            result.Append(CarriageReturnLineFeed);
+            result.Append(EncoderCarriageReturnLineFeed);
             result.Append(s);
-            result.Append(CarriageReturnLineFeed);
+            result.Append(EncoderCarriageReturnLineFeed);
 
             return result.ToString();
         }

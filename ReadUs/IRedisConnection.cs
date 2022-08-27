@@ -30,10 +30,10 @@ namespace ReadUs
 
         Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
 
-        Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken);
+        Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken = default);
 
         void Connect();
 
-        Task ConnectAsync();
+        Task ConnectAsync(CancellationToken cancellationToken = default);
     }
 }
