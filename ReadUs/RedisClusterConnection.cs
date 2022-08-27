@@ -54,12 +54,31 @@ namespace ReadUs
         public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             GetNodeForKeys(keys).SendCommandAsync(keys, command, timeout, cancellationToken);
 
-        // This is kind of chunky. I want to revisit this...
+        // This is kind of chunky. If I'm not provided any keys, should I just arbitrariliy pick a connection? I'll have to think about that. 
         public Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
             throw new NotImplementedException("Cluster commands require keys...");
 
-        private IRedisNodeConnection GetNodeForKey(RedisKey key) =>
-            this.FirstOrDefault(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
+        private IRedisNodeConnection GetNodeForKey(RedisKey key)
+        {
+            // 1. Find all connections which serve the slot that we're interested in.
+            var qualfiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
+
+            // 2. Find a connection that isn't busy. 
+            var idleConnection = qualfiedConnections.FirstOrDefault(x => !x.IsBusy);
+
+            if (idleConnection is null)
+            {
+                // 3. There are no idle connections so we'll just return the first connection and
+                //    make the caller wait... I guess. 
+                return qualfiedConnections.First();
+            }
+            else
+            {
+                // 4. We found an idle connection so let's just return that. 
+                return idleConnection;
+            }
+        }
+
 
         private IRedisNodeConnection GetNodeForKeys(RedisKey[] keys)
         {
