@@ -11,7 +11,7 @@ namespace ReadUs.Console
     {
         static async Task Main(string[] args)
         {
-            var pool = new RedisClusterCommandsPool("tombaserver.local", 7000);
+            var pool = new RedisClusterCommandsPool("tombaserver.local", 7000, 5);
 
             var db = await pool.GetAsync();
 

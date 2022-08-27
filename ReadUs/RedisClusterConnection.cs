@@ -11,11 +11,14 @@ namespace ReadUs
     // redis cluster nodes. 
     public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnection
     {
-        public RedisClusterConnection(ClusterNodesResult nodes)
+        public RedisClusterConnection(ClusterNodesResult nodes, int connectionsPerNode)
         {
             foreach (var node in nodes)
             {
-                this.Add(new RedisNodeConnection(node));
+                for (var i = 0; i < connectionsPerNode; i++)
+                {
+                    this.Add(new RedisNodeConnection(node));
+                }
             }
         }
 

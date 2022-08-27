@@ -13,14 +13,12 @@ namespace ReadUs
         private readonly List<RedisClusterConnection> _allConnections = new List<RedisClusterConnection>();
 
         private ClusterNodesResult _existingClusterNodes;
+        private int _connectionsPerNode;
 
-        public RedisClusterCommandsPool(string serverAddress, int serverPort) =>
-            ResolveClusterNodes(serverAddress, serverPort);
-
-        private void ResolveClusterNodes(string serverAddress, int serverPort)
+        public RedisClusterCommandsPool(string serverAddress, int serverPort, int connectionsPerNode)
         {
             // First, let's create a connection to whatever server that was provided.
-            var initialConnection = new RedisConnection(serverAddress, serverPort);
+            using var initialConnection = new RedisConnection(serverAddress, serverPort);
             initialConnection.Connect();
 
             // Next, execute the `cluster nodes` command to get an inventory of the cluster.
@@ -35,6 +33,8 @@ namespace ReadUs
             // TODO: Think about how to make this more robust. This won't survive any kind of change
             //       to the cluster. 
             _existingClusterNodes = nodes;
+
+            _connectionsPerNode = connectionsPerNode;
         }
 
         public async Task<IRedisDatabase> GetAsync()
@@ -56,7 +56,7 @@ namespace ReadUs
                 return connection;
             }
 
-            var newConnection = new RedisClusterConnection(_existingClusterNodes);
+            var newConnection = new RedisClusterConnection(_existingClusterNodes, _connectionsPerNode);
 
             _allConnections.Add(newConnection);
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Buffers;
+using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
@@ -53,6 +54,8 @@ namespace ReadUs
 
         public void Connect()
         {
+            Trace.WriteLine($"Connected to: {EndPoint.Address}:{EndPoint.Port}");
+
             _socket.Connect(EndPoint);
 
             IsConnected = true;
@@ -206,6 +209,8 @@ namespace ReadUs
         {
             _socket.Close();
             _socket.Dispose();
+
+            Trace.WriteLine($"Connection to {EndPoint.Address}:{EndPoint.Port} disposed.");
         }
 
         private int _totalBytes = 0;
