@@ -11,7 +11,7 @@ namespace ReadUs
     // redis cluster nodes. 
     public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnection
     {
-        public RedisClusterConnection(ClusterNodesResult nodes, int connectionsPerNode)
+        public RedisClusterConnection(ClusterNodesResult nodes, int connectionsPerNode = 1)
         {
             foreach (var node in nodes)
             {
