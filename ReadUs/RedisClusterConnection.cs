@@ -76,25 +76,6 @@ namespace ReadUs
             Trace.WriteLine($"Using connection: {connection.ConnectionName}");
 
             return connection;
-            // // 1. Find all connections which serve the slot that we're interested in.
-            // var qualfiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
-
-            // // 2. Find a connection that isn't busy. 
-            // var idleConnection = qualfiedConnections.FirstOrDefault(x => !x.IsBusy);
-
-            // if (idleConnection is null)
-            // {
-            //     Trace.WriteLine("Couldn't find an idle connection...");
-            //     // 3. There are no idle connections so we'll just return the first connection and
-            //     //    make the caller wait... I guess. 
-            //     return qualfiedConnections.First();
-            // }
-            // else
-            // {
-            //     Trace.WriteLine("Idle connection found.");
-            //     // 4. We found an idle connection so let's just return that. 
-            //     return idleConnection;
-            // }
         }
 
 
