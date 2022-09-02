@@ -13,7 +13,7 @@ namespace ReadUs.Tests.Integration
 
         public RedisCommandsTests()
         {
-            _pool = new RedisCommandsPool("tombaserver.local", 6379);
+            _pool = new RedisSingleInstanceCommandsPool(new RedisConnectionConfiguration("tombaserver.local", 6379));
         }
 
         [Fact]

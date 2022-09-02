@@ -8,9 +8,12 @@ namespace ReadUs
     {
         private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<IRedisConnection> _allConnections = new List<IRedisConnection>();
+        private readonly RedisConnectionConfiguration _configuration;
 
-        public RedisSingleInstanceCommandsPool(string serverAddress, int serverPort)
-        { }
+        internal RedisSingleInstanceCommandsPool(RedisConnectionConfiguration configuration)
+        { 
+            _configuration = configuration;
+        }
 
         public override async Task<IRedisDatabase> GetAsync()
         {
@@ -31,7 +34,7 @@ namespace ReadUs
                 return connection;
             }
 
-            var newConnection = new RedisConnection(_serverAddress, _serverPort);
+            var newConnection = new RedisConnection(_configuration);
 
             _allConnections.Add(newConnection);
 

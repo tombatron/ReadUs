@@ -39,6 +39,9 @@ namespace ReadUs
             }
         }
 
+        public RedisConnection(RedisConnectionConfiguration configuration) : 
+            this(configuration.ServerAddress, configuration.ServerPort) { }
+
         public RedisConnection(string address, int port) :
             this(address, port, TimeSpan.FromSeconds(30))
         { }
