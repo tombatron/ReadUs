@@ -9,8 +9,7 @@ namespace ReadUs
         private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<IRedisConnection> _allConnections = new List<IRedisConnection>();
 
-        public RedisSingleInstanceCommandsPool(string serverAddress, int serverPort) :
-            base(serverAddress, serverPort)
+        public RedisSingleInstanceCommandsPool(string serverAddress, int serverPort)
         { }
 
         public override async Task<IRedisDatabase> GetAsync()

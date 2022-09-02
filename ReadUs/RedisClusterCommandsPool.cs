@@ -7,7 +7,7 @@ using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
-    public class RedisClusterCommandsPool : IRedisConnectionPool
+    public class RedisClusterCommandsPool : RedisCommandsPool
     {
         private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<RedisClusterConnection> _allConnections = new List<RedisClusterConnection>();
@@ -37,7 +37,7 @@ namespace ReadUs
             _connectionsPerNode = connectionsPerNode;
         }
 
-        public async Task<IRedisDatabase> GetAsync()
+        public override async Task<IRedisDatabase> GetAsync()
         {
             var connection = GetReadUsConnection();
 
@@ -63,10 +63,10 @@ namespace ReadUs
             return newConnection;
         }
 
-        public void ReturnConnection(IRedisConnection connection) =>
+        public override void ReturnConnection(IRedisConnection connection) =>
             _backingPool.Enqueue(connection);
 
-        public void Dispose()
+        public override void Dispose()
         {
             foreach (var connection in _allConnections)
             {
