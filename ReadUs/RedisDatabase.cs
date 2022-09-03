@@ -15,9 +15,9 @@ namespace ReadUs
     public abstract class RedisDatabase : IRedisDatabase
     {
         protected readonly IRedisConnection _connection;
-        protected readonly IRedisConnectionPool _pool;
+        protected readonly IRedisCommandsPool _pool;
 
-        public RedisDatabase(IRedisConnection connection, IRedisConnectionPool pool)
+        public RedisDatabase(IRedisConnection connection, IRedisCommandsPool pool)
         {
             _connection = connection;
             _pool = pool;

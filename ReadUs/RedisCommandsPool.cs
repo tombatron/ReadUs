@@ -2,7 +2,7 @@
 
 namespace ReadUs
 {
-    public abstract class RedisCommandsPool : IRedisConnectionPool
+    public abstract class RedisCommandsPool : IRedisCommandsPool
     {
         public abstract Task<IRedisDatabase> GetAsync();
 

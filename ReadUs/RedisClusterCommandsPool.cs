@@ -15,6 +15,7 @@ namespace ReadUs
         private ClusterNodesResult _existingClusterNodes;
         private int _connectionsPerNode;
 
+        // TODO: Change this to accept a cluster nodes result...
         public RedisClusterCommandsPool(string serverAddress, int serverPort, int connectionsPerNode)
         {
             // First, let's create a connection to whatever server that was provided.
