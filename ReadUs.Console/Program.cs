@@ -11,11 +11,15 @@ namespace ReadUs.Console
     {
         static async Task Main(string[] args)
         {
-            var pool = new RedisClusterCommandsPool("tombaserver.local", 7000, 5);
+            var connectionString = new Uri("redis://tombaserver.local:7000?connectionsPerNode=5");
 
-            var db = await pool.GetAsync();
+            using var pool = RedisCommandsPool.Create(connectionString);
 
-            var keyValues = Enumerable.Range(0, 100_000).Select(x=> new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever")).ToArray();
+            using var db = await pool.GetAsync();
+
+            var keyValues = Enumerable.Range(0, 100_000)
+                .Select(x => new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever"))
+                .ToArray();
 
             var sw = Stopwatch.StartNew();
 

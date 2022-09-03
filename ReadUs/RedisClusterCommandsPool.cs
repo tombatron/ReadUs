@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using static ReadUs.Encoder.Encoder;
-using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
@@ -15,25 +12,11 @@ namespace ReadUs
         private ClusterNodesResult _existingClusterNodes;
         private int _connectionsPerNode;
 
-        // TODO: Change this to accept a cluster nodes result...
-        public RedisClusterCommandsPool(string serverAddress, int serverPort, int connectionsPerNode)
+        internal RedisClusterCommandsPool(ClusterNodesResult clusterNodesResult, int connectionsPerNode)
         {
-            // First, let's create a connection to whatever server that was provided.
-            using var initialConnection = new RedisConnection(serverAddress, serverPort);
-            initialConnection.Connect();
-
-            // Next, execute the `cluster nodes` command to get an inventory of the cluster.
-            var rawCommand = Encode(Cluster, ClusterSubcommands.Nodes);
-            var rawResult = initialConnection.SendCommand(rawCommand, TimeSpan.FromMilliseconds(1));
-
-
-            // Handle the result of the `cluster nodes` command by populating a data structure with the 
-            // addresses, role, and slots assigned to each node. 
-            var nodes = new ClusterNodesResult(rawResult);
-
             // TODO: Think about how to make this more robust. This won't survive any kind of change
             //       to the cluster. 
-            _existingClusterNodes = nodes;
+            _existingClusterNodes = clusterNodesResult;
 
             _connectionsPerNode = connectionsPerNode;
         }

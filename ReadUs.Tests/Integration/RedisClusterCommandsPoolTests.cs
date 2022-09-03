@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using System;
+using Xunit;
 
 namespace ReadUs.Tests.Integration
 {
@@ -7,7 +8,11 @@ namespace ReadUs.Tests.Integration
         [Fact]
         public void CanConnectToCluster()
         {
-            var pool = new RedisClusterCommandsPool("tombaserver.local", 7_000, 1);
+            var connectionString = new Uri("redis://tombaserver.local:7000");
+
+            RedisCommandsPool.TryGetClusterInformation(connectionString, out var nodes);
+
+            var pool = new RedisClusterCommandsPool(nodes, 1);
         }
     }
 }

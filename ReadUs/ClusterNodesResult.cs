@@ -17,6 +17,8 @@ namespace ReadUs
         public ClusterNodesResult(ParseResult parsedResult) =>
             _parsedResult = parsedResult;
 
+        public bool HasError => _parsedResult.Type == ResultType.Error;
+
         public IEnumerator<ClusterNodesResultItem> GetEnumerator() => InternalIterator().GetEnumerator();
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
