@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using ReadUs.ResultModels;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.RedisCommandNames;
 

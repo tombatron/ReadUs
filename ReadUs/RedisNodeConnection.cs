@@ -1,3 +1,5 @@
+using ReadUs.ResultModels;
+
 namespace ReadUs
 {
     public sealed class RedisNodeConnection : RedisConnection, IRedisNodeConnection

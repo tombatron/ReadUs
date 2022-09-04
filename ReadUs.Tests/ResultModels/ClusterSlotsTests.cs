@@ -1,8 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using ReadUs.ResultModels;
+using System.Collections.Generic;
 using Xunit;
-using static ReadUs.ClusterSlots;
+using static ReadUs.ResultModels.ClusterSlots;
 
-namespace ReadUs.Tests
+namespace ReadUs.Tests.ResultModels
 {
     public class ClusterSlotsTests
     {

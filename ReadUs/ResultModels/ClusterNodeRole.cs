@@ -1,4 +1,4 @@
-namespace ReadUs
+namespace ReadUs.ResultModels
 {
     public enum ClusterNodeRole
     {

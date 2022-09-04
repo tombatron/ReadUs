@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
 
-namespace ReadUs
+namespace ReadUs.ResultModels
 {
     public class ClusterNodeFlags : ReadOnlyCollection<string>
     {

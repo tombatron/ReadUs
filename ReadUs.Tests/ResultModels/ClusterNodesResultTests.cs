@@ -1,9 +1,10 @@
-﻿using System.Linq;
+﻿using ReadUs.ResultModels;
+using System.Linq;
 using System.Text;
 using Xunit;
 using static ReadUs.Parser.Parser;
 
-namespace ReadUs.Tests
+namespace ReadUs.Tests.ResultModels
 {
     public class ClusterNodesResultTests
     {

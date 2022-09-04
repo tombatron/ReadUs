@@ -3,9 +3,9 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
+using static ReadUs.ParameterUtilities;
 using static ReadUs.Parser.Parser;
 using static ReadUs.RedisCommandNames;
-using static ReadUs.ParameterUtilities;
 
 namespace ReadUs
 {

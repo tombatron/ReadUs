@@ -1,6 +1,7 @@
-﻿using Xunit;
+﻿using ReadUs.ResultModels;
+using Xunit;
 
-namespace ReadUs.Tests
+namespace ReadUs.Tests.ResultModels
 {
     public class ClusterNodeFlagsTests
     {

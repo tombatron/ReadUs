@@ -1,4 +1,6 @@
-﻿namespace ReadUs
+﻿using ReadUs.ResultModels;
+
+namespace ReadUs
 {
     public interface IRedisNodeConnection : IRedisConnection
     {

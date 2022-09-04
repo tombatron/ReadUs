@@ -1,5 +1,6 @@
 using ReadUs.Exceptions;
 using ReadUs.Parser;
+using ReadUs.ResultModels;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;

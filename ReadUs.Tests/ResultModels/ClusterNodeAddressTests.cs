@@ -1,7 +1,8 @@
-﻿using System.Net;
+﻿using ReadUs.ResultModels;
+using System.Net;
 using Xunit;
 
-namespace ReadUs.Tests
+namespace ReadUs.Tests.ResultModels
 {
     public class ClusterNodeAddressTests
     {

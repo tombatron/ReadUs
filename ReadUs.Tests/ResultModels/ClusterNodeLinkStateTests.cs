@@ -1,7 +1,8 @@
-﻿using System;
+﻿using ReadUs.ResultModels;
+using System;
 using Xunit;
 
-namespace ReadUs.Tests
+namespace ReadUs.Tests.ResultModels
 {
     public class ClusterNodeLinkStateTests
     {

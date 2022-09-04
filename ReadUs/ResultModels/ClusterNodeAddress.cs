@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Net;
 
-namespace ReadUs
+namespace ReadUs.ResultModels
 {
     public class ClusterNodeAddress
     {

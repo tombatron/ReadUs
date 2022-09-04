@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using ReadUs.Parser;
 using static ReadUs.Parser.Parser;
 
-namespace ReadUs
+namespace ReadUs.ResultModels
 {
     public class ClusterNodesResult : IEnumerable<ClusterNodesResultItem>
     {

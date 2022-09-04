@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ReadUs
+namespace ReadUs.ResultModels
 {
     public class ClusterSlots
     {
