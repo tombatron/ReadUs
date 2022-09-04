@@ -1,7 +1,7 @@
 ﻿using System;
 using ReadUs.Parser;
 
-namespace ReadUs
+namespace ReadUs.ResultModels
 {
     public class BlockingPopResult
     {

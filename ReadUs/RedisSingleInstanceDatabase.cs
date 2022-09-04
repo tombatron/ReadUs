@@ -1,11 +1,11 @@
-﻿using System;
+﻿using ReadUs.ResultModels;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.Parser.Parser;
 using static ReadUs.RedisCommandNames;
 using static ReadUs.ParameterUtilities;
-using System.Collections.Generic;
 
 namespace ReadUs
 {
