@@ -9,11 +9,11 @@ namespace ReadUs.Tests.Integration
 {
     public sealed class RedisCommandsTests : IDisposable
     {
-        private readonly RedisCommandsPool _pool;
+        private readonly RedisConnectionPool _pool;
 
         public RedisCommandsTests()
         {
-            _pool = new RedisSingleInstanceCommandsPool(new RedisConnectionConfiguration("tombaserver.local", 6379));
+            _pool = new RedisSingleInstanceConnectionPool(new RedisConnectionConfiguration("tombaserver.local", 6379));
         }
 
         [Fact]

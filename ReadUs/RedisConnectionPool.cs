@@ -5,7 +5,7 @@ using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
-    public abstract class RedisCommandsPool : IRedisCommandsPool
+    public abstract class RedisConnectionPool : IRedisConnectionPool
     {
         public abstract Task<IRedisDatabase> GetAsync();
 
@@ -13,17 +13,17 @@ namespace ReadUs
 
         public abstract void Dispose();
 
-        public static IRedisCommandsPool Create(Uri connectionString)
+        public static IRedisConnectionPool Create(Uri connectionString)
         {
             RedisConnectionConfiguration configuration = connectionString;
 
             if (TryGetClusterInformation(configuration, out var clusterNodesResult))
             {
-                return new RedisClusterCommandsPool(clusterNodesResult, configuration.ConnectionsPerNode);
+                return new RedisClusterConnectionPool(clusterNodesResult, configuration.ConnectionsPerNode);
             }
             else
             {
-                return new RedisSingleInstanceCommandsPool(configuration);
+                return new RedisSingleInstanceConnectionPool(configuration);
             }
         }
 
@@ -31,6 +31,7 @@ namespace ReadUs
         {
             // First, let's create a connection to whatever server that was provided.
             using var probingConnection = new RedisConnection(configuration);
+
             probingConnection.Connect();
 
             // Next, execute the `cluster nodes` command to get an inventory of the cluster.

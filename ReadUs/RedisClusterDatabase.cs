@@ -12,7 +12,7 @@ namespace ReadUs
 {
     public class RedisClusterDatabase : RedisDatabase
     {
-        public RedisClusterDatabase(IRedisConnection connection, RedisClusterCommandsPool pool) : base(connection, pool)
+        public RedisClusterDatabase(IRedisConnection connection, RedisClusterConnectionPool pool) : base(connection, pool)
         {
         }
 

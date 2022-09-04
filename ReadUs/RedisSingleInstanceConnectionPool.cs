@@ -4,13 +4,13 @@ using System.Threading.Tasks;
 
 namespace ReadUs
 {
-    public class RedisSingleInstanceCommandsPool : RedisCommandsPool
+    public class RedisSingleInstanceConnectionPool : RedisConnectionPool
     {
         private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<IRedisConnection> _allConnections = new List<IRedisConnection>();
         private readonly RedisConnectionConfiguration _configuration;
 
-        internal RedisSingleInstanceCommandsPool(RedisConnectionConfiguration configuration)
+        internal RedisSingleInstanceConnectionPool(RedisConnectionConfiguration configuration)
         { 
             _configuration = configuration;
         }

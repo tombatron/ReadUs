@@ -11,7 +11,7 @@ namespace ReadUs
 {
     public class RedisSingleInstanceDatabase : RedisDatabase
     {
-        public RedisSingleInstanceDatabase(IRedisConnection connection, RedisCommandsPool pool) : base(connection, pool)
+        public RedisSingleInstanceDatabase(IRedisConnection connection, RedisConnectionPool pool) : base(connection, pool)
         {
         }
 

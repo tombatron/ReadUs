@@ -13,7 +13,7 @@ namespace ReadUs.Console
         {
             var connectionString = new Uri("redis://tombaserver.local:7000?connectionsPerNode=5");
 
-            using var pool = RedisCommandsPool.Create(connectionString);
+            using var pool = RedisConnectionPool.Create(connectionString);
 
             using var db = await pool.GetAsync();
 

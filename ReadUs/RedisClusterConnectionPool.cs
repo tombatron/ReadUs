@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 
 namespace ReadUs
 {
-    public class RedisClusterCommandsPool : RedisCommandsPool
+    public class RedisClusterConnectionPool : RedisConnectionPool
     {
         private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
         private readonly List<RedisClusterConnection> _allConnections = new List<RedisClusterConnection>();
@@ -12,7 +12,7 @@ namespace ReadUs
         private ClusterNodesResult _existingClusterNodes;
         private int _connectionsPerNode;
 
-        internal RedisClusterCommandsPool(ClusterNodesResult clusterNodesResult, int connectionsPerNode)
+        internal RedisClusterConnectionPool(ClusterNodesResult clusterNodesResult, int connectionsPerNode)
         {
             // TODO: Think about how to make this more robust. This won't survive any kind of change
             //       to the cluster. 

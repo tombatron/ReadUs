@@ -10,9 +10,9 @@ namespace ReadUs.Tests.Integration
         {
             var connectionString = new Uri("redis://tombaserver.local:7000");
 
-            RedisCommandsPool.TryGetClusterInformation(connectionString, out var nodes);
+            RedisConnectionPool.TryGetClusterInformation(connectionString, out var nodes);
 
-            var pool = new RedisClusterCommandsPool(nodes, 1);
+            var pool = new RedisClusterConnectionPool(nodes, 1);
         }
     }
 }

@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace ReadUs
 {
-    public interface IRedisCommandsPool : IDisposable
+    public interface IRedisConnectionPool : IDisposable
     {
         Task<IRedisDatabase> GetAsync();
 
