@@ -70,7 +70,7 @@ namespace ReadUs
             _semaphore = new SemaphoreSlim(1, 1);
         }
 
-        public bool IsConnected { get; private set; }
+        public bool IsConnected => _socket.Connected;
 
         public bool IsBusy => _semaphore.CurrentCount == 0;
 
@@ -81,8 +81,6 @@ namespace ReadUs
             _socket.Connect(EndPoint);
 
             SetConnectionClientName();
-
-            IsConnected = true;
         }
 
         public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -92,8 +90,6 @@ namespace ReadUs
             Trace.WriteLine($"Connected {ConnectionName} to {EndPoint.Address}:{EndPoint.Port}.");
 
             await SetConnectionClientNameAsync(cancellationToken);
-
-            IsConnected = true;
         }
 
         public byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout) =>

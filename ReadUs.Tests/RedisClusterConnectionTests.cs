@@ -56,5 +56,24 @@ namespace ReadUs.Tests
             // The unconnected nodes and connected nodes count should now be equal.
             Assert.Equal(unconnectedNodes, connectedNodes);
         }
+
+        [Fact]
+        public void DisposingClusterConnectionWillDisconnectAllNodes()
+        {
+            using var clusterConnection = new RedisClusterConnection(_redisClusterFixture.ClusterNodes);
+
+            clusterConnection.Connect();
+
+            // Count how many nodes are connected.
+            var connectedNodes = clusterConnection.Count(x => x.IsConnected);
+
+            clusterConnection.Dispose();
+
+            // Count how many disconnected nodes there are.
+            var disconnectedNodes = clusterConnection.Count(x => !x.IsConnected);
+
+            // The connected and disconnected counts should now equal.
+            Assert.Equal(connectedNodes, disconnectedNodes);
+        }
     }
 }
