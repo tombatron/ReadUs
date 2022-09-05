@@ -16,12 +16,11 @@ namespace ReadUs
             {
                 if (obj.GetType().IsArray)
                 {
-                    // TODO: Gonna need some testing here.
                     if (obj is KeyValuePair<RedisKey, string>[] kvps)
                     {
                         foreach(var kvp in kvps)
                         {
-                            yield return kvp.Key;
+                            yield return kvp.Key.Name;
                             yield return kvp.Value;
                         }
 

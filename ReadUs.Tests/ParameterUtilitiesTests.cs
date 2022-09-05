@@ -1,5 +1,6 @@
-﻿using static ReadUs.ParameterUtilities;
+﻿using System.Collections.Generic;
 using Xunit;
+using static ReadUs.ParameterUtilities;
 
 namespace ReadUs.Tests
 {
@@ -31,6 +32,29 @@ namespace ReadUs.Tests
                 Assert.Equal(1, parameters[1]);
                 Assert.Equal(2, parameters[2]);
                 Assert.Equal("second", parameters[3]);
+            }
+
+            [Fact]
+            public void CombineItemsWithRedisKeyStringValuePairs()
+            {
+                var simpleArray = new object[2];
+                simpleArray[0] = 1;
+                simpleArray[1] = 2;
+
+                var redisKeyStringValuePairs = new KeyValuePair<RedisKey, string>[2];
+                redisKeyStringValuePairs[0] = new KeyValuePair<RedisKey, string>("tk1", "tv1");
+                redisKeyStringValuePairs[1] = new KeyValuePair<RedisKey, string>("tk2", "tv2");
+
+                var parameters = CombineParameters("first", simpleArray, redisKeyStringValuePairs, "second");
+
+                Assert.Equal("first", parameters[0]);
+                Assert.Equal(1, parameters[1]);
+                Assert.Equal(2, parameters[2]);
+                Assert.Equal("tk1", parameters[3]);
+                Assert.Equal("tv1", parameters[4]);
+                Assert.Equal("tk2", parameters[5]);
+                Assert.Equal("tv2", parameters[6]);
+                Assert.Equal("second", parameters[7]);
             }
         }
     }
