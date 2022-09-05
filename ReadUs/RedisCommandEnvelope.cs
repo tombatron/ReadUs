@@ -11,7 +11,7 @@ namespace ReadUs
 
         public RedisCommandEnvelope(string[] keys, params object[] items)
         {
-            Keys = keys.Cast<RedisKey>().ToArray();
+            Keys = keys.Select(x => new RedisKey(x)).ToArray();
 
             RawCommand = Encode(items);
         }
