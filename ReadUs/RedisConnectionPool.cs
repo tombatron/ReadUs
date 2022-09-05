@@ -33,6 +33,7 @@ namespace ReadUs
             // First, let's create a connection to whatever server that was provided.
             using var probingConnection = new RedisConnection(configuration);
 
+            // Now let's... connect.
             probingConnection.Connect();
 
             // Next, execute the `cluster nodes` command to get an inventory of the cluster.

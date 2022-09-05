@@ -79,7 +79,6 @@ namespace ReadUs
             return connection;
         }
 
-
         private IRedisNodeConnection GetNodeForKeys(RedisKey[] keys)
         {
             // Check if the keys all belong to the same slot. 
