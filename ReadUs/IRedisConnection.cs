@@ -8,12 +8,12 @@ namespace ReadUs
     {
         bool IsConnected { get; }
 
-        byte[] SendCommand(RedisCommandEnvelope command);
-
-        Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
-
         void Connect();
 
         Task ConnectAsync(CancellationToken cancellationToken = default);
+
+        byte[] SendCommand(RedisCommandEnvelope command);
+
+        Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
     }
 }
