@@ -80,10 +80,10 @@ namespace ReadUs
         public virtual async Task<int> ListLengthAsync(RedisKey key)
         {
             CheckIfDisposed();
-            
-            var rawCommand = Encode(ListLength, key);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+            var command = RedisCommandEnvelope.CreateListLengthCommand(key);
+            
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
