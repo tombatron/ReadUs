@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using static ReadUs.Encoder.Encoder;
+using static ReadUs.ParameterUtilities;
 using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
@@ -18,39 +19,41 @@ namespace ReadUs
 
         public TimeSpan Timeout { get; }
 
-        public RedisCommandEnvelope(string? commandName, string? subCommandName, string[]? keys, TimeSpan timeout, params object[]? items)
+        public RedisCommandEnvelope(string? commandName, string? subCommandName, RedisKey[]? keys, TimeSpan? timeout, params object[]? items)
         {
             CommandName = commandName;
 
             SubCommandName = subCommandName;
 
-            Keys = keys?.Select(x => new RedisKey(x)).ToArray() ?? default;
+            Keys = keys;
 
             Items = items;
 
-            Timeout = timeout;
+            Timeout = timeout ?? TimeSpan.FromSeconds(5);
         }
 
         public byte[] ToByteArray()
         {
-            var commandParts = new List<object>();
+            var availableParameters = new List<object>();
 
             if (CommandName is not null)
             {
-                commandParts.Add(CommandName);
+                availableParameters.Add(CommandName);
             }
 
             if (SubCommandName is not null)
             {
-                commandParts.Add(SubCommandName);
+                availableParameters.Add(SubCommandName);
             }
 
             if (Items is not null)
             {
-                commandParts.AddRange(Items);
+                availableParameters.AddRange(Items);
             }
 
-            return Encode(commandParts);
+            var combinedParameters = CombineParameters(availableParameters);
+
+            return Encode(combinedParameters);
         }
 
         public static implicit operator byte[](RedisCommandEnvelope envelope) => envelope.ToByteArray();
@@ -60,6 +63,7 @@ namespace ReadUs
         public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
             new RedisCommandEnvelope(Client, ClientSubcommands.SetName, null, TimeSpan.FromSeconds(5), clientConnectionName);
 
-
+        public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
+            new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), null, keysAndValues);
     }
 }

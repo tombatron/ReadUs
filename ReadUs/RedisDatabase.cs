@@ -38,11 +38,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
 
-            var parameters = CombineParameters(SetMultiple, keysAndValues);
+            var command = RedisCommandEnvelope.CreateSetMultipleCommand(keysAndValues);
 
-            var rawCommand = Encode(parameters);
-
-            var rawResult = await _connection.SendCommandAsync(keysAndValues.Keys(), rawCommand).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
