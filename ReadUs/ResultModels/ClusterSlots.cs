@@ -115,6 +115,20 @@ namespace ReadUs.ResultModels
             return false;
         }
 
+        public IEnumerable<int> OwnedSlots
+        {
+            get
+            {
+                foreach(var slot in _slots)
+                {
+                    for(var i = slot.Begin; i <= slot.End; i++)
+                    {
+                        yield return i;
+                    }
+                }
+            }
+        }
+
         public static implicit operator ClusterSlots(char[] rawValue)
         {
             int startPosition = 0;

@@ -1,5 +1,6 @@
 ﻿using ReadUs.ResultModels;
 using System.Collections.Generic;
+using System.Linq;
 using Xunit;
 using static ReadUs.ResultModels.ClusterSlots;
 
@@ -7,6 +8,21 @@ namespace ReadUs.Tests.ResultModels
 {
     public class ClusterSlotsTests
     {
+        public class OwnedSlotsContains
+        {
+            [Fact]
+            public void AllOwnedSlots()
+            {
+                var clusterSlots = new ClusterSlots(SlotRange.Create(100, 200), SlotRange.Create(500, 500), SlotRange.Create(1000, 2000));
+
+                var ownedSlots = clusterSlots.OwnedSlots.ToList();
+
+                Assert.True(Enumerable.Range(100, 100).All(x => ownedSlots.Contains(x)));
+                Assert.Contains(500, ownedSlots);
+                Assert.True(Enumerable.Range(1000, 1000).All(x => ownedSlots.Contains(x)));
+            }
+        }
+
         public class ConstainsSlotWill
         {
             [Theory]
