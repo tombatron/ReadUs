@@ -1,3 +1,6 @@
+using System;
+using System.Diagnostics;
+using System.Collections.Generic;
 using System.Linq;
 using Xunit;
 using static ReadUs.Encoder.Encoder;
@@ -6,28 +9,37 @@ namespace ReadUs.Tests
 {
     public class RedisCommandEnvelopeTests
     {
-        [Fact]
-        public void ItWillCorrectlyInitializeKeys()
+        public class AllKeysInSingleSlotWillReturn
         {
-            var keys = new string[] { "hello", "world", "goodnight", "moon" };
+            [Fact]
+            public void FalseIfAllKeysArentInSameSlot()
+            {
+                var keys = new RedisKey[]
+                {
+                    "82167180227c44189b70c16a866c51c7",
+                    "47cc48cbd0644331a30418334f1d2351",
+                    "27b9eae239ea40dba29ac3c6d5b863b7"
+                };
 
-            var expectedKeys = keys.Select(x => new RedisKey(x)).ToArray();
+                var command = new RedisCommandEnvelope(default, default, keys, default);
 
-            var commandEnvelope = new RedisCommandEnvelope(keys, null);
+                Assert.False(command.AllKeysInSingleSlot);
+            }
 
-            Assert.Equal(expectedKeys, commandEnvelope.Keys);
-        }
+            [Fact]
+            public void TrueIfAllKeysAreInSameSlot()
+            {
+                var keys = new RedisKey[] 
+                {
+                    "fc11bb8af5b440cfb13fd08a143a007a",
+                    "d32334dafd114fd08c55aed91c148d66",
+                    "1c9b65bb7f8c4a5080069be32023a800"
+                };
 
-        [Fact]
-        public void ItWillCorrectlyInitializeRawCommand()
-        {
-            var keys = new string[] { "hello" };
+                var command = new RedisCommandEnvelope(default, default, keys, default);
 
-            var expectedRawCommand = Encode(new object[] { "world" });
-
-            var commandEnvelope = new RedisCommandEnvelope(keys, "world");
-
-            Assert.Equal(expectedRawCommand, commandEnvelope.RawCommand);
+                Assert.True(command.AllKeysInSingleSlot);
+            }
         }
     }
 }
