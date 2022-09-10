@@ -39,8 +39,9 @@ namespace ReadUs
             }
         }
 
-        public RedisConnection(RedisConnectionConfiguration configuration) : 
-            this(configuration.ServerAddress, configuration.ServerPort) { }
+        public RedisConnection(RedisConnectionConfiguration configuration) :
+            this(configuration.ServerAddress, configuration.ServerPort)
+        { }
 
         public RedisConnection(string address, int port) :
             this(address, port, TimeSpan.FromSeconds(30))
@@ -72,7 +73,7 @@ namespace ReadUs
 
         public bool IsConnected => _socket.Connected;
 
-        public bool IsBusy => _semaphore.CurrentCount == 0;
+        public bool IsBusy => _semaphore.CurrentCount == 0; // (* ￣︿￣)
 
         public void Connect()
         {
@@ -92,19 +93,13 @@ namespace ReadUs
             await SetConnectionClientNameAsync(cancellationToken);
         }
 
-        public byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout) =>
-            SendCommand(command, timeout);
-
-        public byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
-            SendCommand(command, timeout);
-
-        public byte[] SendCommand(byte[] command, TimeSpan timeout)
+        public byte[] SendCommand(RedisCommandEnvelope command)
         {
             _semaphore.Wait();
 
             var pipe = new Pipe();
 
-            _socket.Send(command, SocketFlags.None);
+            _socket.Send(command.RawCommand, SocketFlags.None);
 
             while (true)
             {
@@ -152,37 +147,13 @@ namespace ReadUs
             }
         }
 
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command) =>
-            SendCommandAsync(new[] { key }, command);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command) =>
-            SendCommandAsync(keys, command, _commandTimeout);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout) =>
-            SendCommandAsync(new[] { key }, command, timeout);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
-            SendCommandAsync(keys, command, timeout, CancellationToken.None);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, CancellationToken cancellationToken) =>
-            SendCommandAsync(new RedisKey[] { key }, command, _commandTimeout, cancellationToken);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, CancellationToken cancellationToken) =>
-            SendCommandAsync(keys, command, _commandTimeout, cancellationToken);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            SendCommandAsync(new[] { key }, command, timeout, cancellationToken);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            SendCommandAsync(command, timeout, cancellationToken);
-
-        public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken = default)
+        public async Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
         {
             await _semaphore.WaitAsync();
 
             var pipe = new Pipe();
 
-            await _socket.SendAsync(command, SocketFlags.None, cancellationToken).ConfigureAwait(false);
+            await _socket.SendAsync(command.RawCommand, SocketFlags.None, cancellationToken).ConfigureAwait(false);
 
             while (true)
             {
@@ -194,7 +165,7 @@ namespace ReadUs
                     bytesReceived = await _socket.ReceiveAsync(buffer, SocketFlags.None, cancellationToken).ConfigureAwait(false);
                 }
 
-                var timeoutTask = Task.Delay(timeout, cancellationToken);
+                var timeoutTask = Task.Delay(command.Timeout, cancellationToken);
 
                 if (await Task.WhenAny(timeoutTask, ReceiveBytes()) == timeoutTask)
                 {
@@ -330,18 +301,10 @@ namespace ReadUs
             return resolvedAddresses[0];
         }
 
-        private void SetConnectionClientName()
-        {
-            var rawCommand = Encode(Client, ClientSubcommands.SetName, ConnectionName);
+        private void SetConnectionClientName() =>
+            SendCommand(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName));
 
-            this.SendCommand(rawCommand, TimeSpan.FromSeconds(5));
-        }
-
-        private Task SetConnectionClientNameAsync(CancellationToken cancellationToken)
-        {
-            var rawCommand = Encode(Client, ClientSubcommands.SetName, ConnectionName);
-
-            return this.SendCommandAsync(rawCommand, TimeSpan.FromSeconds(5), cancellationToken);
-        }
+        private Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
+            SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName));
     }
 }
