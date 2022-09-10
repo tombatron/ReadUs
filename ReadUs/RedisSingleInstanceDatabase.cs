@@ -2,10 +2,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using static ReadUs.Encoder.Encoder;
-using static ReadUs.ParameterUtilities;
 using static ReadUs.Parser.Parser;
-using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
@@ -19,9 +16,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
             
-            var rawCommand = Encode(Select, databaseId);
+            var command = RedisCommandEnvelope.CreateSelectCommand(databaseId);
 
-            var rawResult = await _connection.SendCommandAsync(rawCommand, TimeSpan.FromSeconds(30), cancellationToken).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -35,11 +32,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(BlockingLeftPop, keys, timeout);
+            var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
-            var rawCommand = Encode(parameters);
-
-            var rawResult = await _connection.SendCommandAsync(keys, rawCommand, timeout).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -55,11 +50,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(BlockingRightPop, keys, timeout);
+            var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
 
-            var rawCommand = Encode(parameters);
-
-            var rawResult = await _connection.SendCommandAsync(keys, rawCommand, timeout).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 

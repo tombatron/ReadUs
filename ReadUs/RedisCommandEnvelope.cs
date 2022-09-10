@@ -59,6 +59,9 @@ namespace ReadUs
 
         public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
 
+        public static RedisCommandEnvelope CreateSelectCommand(int databaseId) =>
+            new RedisCommandEnvelope(Select, default, default, TimeSpan.FromSeconds(5), databaseId);
+
         public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
             new RedisCommandEnvelope(Client, ClientSubcommands.SetName, default, TimeSpan.FromSeconds(5), clientConnectionName);
 
@@ -82,5 +85,11 @@ namespace ReadUs
 
         public static RedisCommandEnvelope CreateSetCommand(RedisKey key, string value) =>
             new RedisCommandEnvelope(Set, default, new[] { key }, default, key, value);
+
+        public static RedisCommandEnvelope CreateBlockingLeftPopCommand(RedisKey[] keys, TimeSpan timeout) =>
+            new RedisCommandEnvelope(BlockingLeftPop, default, keys, timeout, keys);
+
+        public static RedisCommandEnvelope CreateBlockingRightPopCommand(RedisKey[] keys, TimeSpan timeout) =>
+            new RedisCommandEnvelope(BlockingRightPop, default, keys, timeout, keys);
     }
 }
