@@ -24,43 +24,30 @@ namespace ReadUs
 
         private static int _connectionCount = 0;
 
-        private string _connectionName;
-
-        public string ConnectionName
-        {
-            get
-            {
-                if (_connectionName is null)
-                {
-                    _connectionName = $"ReadUs_Connection_{++_connectionCount}";
-                }
-
-                return _connectionName;
-            }
-        }
+        public string ConnectionName { get; }
 
         public RedisConnection(RedisConnectionConfiguration configuration) :
             this(configuration.ServerAddress, configuration.ServerPort)
         { }
 
         public RedisConnection(string address, int port) :
-            this(address, port, TimeSpan.FromSeconds(30))
+                    this(address, port, TimeSpan.FromSeconds(30))
         { }
 
         public RedisConnection(string address, int port, TimeSpan commandTimeout) :
-            this(ResolveIpAddress(address), port, commandTimeout)
+                    this(ResolveIpAddress(address), port, commandTimeout)
         { }
 
         public RedisConnection(IPAddress address, int port) :
-            this(address, port, TimeSpan.FromSeconds(30))
+                    this(address, port, TimeSpan.FromSeconds(30))
         { }
 
         public RedisConnection(IPAddress address, int port, TimeSpan commandTimeout) :
-            this(new IPEndPoint(address, port), commandTimeout)
+                    this(new IPEndPoint(address, port), commandTimeout)
         { }
 
         public RedisConnection(IPEndPoint endPoint) :
-            this(endPoint, TimeSpan.FromSeconds(30))
+                    this(endPoint, TimeSpan.FromSeconds(30))
         { }
 
         public RedisConnection(IPEndPoint endPoint, TimeSpan commandTimeout)
@@ -69,6 +56,8 @@ namespace ReadUs
             _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             _commandTimeout = commandTimeout;
             _semaphore = new SemaphoreSlim(1, 1);
+
+            ConnectionName = $"ReadUs_Connection_{++_connectionCount}";
         }
 
         public bool IsConnected => _socket.Connected;
@@ -99,7 +88,7 @@ namespace ReadUs
 
             var pipe = new Pipe();
 
-            _socket.Send(command.RawCommand, SocketFlags.None);
+            _socket.Send(command, SocketFlags.None);
 
             while (true)
             {
@@ -153,7 +142,7 @@ namespace ReadUs
 
             var pipe = new Pipe();
 
-            await _socket.SendAsync(command.RawCommand, SocketFlags.None, cancellationToken).ConfigureAwait(false);
+            await _socket.SendAsync(command, SocketFlags.None, cancellationToken).ConfigureAwait(false);
 
             while (true)
             {

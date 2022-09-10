@@ -24,14 +24,14 @@ namespace ReadUs
 
             SubCommandName = subCommandName;
 
-            Keys = keys.Select(x => new RedisKey(x)).ToArray();
+            Keys = keys?.Select(x => new RedisKey(x)).ToArray() ?? default;
 
             Items = items;
 
             Timeout = timeout;
         }
 
-        public byte[]? ToByteArray()
+        public byte[] ToByteArray()
         {
             var commandParts = new List<object>();
 
@@ -53,7 +53,9 @@ namespace ReadUs
             return Encode(commandParts);
         }
 
-        public static implicit operator byte[]?(RedisCommandEnvelope envelope) => envelope.ToByteArray();
+        public static implicit operator byte[](RedisCommandEnvelope envelope) => envelope.ToByteArray();
+
+        public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
 
         public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
             new RedisCommandEnvelope(Client, ClientSubcommands.SetName, null, TimeSpan.FromSeconds(5), clientConnectionName);
