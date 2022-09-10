@@ -65,5 +65,8 @@ namespace ReadUs
 
         public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
             new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), null, keysAndValues);
+
+        public static RedisCommandEnvelope CreateGetCommand(RedisKey key) =>
+            new RedisCommandEnvelope(Get, default, new[] { key }, default, key);
     }
 }

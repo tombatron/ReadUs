@@ -51,9 +51,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
 
-            var rawCommand = Encode(Get, key);
+            var command = RedisCommandEnvelope.CreateGetCommand(key);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand, cancellationToken).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
