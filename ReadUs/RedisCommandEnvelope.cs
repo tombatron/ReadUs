@@ -70,9 +70,12 @@ namespace ReadUs
             new RedisCommandEnvelope(Get, default, new[] { key }, default, key);
 
         public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
-            new RedisCommandEnvelope(LeftPush, default, new[] { key }, default, elements);
+            new RedisCommandEnvelope(LeftPush, default, new[] { key }, default, key, elements);
 
         public static RedisCommandEnvelope CreateListLengthCommand(RedisKey key) =>
             new RedisCommandEnvelope(ListLength, default, new[] { key }, default, key);
+
+        public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
+            new RedisCommandEnvelope(RightPush, default, new[] { key }, default, key, elements);
     }
 }

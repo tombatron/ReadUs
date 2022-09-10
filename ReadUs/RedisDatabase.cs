@@ -65,7 +65,7 @@ namespace ReadUs
         public virtual async Task<int> LeftPushAsync(RedisKey key, params string[] element)
         {
             CheckIfDisposed();
-            
+
             var command = RedisCommandEnvelope.CreateLeftPushCommand(key, element);
 
             var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
@@ -82,7 +82,7 @@ namespace ReadUs
             CheckIfDisposed();
 
             var command = RedisCommandEnvelope.CreateListLengthCommand(key);
-            
+
             var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
@@ -95,12 +95,10 @@ namespace ReadUs
         public virtual async Task<int> RightPushAsync(RedisKey key, params string[] element)
         {
             CheckIfDisposed();
-            
-            var parameters = CombineParameters(RightPush, key, element);
 
-            var rawCommand = Encode(parameters);
+            var command = RedisCommandEnvelope.CreateRightPushCommand(key, element);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -112,7 +110,7 @@ namespace ReadUs
         public virtual async Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default)
         {
             CheckIfDisposed();
-            
+
             var rawCommand = Encode(Set, key, value);
 
             var rawResult = await _connection.SendCommandAsync(key, rawCommand, cancellationToken).ConfigureAwait(false);
