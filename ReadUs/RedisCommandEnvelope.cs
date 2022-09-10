@@ -61,12 +61,15 @@ namespace ReadUs
         public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
 
         public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
-            new RedisCommandEnvelope(Client, ClientSubcommands.SetName, null, TimeSpan.FromSeconds(5), clientConnectionName);
+            new RedisCommandEnvelope(Client, ClientSubcommands.SetName, default, TimeSpan.FromSeconds(5), clientConnectionName);
 
         public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
-            new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), null, keysAndValues);
+            new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), default, keysAndValues);
 
         public static RedisCommandEnvelope CreateGetCommand(RedisKey key) =>
             new RedisCommandEnvelope(Get, default, new[] { key }, default, key);
+
+        public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
+            new RedisCommandEnvelope(LeftPush, default, new[] { key }, default, elements);
     }
 }

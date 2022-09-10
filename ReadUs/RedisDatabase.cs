@@ -66,11 +66,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
             
-            var parameters = CombineParameters(LeftPush, key, element);
+            var command = RedisCommandEnvelope.CreateLeftPushCommand(key, element);
 
-            var rawCommand = Encode(parameters);
-
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
