@@ -4,10 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using static ReadUs.Encoder.Encoder;
-using static ReadUs.ParameterUtilities;
 using static ReadUs.Parser.Parser;
-using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
@@ -24,11 +21,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
 
-            var parameters = CombineParameters(BlockingLeftPop, keys, timeout);
+            var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
-            var rawCommand = Encode(parameters);
-
-            var rawResult = await _connection.SendCommandAsync(keys, rawCommand, timeout).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
@@ -44,11 +39,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
 
-            var parameters = CombineParameters(BlockingLeftPop, keys, timeout);
+            var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
 
-            var rawCommand = Encode(parameters);
-
-            var rawResult = await _connection.SendCommandAsync(keys, rawCommand, timeout).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
