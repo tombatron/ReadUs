@@ -76,5 +76,8 @@ namespace ReadUs
 
         public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
             new RedisCommandEnvelope(RightPush, default, new[] { key }, default, key, elements);
+
+        public static RedisCommandEnvelope CreateSetCommand(RedisKey key, string value) =>
+            new RedisCommandEnvelope(Set, default, new[] { key }, default, key, value);
     }
 }

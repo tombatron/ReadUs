@@ -6,10 +6,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using static ReadUs.Encoder.Encoder;
-using static ReadUs.ParameterUtilities;
 using static ReadUs.Parser.Parser;
-using static ReadUs.RedisCommandNames;
 
 namespace ReadUs
 {
@@ -111,9 +108,9 @@ namespace ReadUs
         {
             CheckIfDisposed();
 
-            var rawCommand = Encode(Set, key, value);
+            var command = RedisCommandEnvelope.CreateSetCommand(key, value);
 
-            var rawResult = await _connection.SendCommandAsync(key, rawCommand, cancellationToken).ConfigureAwait(false);
+            var rawResult = await _connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
