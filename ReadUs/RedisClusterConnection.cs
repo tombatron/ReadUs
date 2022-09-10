@@ -29,38 +29,11 @@ namespace ReadUs
 
         public bool IsConnected => this.All(x => x.IsConnected);
 
-        public byte[] SendCommand(RedisKey key, byte[] command, TimeSpan timeout) =>
-            SendCommand(key.ToArray(), command, timeout);
+        public byte[] SendCommand(RedisCommandEnvelope command) =>
+            GetNodeForKeys(command).SendCommand(command);
 
-        public byte[] SendCommand(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
-            GetNodeForKeys(keys).SendCommand(keys, command, timeout);
-
-        public byte[] SendCommand(byte[] command, TimeSpan timeout) =>
-            this.First().SendCommand(command, timeout);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command) =>
-            SendCommandAsync(key.ToArray(), command);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command) =>
-            GetNodeForKeys(keys).SendCommandAsync(keys, command);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout) =>
-            SendCommandAsync(key.ToArray(), command, timeout);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout) =>
-            GetNodeForKeys(keys).SendCommandAsync(keys, command, timeout);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, CancellationToken cancellationToken) =>
-            SendCommandAsync(key.ToArray(), command, cancellationToken);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, CancellationToken cancellationToken) =>
-            GetNodeForKeys(keys).SendCommandAsync(keys, command, cancellationToken);
-
-        public Task<byte[]> SendCommandAsync(RedisKey key, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            SendCommandAsync(key.ToArray(), command, timeout, cancellationToken);
-
-        public Task<byte[]> SendCommandAsync(RedisKey[] keys, byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
-            GetNodeForKeys(keys).SendCommandAsync(keys, command, timeout, cancellationToken);
+        public Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default) =>
+            GetNodeForKeys(command).SendCommandAsync(command);
 
         // This is kind of chunky. If I'm not provided any keys, should I just arbitrariliy pick a connection? I'll have to think about that. 
         public Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken) =>
@@ -70,25 +43,33 @@ namespace ReadUs
 
         private IRedisNodeConnection GetNodeForKey(RedisKey key)
         {
-            var qualfiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
+            var qualifiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
 
-            var connection =  qualfiedConnections.ElementAt(_rand.Next(_connectionsPerNode));
+            var connection =  qualifiedConnections.ElementAt(_rand.Next(_connectionsPerNode));
 
             Trace.WriteLine($"Using connection: {connection.ConnectionName}");
 
             return connection;
         }
 
-        private IRedisNodeConnection GetNodeForKeys(RedisKey[] keys)
+        private IRedisNodeConnection GetNodeForKeys(RedisCommandEnvelope command)
         {
+            // If the command being executed doesn't have any keys, then we don't really 
+            // have anything to decide which node to execute the command against. So for now,
+            // we'll just return the first connection in the current collection.
+            if (command.Keys is null)
+            {
+                return this[0];
+            }
+
             // Check if the keys all belong to the same slot. 
-            if (!keys.All(x => x.Slot == keys[0].Slot))
+            if (!command.AllKeysInSingleSlot)
             {
                 throw new Exception("Multi-key operations against different slots isn't supported yet.");
             }
 
             // Everything is in the same slot so just go get a node. 
-            return GetNodeForKey(keys[0]);
+            return GetNodeForKey(command.Keys.First());
         }
 
         public void Connect()

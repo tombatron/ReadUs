@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.ParameterUtilities;
 using static ReadUs.RedisCommandNames;
@@ -17,6 +18,21 @@ namespace ReadUs
         public object[]? Items { get; }
 
         public TimeSpan Timeout { get; }
+
+        public bool AllKeysInSingleSlot
+        {
+            get
+            {
+                if (Keys is null || Keys.Length == 0)
+                {
+                    return false;
+                }
+
+                var firstKeySlot = Keys[0].Slot;
+
+                return Keys.All(x => x.Slot == firstKeySlot);
+            }
+        }
 
         public RedisCommandEnvelope(string? commandName, string? subCommandName, RedisKey[]? keys, TimeSpan? timeout, params object[]? items)
         {
