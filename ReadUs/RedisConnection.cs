@@ -7,8 +7,6 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using static ReadUs.Encoder.Encoder;
-using static ReadUs.RedisCommandNames;
 using static ReadUs.StandardValues;
 
 namespace ReadUs
