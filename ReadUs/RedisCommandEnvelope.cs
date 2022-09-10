@@ -62,6 +62,9 @@ namespace ReadUs
         public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
             new RedisCommandEnvelope(Client, ClientSubcommands.SetName, default, TimeSpan.FromSeconds(5), clientConnectionName);
 
+        public static RedisCommandEnvelope CreateClusterNodesCommand() =>
+            new RedisCommandEnvelope(Cluster, ClusterSubcommands.Nodes, default, TimeSpan.FromMilliseconds(5), default);
+
         public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
             new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), default, keysAndValues);
 

@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using ReadUs.ResultModels;
@@ -13,8 +14,14 @@ namespace ReadUs
         private ClusterNodesResult _existingClusterNodes;
         private int _connectionsPerNode;
 
-        internal RedisClusterConnectionPool(ClusterNodesResult clusterNodesResult, int connectionsPerNode)
+        internal RedisClusterConnectionPool(ClusterNodesResult? clusterNodesResult, int connectionsPerNode)
         {
+            if (clusterNodesResult is null)
+            {
+                // TODO: Handle this better. 
+                throw new Exception("Cluster nodes were null. That's weird.");
+            }
+
             // TODO: Think about how to make this more robust. This won't survive any kind of change
             //       to the cluster. 
             _existingClusterNodes = clusterNodesResult;
