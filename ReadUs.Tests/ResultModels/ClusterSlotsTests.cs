@@ -17,9 +17,9 @@ namespace ReadUs.Tests.ResultModels
 
                 var ownedSlots = clusterSlots.OwnedSlots.ToList();
 
-                Assert.True(Enumerable.Range(100, 100).All(x => ownedSlots.Contains(x)));
+                Assert.True(Enumerable.Range(100, 101).All(x => ownedSlots.Contains(x)));
                 Assert.Contains(500, ownedSlots);
-                Assert.True(Enumerable.Range(1000, 1000).All(x => ownedSlots.Contains(x)));
+                Assert.True(Enumerable.Range(1000, 1001).All(x => ownedSlots.Contains(x)));
             }
         }
 
