@@ -10,7 +10,7 @@
             {
                 'c' => _connected,
                 'd' => _disconnected,
-                _ => default
+                _ => _disconnected
             };
     }
 

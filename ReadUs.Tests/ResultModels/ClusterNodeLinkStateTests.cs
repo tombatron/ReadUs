@@ -11,19 +11,12 @@ namespace ReadUs.Tests.ResultModels
             [Theory]
             [InlineData("connected", typeof(ClusterNodeLinkStateConnected))]
             [InlineData("disconnected", typeof(ClusterNodeLinkStateDisconnected))]
+            [InlineData("this is a bogus value", typeof(ClusterNodeLinkStateDisconnected))]
             public void CharArraySucceeds(string rawValue, Type expectedType)
             {
                 ClusterNodeLinkState state = rawValue.ToCharArray();
 
                 Assert.IsType(expectedType, state);
-            }
-
-            [Fact]
-            public void InvalidCharArrayReturnsNull()
-            {
-                ClusterNodeLinkState state = "blah".ToCharArray();
-
-                Assert.Null(state);
             }
         }
     }
