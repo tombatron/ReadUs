@@ -27,16 +27,18 @@ namespace ReadUs.ResultModels
         {
             var startIndex = 0;
 
+            var parsedResultArray = _parsedResult.Value ?? Array.Empty<char>();
+
             while (true)
             {
-                var nextLineBreak = Array.IndexOf(_parsedResult.Value, '\n', startIndex + 1);
+                var nextLineBreak = Array.IndexOf(parsedResultArray, '\n', startIndex + 1);
 
                 if (nextLineBreak < 0)
                 {
                     yield break;
                 }
 
-                var rawLine = _parsedResult.Value[startIndex..nextLineBreak];
+                var rawLine = parsedResultArray[startIndex..nextLineBreak];
                 
                 startIndex = nextLineBreak;
 
@@ -47,32 +49,13 @@ namespace ReadUs.ResultModels
 
     public class ClusterNodesResultItem
     {
-        public ClusterNodesResultItem(char[] rawLine) => 
-            InitializeValues(rawLine);
-        
-        public ClusterNodeId Id { get; private set; }
-
-        public ClusterNodeAddress Address { get; private set; }
-        
-        public ClusterNodeFlags Flags { get; private set; }
-        
-        /// <summary>
-        /// This will be null if this node is a primary.
-        /// </summary>
-        public ClusterNodePrimaryId PrimaryId { get; private set; }
-        
-        public long PingSent { get; private set; }
-        
-        public long PongReceived { get; private set; }
-        
-        public int ConfigEpoch { get; private set; }
-        
-        public ClusterNodeLinkState LinkState { get; private set; }
-        
-        public ClusterSlots Slots { get; private set; }
-
-        private void InitializeValues(char[] rawLine)
+        public ClusterNodesResultItem(char[] rawLine)
         {
+            if (rawLine is null)
+            {
+                return;
+            }
+
             var startIndex = 0;
             
             var nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
@@ -124,5 +107,26 @@ namespace ReadUs.ResultModels
 
             Slots = rawLine[startIndex..];
         }
+        
+        public ClusterNodeId? Id { get; private set; }
+
+        public ClusterNodeAddress? Address { get; private set; }
+        
+        public ClusterNodeFlags? Flags { get; private set; }
+        
+        /// <summary>
+        /// This will be null if this node is a primary.
+        /// </summary>
+        public ClusterNodePrimaryId? PrimaryId { get; private set; }
+        
+        public long PingSent { get; private set; }
+        
+        public long PongReceived { get; private set; }
+        
+        public int ConfigEpoch { get; private set; }
+        
+        public ClusterNodeLinkState? LinkState { get; private set; }
+        
+        public ClusterSlots? Slots { get; private set; }
     }
 }

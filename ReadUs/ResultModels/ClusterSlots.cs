@@ -38,7 +38,7 @@ namespace ReadUs.ResultModels
             internal static SlotRange Create(int begin, int end) =>
                 new SlotRange(begin, end);
 
-            public override bool Equals(object obj)
+            public override bool Equals(object? obj)
             {
                 if (obj is SlotRange range)
                 {
@@ -51,7 +51,7 @@ namespace ReadUs.ResultModels
             public override int GetHashCode() =>
                 HashCode.Combine(Begin, End);
 
-            public int CompareTo(SlotRange other)
+            public int CompareTo(SlotRange? other)
             {
                 // If the other instance is null we'll put this instance before it.
                 if (other is null)
@@ -185,7 +185,7 @@ namespace ReadUs.ResultModels
             return hashCode;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (obj is ClusterSlots clusterSlots)
             {
