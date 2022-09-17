@@ -6,6 +6,6 @@ namespace ReadUs
     {
         ClusterNodeRole Role { get; }
 
-        ClusterSlots Slots { get; }
+        ClusterSlots? Slots { get; }
     }
 }

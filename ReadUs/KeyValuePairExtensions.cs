@@ -7,7 +7,7 @@ namespace ReadUs
     {
         private static readonly RedisKey[] EmptyRedisKeyArray = new RedisKey[0];
 
-        internal static RedisKey[] Keys(this KeyValuePair<RedisKey, string>[] @this)
+        internal static RedisKey[]? Keys(this KeyValuePair<RedisKey, string>[] @this)
         {
             if (@this is null)
             {

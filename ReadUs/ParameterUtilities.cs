@@ -7,10 +7,10 @@ namespace ReadUs
 {
     internal static class ParameterUtilities
     {
-        internal static object[] CombineParameters(params object[] parameters) =>
+        internal static object?[] CombineParameters(params object[] parameters) =>
             UnwindObjectArray(parameters).ToArray();
 
-        internal static IEnumerable<object> UnwindObjectArray(object[] objects)
+        internal static IEnumerable<object?> UnwindObjectArray(object[] objects)
         {
             foreach (var obj in objects)
             {

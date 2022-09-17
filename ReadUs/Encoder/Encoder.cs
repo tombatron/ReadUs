@@ -8,7 +8,7 @@ namespace ReadUs.Encoder
         internal const string NullBulkString = "$-1\r\n\r\n";
         internal static readonly byte[] NullBulkStringBytes = Encoding.ASCII.GetBytes(NullBulkString);
 
-        public static byte[] Encode(params object[] items)
+        public static byte[] Encode(params object?[] items)
         {
             if (items == default)
             {
@@ -34,7 +34,7 @@ namespace ReadUs.Encoder
             }
         }
 
-        private static string CreateBulkString(object item)
+        private static string CreateBulkString(object? item)
         {
             string? bulkString = item switch
             {
