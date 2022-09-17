@@ -25,7 +25,7 @@ namespace ReadUs.Parser
 
         public bool TryToArray(out ParseResult[] array)
         {
-            if (IsArray && _array is not null)
+            if (_array is not null)
             {
                 array = _array;
                 return true;
