@@ -36,28 +36,24 @@ namespace ReadUs.Encoder
 
         private static string CreateBulkString(object item)
         {
-            if (item == default)
+            string? bulkString = item switch
+            {
+                RedisKey key => key.Name,
+                null => null,
+                _ => item.ToString()
+            };
+
+            if (bulkString is null)
             {
                 return NullBulkString;
             }
 
             var result = new StringBuilder();
 
-            string s;
-
-            if (item is RedisKey key)
-            {
-                s = key.Name;
-            }
-            else
-            {
-                s = item.ToString();
-            }
-
             result.Append('$');
-            result.Append(s.Length.ToString());
+            result.Append(bulkString.Length.ToString());
             result.Append(EncoderCarriageReturnLineFeed);
-            result.Append(s);
+            result.Append(bulkString);
             result.Append(EncoderCarriageReturnLineFeed);
 
             return result.ToString();
