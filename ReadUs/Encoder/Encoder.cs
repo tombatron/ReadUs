@@ -6,18 +6,19 @@ namespace ReadUs.Encoder
     {
         internal const string EncoderCarriageReturnLineFeed = "\r\n";
         internal const string NullBulkString = "$-1\r\n\r\n";
+        internal static readonly byte[] NullBulkStringBytes = Encoding.ASCII.GetBytes(NullBulkString);
 
         public static byte[] Encode(params object[] items)
         {
-            var result = new StringBuilder();
-
             if (items == default)
             {
-                result.Append(NullBulkString);
+                return NullBulkStringBytes;
             }
             else
             {
-                if (items?.Length > 1)
+                var result = new StringBuilder();
+
+                if (items.Length > 1)
                 {
                     result.Append('*');
                     result.Append(items.Length.ToString());
@@ -28,9 +29,9 @@ namespace ReadUs.Encoder
                 {
                     result.Append(CreateBulkString(item));
                 }
-            }
 
-            return Encoding.ASCII.GetBytes(result.ToString());
+                return Encoding.ASCII.GetBytes(result.ToString());
+            }
         }
 
         private static string CreateBulkString(object item)
