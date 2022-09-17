@@ -66,7 +66,7 @@ namespace ReadUs
                 availableParameters.AddRange(Items);
             }
 
-            var combinedParameters = CombineParameters(availableParameters);
+            var combinedParameters = CombineParameters(availableParameters.ToArray());
 
             return Encode(combinedParameters);
         }
