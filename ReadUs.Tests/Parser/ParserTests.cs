@@ -77,7 +77,7 @@ namespace ReadUs.Parser.Tests
             {
                 var result = Parser.Parse(SampleData.Array);
 
-                var arrayValue = (ParseResult[])result;
+                result.TryToArray(out var arrayValue);
 
                 Assert.Equal(ResultType.Array, result.Type);
 
@@ -91,7 +91,7 @@ namespace ReadUs.Parser.Tests
             {
                 var result = Parser.Parse(SampleData.MixedArray);
 
-                var arrayValue = (ParseResult[])result;
+                result.TryToArray(out var arrayValue);
 
                 Assert.Equal(ResultType.Array, result.Type);
 
@@ -109,14 +109,14 @@ namespace ReadUs.Parser.Tests
             {
                 var result = Parser.Parse(SampleData.ArrayOfArrays);
 
-                var arrayValue = (ParseResult[])result;
+                result.TryToArray(out var arrayValue);
 
                 Assert.Equal(ResultType.Array, result.Type);
 
                 Assert.Equal(2, arrayValue.Length);
                 Assert.Equal(ResultType.Array, arrayValue[0].Type);
 
-                var subArrayValue = (ParseResult[])arrayValue[0];
+                arrayValue[0].TryToArray(out var subArrayValue);
 
                 Assert.Equal(3, subArrayValue.Length);
                 Assert.Equal("1".ToCharArray(), subArrayValue[0].Value);
@@ -129,7 +129,7 @@ namespace ReadUs.Parser.Tests
             {
                 var result = Parser.Parse(SampleData.ArrayWithNull);
 
-                var arrayValue = (ParseResult[])result;
+                result.TryToArray(out var arrayValue);
 
                 Assert.Equal(ResultType.Array, result.Type);
                 Assert.Equal(3, arrayValue.Length);

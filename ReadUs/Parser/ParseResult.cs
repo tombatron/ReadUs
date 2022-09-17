@@ -1,4 +1,6 @@
-﻿namespace ReadUs.Parser
+﻿using System;
+
+namespace ReadUs.Parser
 {
     public readonly struct ParseResult
     {
@@ -21,7 +23,19 @@
             _array = array;
         }
 
-        public static explicit operator ParseResult[]?(ParseResult result) => result._array;
+        public bool TryToArray(out ParseResult[] array)
+        {
+            if (IsArray && _array is not null)
+            {
+                array = _array;
+                return true;
+            }
+            else
+            {
+                array = Array.Empty<ParseResult>();
+                return false;
+            }
+        }
 
         public override string ToString() => new string(Value);
     }

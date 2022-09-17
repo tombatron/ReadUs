@@ -17,10 +17,8 @@ namespace ReadUs.ResultModels
 
         public static explicit operator BlockingPopResult(ParseResult result)
         {
-            if (result.IsArray)
+            if (result.TryToArray(out var resultArray))
             {
-                var resultArray = (ParseResult[])result;
-
                 var listKey = resultArray[0];
                 var value = resultArray[1];
 
