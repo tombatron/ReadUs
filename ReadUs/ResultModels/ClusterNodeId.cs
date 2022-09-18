@@ -1,7 +1,4 @@
-﻿using System;
-using System.Linq;
-
-namespace ReadUs.ResultModels
+﻿namespace ReadUs.ResultModels
 {
     public sealed class ClusterNodeId
     {
