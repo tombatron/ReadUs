@@ -1,4 +1,8 @@
+using System;
+using System.Linq;
 using Xunit;
+using static ReadUs.Encoder.Encoder;
+using static ReadUs.ParameterUtilities;
 
 namespace ReadUs.Tests
 {
@@ -34,6 +38,95 @@ namespace ReadUs.Tests
                 var command = new RedisCommandEnvelope(default, default, keys, default);
 
                 Assert.True(command.AllKeysInSingleSlot);
+            }
+        }
+
+        public class ToByteArrayWill
+        {
+            [Fact]
+            public void WillAppendCommandNameIfPresent()
+            {
+                var command = new RedisCommandEnvelope("TestCommand", null, null, null);
+
+                var expected = Encode("TestCommand");
+
+                Assert.Equal(expected, command.ToByteArray());
+            }
+
+            [Fact]
+            public void WillAppendSubcommandNameIfPresent()
+            {
+                var command = new RedisCommandEnvelope(null, "TestSubCommand", null, null);
+
+                var expected = Encode("TestSubCommand");
+
+                Assert.Equal(expected, command.ToByteArray());
+            }
+
+            [Fact]
+            public void WillAppendCommandNameAndSubCommandNameIfPresent()
+            {
+                var command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null);
+
+                var expected = Encode("TestCommand", "TestSubCommand");
+
+                Assert.Equal(expected, command.ToByteArray());
+            }
+
+            [Fact]
+            public void WillAppendItemsIfPresent()
+            {
+                var command = new RedisCommandEnvelope(null, null, null, null, "Hello", "World");
+
+                var expected = Encode("Hello", "World");
+
+                Assert.Equal(expected, command.ToByteArray());
+            }
+
+            [Fact]
+            public void WillAppendCommandNameAndItemsIfPresent()
+            {
+                var command = new RedisCommandEnvelope("TestCommand", null, null, null, "Hello", "World");
+
+                var expected = Encode("TestCommand", "Hello", "World");
+
+                Assert.Equal(expected, command.ToByteArray());
+            }
+
+            [Fact]
+            public void WillAppendCommandNameSubCommandNameAndItemsIfPresent()
+            {
+                var command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+
+                var expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
+
+                Assert.Equal(expected, command.ToByteArray());
+            }
+        }
+
+        public class ImplicitConversionToByteArray
+        {
+            [Fact]
+            public void WillSucceed()
+            {
+                byte[] command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+
+                var expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
+
+                Assert.Equal(expected, command);
+            }
+        }
+
+        public class ImplicitConvertionToMemorySpan
+        {
+            [Fact]
+            public void WillSucceed()
+            {
+                ReadOnlyMemory<byte> command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+
+                ReadOnlyMemory<byte> expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
+
+                Assert.Equal(expected.ToArray(), command.ToArray());
             }
         }
     }
