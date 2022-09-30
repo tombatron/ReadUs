@@ -117,7 +117,7 @@ namespace ReadUs.Tests
             }
         }
 
-        public class ImplicitConvertionToMemorySpan
+        public class ImplicitConversionToMemorySpan
         {
             [Fact]
             public void WillSucceed()
