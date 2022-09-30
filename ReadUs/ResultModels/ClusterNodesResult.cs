@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using ReadUs.Parser;
 using static ReadUs.Parser.Parser;
+using static ReadUs.Extras.HashTools;
 
 namespace ReadUs.ResultModels
 {
@@ -39,11 +41,20 @@ namespace ReadUs.ResultModels
                 }
 
                 var rawLine = parsedResultArray[startIndex..nextLineBreak];
-                
+
                 startIndex = nextLineBreak;
 
                 yield return new ClusterNodesResultItem(rawLine);
             }
+        }
+
+        public override string ToString() => string.Join("|", this.Select(x => x.ToString()));
+
+        public string GetNodesSignature()
+        {
+            var unhashedSignature = this.ToString().Replace("myself|", string.Empty);
+
+            return CreateMd5Hash(unhashedSignature);
         }
     }
 
@@ -57,7 +68,7 @@ namespace ReadUs.ResultModels
             }
 
             var startIndex = 0;
-            
+
             var nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             Id = rawLine[startIndex..nextSpaceIndex];
@@ -96,7 +107,7 @@ namespace ReadUs.ResultModels
             nextSpaceIndex = Array.IndexOf(rawLine, ' ', startIndex);
 
             LinkState = rawLine[startIndex..(nextSpaceIndex == -1 ? rawLine.Length - 1 : nextSpaceIndex)];
-            
+
             // If the `nextSpaceIndex` is -1 at this point this is a secondary node and won't have `slots` defined.
             if (nextSpaceIndex == -1)
             {
@@ -107,26 +118,29 @@ namespace ReadUs.ResultModels
 
             Slots = rawLine[startIndex..];
         }
-        
+
         public ClusterNodeId? Id { get; private set; }
 
         public ClusterNodeAddress? Address { get; private set; }
-        
+
         public ClusterNodeFlags? Flags { get; private set; }
-        
+
         /// <summary>
         /// This will be null if this node is a primary.
         /// </summary>
         public ClusterNodePrimaryId? PrimaryId { get; private set; }
-        
+
         public long PingSent { get; private set; }
-        
+
         public long PongReceived { get; private set; }
-        
+
         public int ConfigEpoch { get; private set; }
-        
+
         public ClusterNodeLinkState? LinkState { get; private set; }
-        
+
         public ClusterSlots? Slots { get; private set; }
+
+        public override string ToString() =>
+            $"{Id ?? "NOID"}:{Address ?? "NOADDRESS"}:{Flags ?? "NOFLAGS"}:{Slots ?? "NOSLOTS"}";
     }
 }

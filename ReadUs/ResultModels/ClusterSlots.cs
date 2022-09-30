@@ -93,6 +93,18 @@ namespace ReadUs.ResultModels
             public static bool operator !=(SlotRange lhs, SlotRange rhs) =>
                 !(lhs == rhs);
 
+            public override string ToString()
+            {
+                if (Begin == End)
+                {
+                    return Begin.ToString();
+                }
+
+                return $"{Begin},{End}";
+            }
+
+            public static implicit operator string(SlotRange range) => 
+                range.ToString();
         }
 
         private SlotRange[] _slots;
@@ -119,9 +131,9 @@ namespace ReadUs.ResultModels
         {
             get
             {
-                foreach(var slot in _slots)
+                foreach (var slot in _slots)
                 {
-                    for(var i = slot.Begin; i <= slot.End; i++)
+                    for (var i = slot.Begin; i <= slot.End; i++)
                     {
                         yield return i;
                     }
@@ -219,5 +231,8 @@ namespace ReadUs.ResultModels
 
         public static bool operator !=(ClusterSlots lhs, ClusterSlots rhs) =>
             !(lhs == rhs);
+
+        public static implicit operator string(ClusterSlots slots) =>
+            string.Join(",", string.Join<SlotRange>(",", slots._slots));
     }
 }

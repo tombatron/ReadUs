@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 
 namespace ReadUs.ResultModels
 {
@@ -36,5 +37,8 @@ namespace ReadUs.ResultModels
 
             return ClusterNodeRole.Undefined;
         }
+
+        public static implicit operator string(ClusterNodeFlags clusterNodeFlags) =>
+            string.Join("|", clusterNodeFlags.ToArray());
     }
 }

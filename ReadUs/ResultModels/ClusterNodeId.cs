@@ -11,7 +11,7 @@
             new ClusterNodeId(rawValue);
 
         public static implicit operator string(ClusterNodeId nodeId) =>
-            new string(nodeId._rawValue);
+            new string(nodeId._rawValue).Trim();
 
         public override bool Equals(object? obj)
         {

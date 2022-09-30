@@ -5,8 +5,12 @@ namespace ReadUs.ResultModels
 {
     public class ClusterNodeAddress
     {
+        private readonly char[] _rawValue;
+
         private ClusterNodeAddress(char[] rawValue)
         {
+            _rawValue = rawValue;
+
             var startIndex = 0;
             var nextDelimiter = Array.IndexOf(rawValue, ':', startIndex);
 
@@ -30,5 +34,8 @@ namespace ReadUs.ResultModels
 
         public static implicit operator ClusterNodeAddress(char[] rawValue) =>
             new ClusterNodeAddress(rawValue);
+
+        public static implicit operator string(ClusterNodeAddress clusterNodeAddress) =>
+            new string(clusterNodeAddress._rawValue);
     }
 }
