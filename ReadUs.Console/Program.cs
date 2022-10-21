@@ -11,11 +11,19 @@ namespace ReadUs.Console
     {
         static async Task Main(string[] args)
         {
-            var connectionString = new Uri("redis://tombaserver.local:7000?connectionsPerNode=5");
+            var connectionString = new Uri("redis://192.168.86.40:7000?connectionsPerNode=5");
 
             using var pool = RedisConnectionPool.Create(connectionString);
 
             using var db = await pool.GetAsync();
+
+            if (db is RedisSingleInstanceDatabase sidb)
+            {
+                var roleResult = sidb.UnderlyingConnection.Role();
+                var asyncRoleResult = await sidb.UnderlyingConnection.RoleAsync();
+
+                Console.WriteLine($"{roleResult}");
+            }
 
             var keyValues = Enumerable.Range(0, 100_000)
                 .Select(x => new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever"))

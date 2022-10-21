@@ -21,6 +21,8 @@ namespace ReadUs
             _pool = pool;
         }
 
+        public IRedisConnection Connection => _connection;
+
         public abstract Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys);
 
         public abstract Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys);

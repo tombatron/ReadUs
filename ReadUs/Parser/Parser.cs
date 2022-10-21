@@ -36,6 +36,20 @@ namespace ReadUs.Parser
             }
         }
 
+        public static bool TryParse(Span<char> rawResult, out ParseResult result)
+        {
+            try
+            {
+                result = Parse(rawResult);
+                return true;
+            }
+            catch (Exception ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
+            {
+                result = default;
+                return false;
+            }
+        }
+
         private static ParseResult HandleSimpleString(Span<char> rawSimpleString) =>
             SimpleValueParse(ResultType.SimpleString, rawSimpleString);
 
@@ -74,6 +88,7 @@ namespace ReadUs.Parser
             var totalRawLength = TokenLength + arrayLength.Length + CarriageReturnLineFeedLength;
 
             var parsedArray = new ParseResult[arrayLengthInt];
+            var parsedArrayMembers = 0;
 
             for (var i = 0; i < arrayLengthInt; i++)
             {
@@ -83,10 +98,17 @@ namespace ReadUs.Parser
 
                 totalRawLength += parsedResult.TotalRawLength;
 
+                parsedArrayMembers++;
+
                 if (totalRawLength == rawArray.Length)
                 {
                     break;
                 }
+            }
+
+            if (parsedArrayMembers != arrayLengthInt)
+            {
+                throw new Exception("You ain't got the whole array dawg."); // TODO: Custom exception.
             }
 
             return new ParseResult(ResultType.Array, rawArray.ToArray(), totalRawLength, parsedArray);

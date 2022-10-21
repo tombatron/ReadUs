@@ -33,5 +33,7 @@
         {
             internal const string SetName = "SETNAME";
         }
+
+        internal const string Role = "ROLE";
     }
 }

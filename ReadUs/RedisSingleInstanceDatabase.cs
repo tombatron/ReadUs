@@ -12,6 +12,8 @@ namespace ReadUs
         {
         }
 
+        public IRedisConnection UnderlyingConnection => _connection;
+
         public override async Task SelectAsync(int databaseId, CancellationToken cancellationToken = default)
         {
             CheckIfDisposed();

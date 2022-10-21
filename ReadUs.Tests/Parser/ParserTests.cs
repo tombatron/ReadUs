@@ -136,6 +136,23 @@ namespace ReadUs.Parser.Tests
 
                 Assert.Null(arrayValue[1].Value);
             }
+
+            [Fact]
+            public void RoleResponseFromPrimary()
+            {
+                var result = Parser.Parse(SampleData.RoleResponseFromPrimary);
+
+                result.TryToArray(out var arrayValue);
+
+                Assert.Equal(ResultType.Array, result.Type);
+                Assert.Equal(5, arrayValue.Length);
+
+                Assert.Equal("slave", arrayValue[0].ToString());
+                Assert.Equal("192.168.86.40", arrayValue[1].ToString());
+                Assert.Equal("7005", arrayValue[2].ToString());
+                Assert.Equal("connected", arrayValue[3].ToString());
+                Assert.Equal("1291892", arrayValue[4].ToString());
+            }
         }
     }
 }

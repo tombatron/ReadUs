@@ -1,19 +1,23 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.ResultModels;
 
-namespace ReadUs
+namespace ReadUs;
+
+public interface IRedisConnection : IDisposable
 {
-    public interface IRedisConnection : IDisposable
-    {
-        bool IsConnected { get; }
+    bool IsConnected { get; }
 
-        void Connect();
+    void Connect();
 
-        Task ConnectAsync(CancellationToken cancellationToken = default);
+    Task ConnectAsync(CancellationToken cancellationToken = default);
 
-        byte[] SendCommand(RedisCommandEnvelope command);
+    RoleResult Role();
 
-        Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
-    }
+    Task<RoleResult> RoleAsync(CancellationToken cancellationToken = default);
+
+    byte[] SendCommand(RedisCommandEnvelope command);
+
+    Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
 }

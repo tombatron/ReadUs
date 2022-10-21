@@ -107,5 +107,8 @@ namespace ReadUs
 
         public static RedisCommandEnvelope CreateBlockingRightPopCommand(RedisKey[] keys, TimeSpan timeout) =>
             new RedisCommandEnvelope(BlockingRightPop, default, keys, timeout, keys);
+
+        public static RedisCommandEnvelope CreateRoleCommand() =>
+            new RedisCommandEnvelope(Role, default, default, default);
     }
 }

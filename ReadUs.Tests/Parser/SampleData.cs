@@ -23,5 +23,7 @@
         internal static readonly char[] ArrayOfArrays = "*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Foo\r\n-Bar\r\n".ToCharArray();
 
         internal static readonly char[] ArrayWithNull = "*3\r\n$3\r\nfoo\r\n$-1\r\n$3\r\nbar\r\n".ToCharArray();
+
+        internal static readonly char[] RoleResponseFromPrimary = "*5\r\n$5\r\nslave\r\n$13\r\n192.168.86.40\r\n:7005\r\n$9\r\nconnected\r\n:1291892\r\n".ToCharArray();
     }
 }

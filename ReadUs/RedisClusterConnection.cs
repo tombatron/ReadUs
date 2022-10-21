@@ -1,10 +1,10 @@
+using ReadUs.ResultModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ReadUs.ResultModels;
 
 namespace ReadUs
 {
@@ -99,5 +99,13 @@ namespace ReadUs
                 connection.Dispose();
             }
         }
+
+        // TODO: Let's find a way to get rid of these... This will require a redesign of some sort. 
+
+        public RoleResult Role() => 
+            throw new NotImplementedException("This command doesn't really make sense here...");
+
+        public Task<RoleResult> RoleAsync(CancellationToken cancellationToken = default) => 
+            throw new NotImplementedException("This command doesn't really make sense here...");
     }
 }
