@@ -18,7 +18,7 @@
 
         internal static readonly char[] Array = "*2\r\n$3\r\nfoo\r\n$3\r\nbar\r\n".ToCharArray();
 
-        internal static readonly char[] MixedArray = "*6\r\n:1\r\n:2\r\n:3\r\n:4\r\n$6\r\nfoobar\r\n".ToCharArray();
+        internal static readonly char[] MixedArray = "*5\r\n:1\r\n:2\r\n:3\r\n:4\r\n$6\r\nfoobar\r\n".ToCharArray();
 
         internal static readonly char[] ArrayOfArrays = "*2\r\n*3\r\n:1\r\n:2\r\n:3\r\n*2\r\n+Foo\r\n-Bar\r\n".ToCharArray();
 

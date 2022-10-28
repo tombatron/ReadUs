@@ -95,7 +95,7 @@ namespace ReadUs.Parser.Tests
 
                 Assert.Equal(ResultType.Array, result.Type);
 
-                Assert.Equal(6, arrayValue.Length);
+                Assert.Equal(5, arrayValue.Length);
 
                 Assert.Equal("1".ToCharArray(), arrayValue[0].Value);
                 Assert.Equal("2".ToCharArray(), arrayValue[1].Value);
