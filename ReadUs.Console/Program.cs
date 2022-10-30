@@ -15,27 +15,54 @@ namespace ReadUs.Console
 
             using var pool = RedisConnectionPool.Create(connectionString);
 
-            using var db = await pool.GetAsync();
 
-            if (db is RedisSingleInstanceDatabase sidb)
+
+            // if (db is RedisSingleInstanceDatabase sidb)
+            // {
+            //     var roleResult = sidb.UnderlyingConnection.Role();
+            //     var asyncRoleResult = await sidb.UnderlyingConnection.RoleAsync();
+
+            //     Console.WriteLine($"{roleResult}");
+            // }
+
+            // var keyValues = Enumerable.Range(0, 100_000)
+            //     .Select(x => new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever"))
+            //     .ToArray();
+
+            // var sw = Stopwatch.StartNew();
+
+            // await db.SetMultipleAsync(keyValues);
+
+            // sw.Stop();
+
+            // Console.WriteLine($"Done in {sw.ElapsedMilliseconds}ms");
+            Console.WriteLine("Hi...");
+            do
             {
-                var roleResult = sidb.UnderlyingConnection.Role();
-                var asyncRoleResult = await sidb.UnderlyingConnection.RoleAsync();
+                while (!Console.KeyAvailable)
+                // while(true)
+                {
+                    var key = Guid.NewGuid().ToString("x");
+                    var value = Guid.NewGuid().ToString("x");
 
-                Console.WriteLine($"{roleResult}");
-            }
+                    Console.WriteLine($"Writing Key {key}...");
 
-            var keyValues = Enumerable.Range(0, 100_000)
-                .Select(x => new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "whatever"))
-                .ToArray();
+                    try
+                    {
+                        using var db = await pool.GetAsync();
 
-            var sw = Stopwatch.StartNew();
+                        await db.SetAsync(key, value);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                    }
 
-            await db.SetMultipleAsync(keyValues);
+                    Console.WriteLine("Waiting 250ms...");
 
-            sw.Stop();
-
-            Console.WriteLine($"Done in {sw.ElapsedMilliseconds}ms");
+                    await Task.Delay(250);
+                }
+            } while (Console.ReadKey(true).Key != ConsoleKey.Escape);
         }
     }
 }
