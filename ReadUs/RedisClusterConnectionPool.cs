@@ -38,7 +38,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Need to check if we are reinitializing. That shouldn't happen too often, but
         // if it does we'll want to wait until that is complete before returning anything
         // to the caller. 
-        await WaitWhileAsync(IsReinitializing, default(CancellationToken));
+        await WaitWhileAsync(() => _isReinitializing, default(CancellationToken));
 
         var connection = GetReadUsConnection();
 
@@ -82,7 +82,6 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     }
 
     private static bool _isReinitializing = false;
-    private bool IsReinitializing() => _isReinitializing;
 
     private void Reinitialize()
     {
