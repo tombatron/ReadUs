@@ -239,51 +239,45 @@ public class RedisConnection : IRedisConnection
         Trace.WriteLine($"Connection {ConnectionName} ({EndPoint.Address}:{EndPoint.Port}) disposed.");
     }
 
-    private int _totalBytes = 0;
+    // private int _totalBytes = 0;
 
     private bool IsResponseComplete(int bytesReceived, Span<byte> buffer)
     {
-        // It looks like we're trying to handle the response incorrectly as a bulk string...
-        var currentTotalBytes = _totalBytes + bytesReceived;
-
-        var tempCharArray = buffer[0..currentTotalBytes].ToArray().Select(x=> Convert.ToChar(x)).ToArray(); // TODO: Remove this it's gross.
-
-        var isComplete = TryParse(tempCharArray, out var _);
-
-        // bool isComplete;
-
-        // switch (buffer[0])
-        // {
-        //     case SimpleStringHeader:
-        //     case ErrorHeader:
-        //     case IntegerHeader:
-        //         isComplete = buffer.Slice(currentTotalBytes - 4, 4).IndexOf(CarriageReturnLineFeed) > -1;
-        //         break;
-        //     case BulkStringHeader:
-        //         (isComplete, _) = IsCompleteBulkString(buffer);
-        //         break;
-        //     case ArrayHeader:
-        //         isComplete = IsArrayComplete(buffer);
-        //         break;
-        //     default:
-        //         throw new Exception("(╯°□°）╯︵ ┻━┻");
-        // }
-
-        if (isComplete)
-        {
-            _totalBytes = 0;
-        }
+        var (isComplete, _) = IsResponseComplete(buffer.Slice(0, bytesReceived));
 
         return isComplete;
     }
 
+    private static (bool, int) IsResponseComplete(Span<byte> buffer)
+    {
+        switch (buffer[0])
+        {
+            case SimpleStringHeader:
+            case ErrorHeader:
+            case IntegerHeader:
+                // Simple strings, errors, and integers are all "simple values" therefore we can handle them 
+                // all the same when verifying that we've received everything. 
+
+                // Here we're looking at the last four populated bytes of the buffer and checking to see if they
+                // are a CRLF. 
+                var endLocation = buffer.IndexOf(CarriageReturnLineFeed);
+                var isComplete = buffer.IndexOf(CarriageReturnLineFeed) > -1;
+
+                return (isComplete, endLocation);
+            case BulkStringHeader:
+                return IsCompleteBulkString(buffer);
+            case ArrayHeader:
+                return IsArrayComplete(buffer);
+            default:
+                throw new Exception("(╯°□°）╯︵ ┻━┻");
+        }
+    }
+
     private static (bool, int) IsCompleteBulkString(Span<byte> buffer)
     {
-        var whatever = Encoding.UTF8.GetString(buffer);
-
         var firstCrlf = buffer.IndexOf(CarriageReturnLineFeed);
         var lengthBytes = buffer.Slice(1, firstCrlf - 1);
-        var lengthString = Encoding.ASCII.GetString(lengthBytes);
+        var lengthString = Encoding.ASCII.GetString(lengthBytes); // TODO: Maybe there's a better way to do this?
 
         var length = int.Parse(lengthString);
         var end = HeaderTokenLength + lengthString.Length + CrlfLength + length;
@@ -294,7 +288,7 @@ public class RedisConnection : IRedisConnection
         return (isComplete, totalLength);
     }
 
-    private static bool IsArrayComplete(Span<byte> buffer)
+    private static (bool, int) IsArrayComplete(Span<byte> buffer)
     {
         var firstCrlf = buffer.IndexOf(CarriageReturnLineFeed);
         var lengthBytes = buffer.Slice(1, firstCrlf - 1);
@@ -303,21 +297,25 @@ public class RedisConnection : IRedisConnection
         var length = int.Parse(lengthString);
         var start = HeaderTokenLength + lengthBytes.Length + CrlfLength;
 
+        var parsedMembers = 0;
+
         for (var i = 0; i < length; i++)
         {
-            var (complete, resultLength) = IsCompleteBulkString(buffer.Slice(start));
+            var (complete, resultLength) = IsResponseComplete(buffer.Slice(start));
 
             if (complete)
             {
+                parsedMembers++;
+
                 start += resultLength;
             }
             else
             {
-                return false;
+                return default;
             }
         }
 
-        return true;
+        return (parsedMembers == length, start);
     }
 
     private static IPAddress ResolveIpAddress(string address)

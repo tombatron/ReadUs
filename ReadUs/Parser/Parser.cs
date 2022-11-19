@@ -81,17 +81,30 @@ namespace ReadUs.Parser
 
         private static ParseResult HandleArray(Span<char> rawArray)
         {
+            // We need to parse an array. Let's first find out where the first carriage return
+            // is. Once we have that we can determine how many items are present in this array.
             var firstCarriageReturn = rawArray.IndexOf('\r') - 1;
+
+            // We know how many characters make up the array token as well as how many characters
+            // make up the first carriage return. We're going to take the slice in between to 
+            // get the character value of the array length.
             var arrayLength = rawArray.Slice(1, firstCarriageReturn);
+
+            // Now we're going to parse it...
             var arrayLengthInt = int.Parse(arrayLength);
 
+            // We're initializing the `totalRawLength` variable such that when we start looking
+            // at what has composed the array, we start AFTER the array header. 
             var totalRawLength = TokenLength + arrayLength.Length + CarriageReturnLineFeedLength;
 
+            // Here we are initializing the array that will hold the result of the parsing of this
+            // array...
             var parsedArray = new ParseResult[arrayLengthInt];
             var parsedArrayMembers = 0;
 
             for (var i = 0; i < arrayLengthInt; i++)
             {
+                // Recursive call to the parse method to handle the each item within the array.
                 var parsedResult = Parse(rawArray.Slice(totalRawLength));
 
                 parsedArray[i] = parsedResult;

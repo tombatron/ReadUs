@@ -2,7 +2,7 @@ using ReadUs.ResultModels;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
-using static ReadUs.RedisConnectionPool;
+using static ReadUs.RedisClusterConnectionPool;
 using static ReadUs.Tests.TestUtilities;
 
 namespace ReadUs.Tests.Integration
@@ -42,9 +42,10 @@ namespace ReadUs.Tests.Integration
 
             public RoleCommandOnCluster()
             {
+
                 TryGetClusterInformation(ClusterConnectionConfiguration, out var clusterNodes);
 
-                var connectionPool = new RedisClusterConnectionPool(clusterNodes, 1);
+                var connectionPool = new RedisClusterConnectionPool(clusterNodes, ClusterConnectionConfiguration);
 
                 var database = connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
 

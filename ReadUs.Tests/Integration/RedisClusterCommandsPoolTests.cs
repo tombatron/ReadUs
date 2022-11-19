@@ -1,5 +1,6 @@
 ﻿using System;
 using Xunit;
+using static ReadUs.RedisClusterConnectionPool;
 
 namespace ReadUs.Tests.Integration
 {
@@ -10,9 +11,9 @@ namespace ReadUs.Tests.Integration
         {
             var connectionString = new Uri("redis://tombaserver.local:7000");
 
-            RedisConnectionPool.TryGetClusterInformation(connectionString, out var nodes);
+            TryGetClusterInformation(connectionString, out var nodes);
 
-            var pool = new RedisClusterConnectionPool(nodes, 1);
+            var pool = new RedisClusterConnectionPool(nodes, connectionString);
         }
     }
 }

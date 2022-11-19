@@ -13,7 +13,8 @@ namespace ReadUs.Tests
         [Fact]
         public async Task ItCanGetDatabaseInstance()
         {
-            using var clusterConnectionPool = new RedisClusterConnectionPool(_redisClusterFixture.ClusterNodes, 1);
+            using var clusterConnectionPool = new RedisClusterConnectionPool(
+                _redisClusterFixture.ClusterNodes, _redisClusterFixture.Configuration);
 
             using var redisDatabase = await clusterConnectionPool.GetAsync();
 
