@@ -239,8 +239,6 @@ public class RedisConnection : IRedisConnection
         Trace.WriteLine($"Connection {ConnectionName} ({EndPoint.Address}:{EndPoint.Port}) disposed.");
     }
 
-    // private int _totalBytes = 0;
-
     private bool IsResponseComplete(int bytesReceived, Span<byte> buffer)
     {
         var (isComplete, _) = IsResponseComplete(buffer.Slice(0, bytesReceived));
