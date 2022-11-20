@@ -115,6 +115,15 @@ namespace ReadUs.Parser
 
                 if (totalRawLength == rawArray.Length)
                 {
+                    // We've made it to the end of the character array, we've now got to check to see
+                    // if all we've got left is the final item in the array, if so, we'll go ahead and
+                    // increment the parsed array members counter because for now we're assuming that 
+                    // the final item in the array is nil.
+                    if (parsedArrayMembers == (arrayLengthInt - 1))
+                    {
+                        parsedArrayMembers++;
+                    }
+
                     break;
                 }
             }
