@@ -260,7 +260,7 @@ public class RedisConnection : IRedisConnection
 
                 // Here we're looking at the last four populated bytes of the buffer and checking to see if they
                 // are a CRLF. 
-                var endLocation = buffer.IndexOf(CarriageReturnLineFeed);
+                var endLocation = buffer.IndexOf(CarriageReturnLineFeed) + 2;
                 var isComplete = buffer.IndexOf(CarriageReturnLineFeed) > -1;
 
                 return (isComplete, endLocation);
@@ -301,7 +301,19 @@ public class RedisConnection : IRedisConnection
 
         for (var i = 0; i < length; i++)
         {
-            var (complete, resultLength) = IsResponseComplete(buffer.Slice(start));
+            var contentSlice = buffer.Slice(start);
+
+            // Are we checking the final item in the response? If so, it's possible that the
+            // item will be nil... I suppose it's possible that the response hasn't fully
+            // made it to us but uh... not sure at this point a way around this...
+            if (parsedMembers == (length - 1) && contentSlice.Length == 0)
+            {
+                // We're here, it looks like we're on the final item in the array and there is
+                // no more data in the buffer...
+                return (true, start);
+            }
+
+            var (complete, resultLength) = IsResponseComplete(contentSlice);
 
             if (complete)
             {

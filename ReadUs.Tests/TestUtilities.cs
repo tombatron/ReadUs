@@ -8,7 +8,7 @@ namespace ReadUs.Tests
         {
             get
             {
-                var address = Environment.GetEnvironmentVariable("Single_Instance_Redis_Connection_String") ?? "redis://tombaserver.local:7000";
+                var address = Environment.GetEnvironmentVariable("Single_Instance_Redis_Connection_String") ?? "redis://tombaserver.local:6379";
 
                 return new Uri(address);
             }
