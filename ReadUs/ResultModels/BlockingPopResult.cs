@@ -1,34 +1,33 @@
 ﻿using System;
 using ReadUs.Parser;
 
-namespace ReadUs.ResultModels
+namespace ReadUs.ResultModels;
+
+public class BlockingPopResult
 {
-    public class BlockingPopResult
+    public string ListKey { get; }
+
+    public string Value { get; }
+
+    public BlockingPopResult(string listKey, string value)
     {
-        public string ListKey { get; }
+        ListKey = listKey;
+        Value = value;
+    }
 
-        public string Value { get; }
-
-        public BlockingPopResult(string listKey, string value)
+    public static explicit operator BlockingPopResult(ParseResult result)
+    {
+        if (result.TryToArray(out var resultArray))
         {
-            ListKey = listKey;
-            Value = value;
+            var listKey = resultArray[0];
+            var value = resultArray[1];
+
+            return new BlockingPopResult(listKey.ToString(), value.ToString());
         }
-
-        public static explicit operator BlockingPopResult(ParseResult result)
+        else
         {
-            if (result.TryToArray(out var resultArray))
-            {
-                var listKey = resultArray[0];
-                var value = resultArray[1];
-
-                return new BlockingPopResult(listKey.ToString(), value.ToString());
-            }
-            else
-            {
-                // TODO: Throw custom exception here.
-                throw new Exception("We expected a result that was a multi-bulk here.");
-            }
+            // TODO: Throw custom exception here.
+            throw new Exception("We expected a result that was a multi-bulk here.");
         }
     }
 }

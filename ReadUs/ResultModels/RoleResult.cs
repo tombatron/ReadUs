@@ -22,7 +22,7 @@ public abstract class RoleResult
             {
                 Roles.Primary => (PrimaryRoleResult)resultArray,
                 Roles.Replica => (ReplicaRoleResult)resultArray,
-                _ => throw new Exception("Not sure what happend here but here we are.")
+                _ => throw new Exception("Not sure what happened here but here we are.")
             };
 
             return role;

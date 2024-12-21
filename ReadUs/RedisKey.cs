@@ -1,23 +1,22 @@
 using static ReadUs.RedisKeyUtilities;
 
-namespace ReadUs
+namespace ReadUs;
+
+public readonly struct RedisKey
 {
-    public readonly struct RedisKey
+    public string Name { get; }
+
+    public uint Slot { get; }
+
+    public RedisKey(string name)
     {
-        public string Name { get; }
+        Name = name;
 
-        public uint Slot { get; }
-
-        public RedisKey(string name)
-        {
-            Name = name;
-
-            Slot = ComputeHashSlot(name);
-        }
-
-        public static implicit operator RedisKey(string keyName) =>
-            new RedisKey(keyName);
-
-        internal RedisKey[] ToArray() => new RedisKey[] { this };
+        Slot = ComputeHashSlot(name);
     }
+
+    public static implicit operator RedisKey(string keyName) =>
+        new RedisKey(keyName);
+
+    internal RedisKey[] ToArray() => new RedisKey[] { this };
 }

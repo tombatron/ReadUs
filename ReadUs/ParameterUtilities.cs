@@ -3,48 +3,47 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("ReadUs.Tests")]
-namespace ReadUs
+namespace ReadUs;
+
+internal static class ParameterUtilities
 {
-    internal static class ParameterUtilities
+    internal static object?[] CombineParameters(params object[] parameters) =>
+        UnwindObjectArray(parameters).ToArray();
+
+    internal static IEnumerable<object?> UnwindObjectArray(object[] objects)
     {
-        internal static object?[] CombineParameters(params object[] parameters) =>
-            UnwindObjectArray(parameters).ToArray();
-
-        internal static IEnumerable<object?> UnwindObjectArray(object[] objects)
+        foreach (var obj in objects)
         {
-            foreach (var obj in objects)
+            if (obj.GetType().IsArray)
             {
-                if (obj.GetType().IsArray)
+                if (obj is KeyValuePair<RedisKey, string>[] kvps)
                 {
-                    if (obj is KeyValuePair<RedisKey, string>[] kvps)
+                    foreach(var kvp in kvps)
                     {
-                        foreach(var kvp in kvps)
-                        {
-                            yield return kvp.Key.Name;
-                            yield return kvp.Value;
-                        }
-
-                        continue;
+                        yield return kvp.Key.Name;
+                        yield return kvp.Value;
                     }
 
-                    var objArray = obj as object[];
-
-                    if (objArray is null)
-                    {
-                        yield return objArray;
-
-                        continue;
-                    }
-
-                    foreach (var obj2 in UnwindObjectArray(objArray))
-                    {
-                        yield return obj2;
-                    }
+                    continue;
                 }
-                else
+
+                var objArray = obj as object[];
+
+                if (objArray is null)
                 {
-                    yield return obj;
+                    yield return objArray;
+
+                    continue;
                 }
+
+                foreach (var obj2 in UnwindObjectArray(objArray))
+                {
+                    yield return obj2;
+                }
+            }
+            else
+            {
+                yield return obj;
             }
         }
     }

@@ -1,11 +1,10 @@
 ﻿using ReadUs.ResultModels;
 
-namespace ReadUs
-{
-    public interface IRedisNodeConnection : IRedisConnection
-    {
-        ClusterNodeRole Role { get; }
+namespace ReadUs;
 
-        ClusterSlots? Slots { get; }
-    }
+public interface IRedisNodeConnection : IRedisConnection
+{
+    ClusterNodeRole Role { get; }
+
+    ClusterSlots? Slots { get; }
 }

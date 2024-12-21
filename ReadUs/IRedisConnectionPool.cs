@@ -1,12 +1,11 @@
 using System;
 using System.Threading.Tasks;
 
-namespace ReadUs
-{
-    public interface IRedisConnectionPool : IDisposable
-    {
-        Task<IRedisDatabase> GetAsync();
+namespace ReadUs;
 
-        void ReturnConnection(IRedisConnection connection);
-    }
+public interface IRedisConnectionPool : IDisposable
+{
+    Task<IRedisDatabase> GetAsync();
+
+    void ReturnConnection(IRedisConnection connection);
 }

@@ -1,11 +1,10 @@
-﻿namespace ReadUs.Parser
+﻿namespace ReadUs.Parser;
+
+public enum ResultType
 {
-    public enum ResultType
-    {
-        SimpleString,
-        Error,
-        Integer,
-        BulkString,
-        Array
-    }
+    SimpleString,
+    Error,
+    Integer,
+    BulkString,
+    Array
 }

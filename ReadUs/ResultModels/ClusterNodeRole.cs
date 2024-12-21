@@ -1,9 +1,8 @@
-namespace ReadUs.ResultModels
+namespace ReadUs.ResultModels;
+
+public enum ClusterNodeRole
 {
-    public enum ClusterNodeRole
-    {
-        Undefined,
-        Primary,
-        Secondary
-    }
+    Undefined,
+    Primary,
+    Secondary
 }

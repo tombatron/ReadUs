@@ -5,110 +5,109 @@ using static ReadUs.Encoder.Encoder;
 using static ReadUs.ParameterUtilities;
 using static ReadUs.RedisCommandNames;
 
-namespace ReadUs
+namespace ReadUs;
+
+public readonly struct RedisCommandEnvelope
 {
-    public readonly struct RedisCommandEnvelope
+    public string? CommandName { get; }
+
+    public string? SubCommandName { get; }
+
+    public RedisKey[]? Keys { get; }
+
+    public object[]? Items { get; }
+
+    public TimeSpan Timeout { get; }
+
+    public bool AllKeysInSingleSlot
     {
-        public string? CommandName { get; }
-
-        public string? SubCommandName { get; }
-
-        public RedisKey[]? Keys { get; }
-
-        public object[]? Items { get; }
-
-        public TimeSpan Timeout { get; }
-
-        public bool AllKeysInSingleSlot
+        get
         {
-            get
+            if (Keys is null || Keys.Length == 0)
             {
-                if (Keys is null || Keys.Length == 0)
-                {
-                    return false;
-                }
-
-                var firstKeySlot = Keys[0].Slot;
-
-                return Keys.All(x => x.Slot == firstKeySlot);
+                return false;
             }
+
+            var firstKeySlot = Keys[0].Slot;
+
+            return Keys.All(x => x.Slot == firstKeySlot);
         }
-
-        public RedisCommandEnvelope(string? commandName, string? subCommandName, RedisKey[]? keys, TimeSpan? timeout, params object[]? items)
-        {
-            CommandName = commandName;
-
-            SubCommandName = subCommandName;
-
-            Keys = keys;
-
-            Items = items;
-
-            Timeout = timeout ?? TimeSpan.FromSeconds(5);
-        }
-
-        public byte[] ToByteArray()
-        {
-            var availableParameters = new List<object>();
-
-            if (CommandName is not null)
-            {
-                availableParameters.Add(CommandName);
-            }
-
-            if (SubCommandName is not null)
-            {
-                availableParameters.Add(SubCommandName);
-            }
-
-            if (Items is not null)
-            {
-                availableParameters.AddRange(Items);
-            }
-
-            var combinedParameters = CombineParameters(availableParameters.ToArray());
-
-            return Encode(combinedParameters);
-        }
-
-        public static implicit operator byte[](RedisCommandEnvelope envelope) => envelope.ToByteArray();
-
-        public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
-
-        public static RedisCommandEnvelope CreateSelectCommand(int databaseId) =>
-            new RedisCommandEnvelope(Select, default, default, TimeSpan.FromSeconds(5), databaseId);
-
-        public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
-            new RedisCommandEnvelope(Client, ClientSubcommands.SetName, default, TimeSpan.FromSeconds(5), clientConnectionName);
-
-        public static RedisCommandEnvelope CreateClusterNodesCommand() =>
-            new RedisCommandEnvelope(Cluster, ClusterSubcommands.Nodes, default, TimeSpan.FromMilliseconds(5), default);
-
-        public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
-            new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), default, keysAndValues);
-
-        public static RedisCommandEnvelope CreateGetCommand(RedisKey key) =>
-            new RedisCommandEnvelope(Get, default, new[] { key }, default, key);
-
-        public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
-            new RedisCommandEnvelope(LeftPush, default, new[] { key }, default, key, elements);
-
-        public static RedisCommandEnvelope CreateListLengthCommand(RedisKey key) =>
-            new RedisCommandEnvelope(ListLength, default, new[] { key }, default, key);
-
-        public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
-            new RedisCommandEnvelope(RightPush, default, new[] { key }, default, key, elements);
-
-        public static RedisCommandEnvelope CreateSetCommand(RedisKey key, string value) =>
-            new RedisCommandEnvelope(Set, default, new[] { key }, default, key, value);
-
-        public static RedisCommandEnvelope CreateBlockingLeftPopCommand(RedisKey[] keys, TimeSpan timeout) =>
-            new RedisCommandEnvelope(BlockingLeftPop, default, keys, timeout, keys);
-
-        public static RedisCommandEnvelope CreateBlockingRightPopCommand(RedisKey[] keys, TimeSpan timeout) =>
-            new RedisCommandEnvelope(BlockingRightPop, default, keys, timeout, keys);
-
-        public static RedisCommandEnvelope CreateRoleCommand() =>
-            new RedisCommandEnvelope(Role, default, default, default);
     }
+
+    public RedisCommandEnvelope(string? commandName, string? subCommandName, RedisKey[]? keys, TimeSpan? timeout, params object[]? items)
+    {
+        CommandName = commandName;
+
+        SubCommandName = subCommandName;
+
+        Keys = keys;
+
+        Items = items;
+
+        Timeout = timeout ?? TimeSpan.FromSeconds(5);
+    }
+
+    public byte[] ToByteArray()
+    {
+        var availableParameters = new List<object>();
+
+        if (CommandName is not null)
+        {
+            availableParameters.Add(CommandName);
+        }
+
+        if (SubCommandName is not null)
+        {
+            availableParameters.Add(SubCommandName);
+        }
+
+        if (Items is not null)
+        {
+            availableParameters.AddRange(Items);
+        }
+
+        var combinedParameters = CombineParameters(availableParameters.ToArray());
+
+        return Encode(combinedParameters);
+    }
+
+    public static implicit operator byte[](RedisCommandEnvelope envelope) => envelope.ToByteArray();
+
+    public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
+
+    public static RedisCommandEnvelope CreateSelectCommand(int databaseId) =>
+        new RedisCommandEnvelope(Select, default, default, TimeSpan.FromSeconds(5), databaseId);
+
+    public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
+        new RedisCommandEnvelope(Client, ClientSubcommands.SetName, default, TimeSpan.FromSeconds(5), clientConnectionName);
+
+    public static RedisCommandEnvelope CreateClusterNodesCommand() =>
+        new RedisCommandEnvelope(Cluster, ClusterSubcommands.Nodes, default, TimeSpan.FromMilliseconds(5), default);
+
+    public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
+        new RedisCommandEnvelope(SetMultiple, default, keysAndValues.Keys(), default, keysAndValues);
+
+    public static RedisCommandEnvelope CreateGetCommand(RedisKey key) =>
+        new RedisCommandEnvelope(Get, default, new[] { key }, default, key);
+
+    public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
+        new RedisCommandEnvelope(LeftPush, default, new[] { key }, default, key, elements);
+
+    public static RedisCommandEnvelope CreateListLengthCommand(RedisKey key) =>
+        new RedisCommandEnvelope(ListLength, default, new[] { key }, default, key);
+
+    public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
+        new RedisCommandEnvelope(RightPush, default, new[] { key }, default, key, elements);
+
+    public static RedisCommandEnvelope CreateSetCommand(RedisKey key, string value) =>
+        new RedisCommandEnvelope(Set, default, new[] { key }, default, key, value);
+
+    public static RedisCommandEnvelope CreateBlockingLeftPopCommand(RedisKey[] keys, TimeSpan timeout) =>
+        new RedisCommandEnvelope(BlockingLeftPop, default, keys, timeout, keys);
+
+    public static RedisCommandEnvelope CreateBlockingRightPopCommand(RedisKey[] keys, TimeSpan timeout) =>
+        new RedisCommandEnvelope(BlockingRightPop, default, keys, timeout, keys);
+
+    public static RedisCommandEnvelope CreateRoleCommand() =>
+        new RedisCommandEnvelope(Role, default, default, default);
 }
