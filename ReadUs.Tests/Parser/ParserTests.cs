@@ -1,7 +1,9 @@
 ﻿using Xunit;
 
-namespace ReadUs.Parser.Tests
+namespace ReadUs.Tests.Parser
 {
+    using ReadUs.Parser;
+    
     public class ParserTests
     {
         public class SimpleStrings

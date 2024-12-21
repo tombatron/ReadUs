@@ -1,4 +1,4 @@
-﻿namespace ReadUs.Parser.Tests
+﻿namespace ReadUs.Tests.Parser
 {
     internal static class SampleData
     {

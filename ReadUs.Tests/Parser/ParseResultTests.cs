@@ -1,77 +1,76 @@
 using ReadUs.Parser;
 using Xunit;
 
-namespace ReadUs.Tests.Parser
+namespace ReadUs.Tests.Parser;
+
+public class ParseResultTests
 {
-    public class ParseResultTests
+    public class TryToArrayWill
     {
-        public class TryToArrayWill
+        [Fact]
+        public void ReturnFalseIfArrayIsNull()
         {
-            [Fact]
-            public void ReturnFalseIfArrayIsNull()
-            {
-                var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
 
-                Assert.False(parseResult.TryToArray(out var _));
-            }
-
-            [Fact]
-            public void ReturnEmptyArrayIfNotArray()
-            {
-                var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
-
-                var result = parseResult.TryToArray(out var arrayResult);
-
-                Assert.False(result);
-                Assert.Empty(arrayResult);
-            }
-
-            [Fact]
-            public void ReturnTrueIfArrayIsNotNull()
-            {
-                var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
-                var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
-
-                var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
-
-                Assert.True(parseResult.TryToArray(out var _));
-            }
-
-            [Fact]
-            public void ReturnArrayIfItsAnArray()
-            {
-                var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
-                var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
-
-                var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
-
-                var result = parseResult.TryToArray(out var arrayResult);
-
-                Assert.True(result);
-                Assert.NotEmpty(arrayResult);
-            }
+            Assert.False(parseResult.TryToArray(out var _));
         }
 
-        public class ToStringWill
+        [Fact]
+        public void ReturnEmptyArrayIfNotArray()
         {
-            [Fact]
-            public void ProjectValueToString()
-            {
-                var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
+            var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
 
-                Assert.Equal("1", firstItem.ToString());
-            }
+            var result = parseResult.TryToArray(out var arrayResult);
 
-            [Fact]
-            public void ProjectEmptyStringIfValueIsNull()
-            {
-                var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
-                var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            Assert.False(result);
+            Assert.Empty(arrayResult);
+        }
 
-                var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
+        [Fact]
+        public void ReturnTrueIfArrayIsNotNull()
+        {
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
+            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
 
-                Assert.Empty(parseResult.ToString());
-            }
+            var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
+
+            Assert.True(parseResult.TryToArray(out var _));
+        }
+
+        [Fact]
+        public void ReturnArrayIfItsAnArray()
+        {
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
+            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+
+            var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
+
+            var result = parseResult.TryToArray(out var arrayResult);
+
+            Assert.True(result);
+            Assert.NotEmpty(arrayResult);
+        }
+    }
+
+    public class ToStringWill
+    {
+        [Fact]
+        public void ProjectValueToString()
+        {
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
+
+            Assert.Equal("1", firstItem.ToString());
+        }
+
+        [Fact]
+        public void ProjectEmptyStringIfValueIsNull()
+        {
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
+            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+
+            var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
+
+            Assert.Empty(parseResult.ToString());
         }
     }
 }

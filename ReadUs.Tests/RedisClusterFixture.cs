@@ -2,25 +2,26 @@ using ReadUs.ResultModels;
 using System;
 using static ReadUs.RedisClusterConnectionPool;
 
-namespace ReadUs.Tests
+namespace ReadUs.Tests;
+
+// ReSharper disable once ClassNeverInstantiated.Global
+public class RedisClusterFixture : IDisposable
 {
-    public class RedisClusterFixture : IDisposable
+    // TODO: Testcontainers...
+    public ClusterNodesResult ClusterNodes { get; }
+    public RedisConnectionConfiguration Configuration { get; }
+
+    public RedisClusterFixture()
     {
-        public ClusterNodesResult ClusterNodes { get; }
-        public RedisConnectionConfiguration Configuration { get; }
+        var connectionString = new Uri("redis://tombaserver.local:6379");
 
-        public RedisClusterFixture()
-        {
-            var connectionString = new Uri("redis://tombaserver.local:7000");
+        TryGetClusterInformation(connectionString, out var clusterNodes);
 
-            TryGetClusterInformation(connectionString, out var clusterNodes);
+        ClusterNodes = clusterNodes;
+        Configuration = connectionString;
+    }
 
-            ClusterNodes = clusterNodes;
-            Configuration = connectionString;
-        }
-
-        public void Dispose()
-        {
-        }
+    public void Dispose()
+    {
     }
 }

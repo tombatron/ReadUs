@@ -5,92 +5,91 @@ using Xunit;
 using static ReadUs.RedisClusterConnectionPool;
 using static ReadUs.Tests.TestUtilities;
 
-namespace ReadUs.Tests.Integration
+namespace ReadUs.Tests.Integration;
+
+public sealed class RedisConnectionTests
 {
-    public sealed class RedisConnectionTests
+    public sealed class RoleCommandOnSingleInstance
     {
-        public sealed class RoleCommandOnSingleInstance
+        [Fact]
+        public void CanExecute()
         {
-            [Fact]
-            public void CanExecute()
-            {
-                var connection = new RedisConnection(SingleInstanceConnectionConfigurtion);
+            var connection = new RedisConnection(SingleInstanceConnectionConfigurtion);
 
-                connection.Connect();
+            connection.Connect();
 
-                var roleResult = connection.Role();
+            var roleResult = connection.Role();
 
-                Assert.IsType<PrimaryRoleResult>(roleResult);
-            }
-
-            [Fact]
-            public async Task CanExecuteAsync()
-            {
-                var connection = new RedisConnection(SingleInstanceConnectionConfigurtion);
-
-                await connection.ConnectAsync();
-
-                var roleResult = await connection.RoleAsync();
-
-                Assert.IsType<PrimaryRoleResult>(roleResult);
-            }
+            Assert.IsType<PrimaryRoleResult>(roleResult);
         }
 
-        public sealed class RoleCommandOnCluster
+        [Fact]
+        public async Task CanExecuteAsync()
         {
-            private readonly RedisClusterConnection _connection;
+            var connection = new RedisConnection(SingleInstanceConnectionConfigurtion);
 
-            public RoleCommandOnCluster()
-            {
+            await connection.ConnectAsync();
 
-                TryGetClusterInformation(ClusterConnectionConfiguration, out var clusterNodes);
+            var roleResult = await connection.RoleAsync();
 
-                var connectionPool = new RedisClusterConnectionPool(clusterNodes, ClusterConnectionConfiguration);
+            Assert.IsType<PrimaryRoleResult>(roleResult);
+        }
+    }
 
-                var database = connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
+    public sealed class RoleCommandOnCluster
+    {
+        private readonly RedisClusterConnection _connection;
 
-                _connection = database.Connection as RedisClusterConnection;
-            }
+        public RoleCommandOnCluster()
+        {
 
-            [Fact]
-            public void CanExecuteOnPrimaryNode()
-            {
-                var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
+            TryGetClusterInformation(ClusterConnectionConfiguration, out var clusterNodes);
 
-                var roleResult = primaryNode.Role();
+            var connectionPool = new RedisClusterConnectionPool(clusterNodes, ClusterConnectionConfiguration);
 
-                Assert.IsType<PrimaryRoleResult>(roleResult);
-            }
+            var database = connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
 
-            [Fact]
-            public async Task CanExecuteOnPrimaryNodeAsync()
-            {
-                var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
+            _connection = database.Connection as RedisClusterConnection;
+        }
 
-                var roleResult = await primaryNode.RoleAsync();
+        [Fact]
+        public void CanExecuteOnPrimaryNode()
+        {
+            var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
 
-                Assert.IsType<PrimaryRoleResult>(roleResult);
-            }
+            var roleResult = primaryNode.Role();
 
-            [Fact]
-            public void CanExecuteOnSecondaryNode()
-            {
-                var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
+            Assert.IsType<PrimaryRoleResult>(roleResult);
+        }
 
-                var roleResult = secondaryNode.Role();
+        [Fact]
+        public async Task CanExecuteOnPrimaryNodeAsync()
+        {
+            var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
 
-                Assert.IsType<ReplicaRoleResult>(roleResult);
-            }
+            var roleResult = await primaryNode.RoleAsync();
 
-            [Fact]
-            public async Task CanExecuteOnSecondaryNodeAsync()
-            {
-                var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
+            Assert.IsType<PrimaryRoleResult>(roleResult);
+        }
 
-                var roleResult = await secondaryNode.RoleAsync();
+        [Fact]
+        public void CanExecuteOnSecondaryNode()
+        {
+            var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
 
-                Assert.IsType<ReplicaRoleResult>(roleResult);
-            }
+            var roleResult = secondaryNode.Role();
+
+            Assert.IsType<ReplicaRoleResult>(roleResult);
+        }
+
+        [Fact]
+        public async Task CanExecuteOnSecondaryNodeAsync()
+        {
+            var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
+
+            var roleResult = await secondaryNode.RoleAsync();
+
+            Assert.IsType<ReplicaRoleResult>(roleResult);
         }
     }
 }
