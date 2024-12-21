@@ -1,27 +1,19 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace ReadUs
+namespace ReadUs;
+
+internal static class KeyValuePairExtensions
 {
-    internal static class KeyValuePairExtensions
+    private static readonly RedisKey[] EmptyRedisKeyArray = [];
+
+    internal static RedisKey[]? Keys(this KeyValuePair<RedisKey, string>[]? @this)
     {
-        private static readonly RedisKey[] EmptyRedisKeyArray = new RedisKey[0];
-
-        internal static RedisKey[]? Keys(this KeyValuePair<RedisKey, string>[] @this)
+        if (@this is null)
         {
-            if (@this is null)
-            {
-                return default;
-            }
-
-            if (@this.Any())
-            {
-                return @this.Select(x => x.Key).ToArray();
-            }
-            else
-            {
-                return EmptyRedisKeyArray;
-            }
+            return default;
         }
+
+        return @this.Length != 0 ? @this.Select(x => x.Key).ToArray() : EmptyRedisKeyArray;
     }
 }
