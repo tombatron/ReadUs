@@ -1,10 +1,11 @@
 ﻿using System;
 using Xunit;
+using Xunit.Abstractions;
 using static ReadUs.RedisClusterConnectionPool;
 
 namespace ReadUs.Tests.Integration;
 
-public class RedisClusterCommandsPoolTests
+public class RedisClusterCommandsPoolTests(ITestOutputHelper output)
 {
     [Fact]
     public void CanConnectToCluster()

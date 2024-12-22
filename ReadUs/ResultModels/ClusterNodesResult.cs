@@ -8,28 +8,23 @@ using static ReadUs.Extras.HashTools;
 
 namespace ReadUs.ResultModels;
 
-public class ClusterNodesResult : IEnumerable<ClusterNodesResultItem>
+public class ClusterNodesResult : List<ClusterNodesResultItem>
 {
-    private readonly ParseResult _parsedResult;
-
     public ClusterNodesResult(byte[] rawResult) : this(Parse(rawResult))
     {
     }
 
-    public ClusterNodesResult(ParseResult parsedResult) =>
-        _parsedResult = parsedResult;
+    public ClusterNodesResult(ParseResult parsedResult) => Initialize(parsedResult);
 
-    public bool HasError => _parsedResult.Type == ResultType.Error;
+    public bool HasError { get; private set; }
 
-    public IEnumerator<ClusterNodesResultItem> GetEnumerator() => InternalIterator().GetEnumerator();
-
-    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
-    private IEnumerable<ClusterNodesResultItem> InternalIterator()
+    private void Initialize(ParseResult parseResult)
     {
+        HasError = parseResult.Type == ResultType.Error;
+        
         var startIndex = 0;
 
-        var parsedResultArray = _parsedResult.Value ?? Array.Empty<char>();
+        var parsedResultArray = parseResult.Value ?? [];
 
         while (true)
         {
@@ -37,14 +32,14 @@ public class ClusterNodesResult : IEnumerable<ClusterNodesResultItem>
 
             if (nextLineBreak < 0)
             {
-                yield break;
+                return;
             }
 
             var rawLine = parsedResultArray[startIndex..nextLineBreak];
 
             startIndex = nextLineBreak;
 
-            yield return new ClusterNodesResultItem(rawLine);
+            Add(new ClusterNodesResultItem(rawLine));
         }
     }
 
@@ -52,7 +47,7 @@ public class ClusterNodesResult : IEnumerable<ClusterNodesResultItem>
 
     public string GetNodesSignature()
     {
-        var unhashedSignature = this.ToString().Replace("myself|", string.Empty);
+        var unhashedSignature = ToString().Replace("myself|", string.Empty);
 
         return CreateMd5Hash(unhashedSignature);
     }
@@ -121,7 +116,7 @@ public class ClusterNodesResultItem
 
     public ClusterNodeId? Id { get; private set; }
 
-    public ClusterNodeAddress? Address { get; private set; }
+    public ClusterNodeAddress? Address { get; internal set; }
 
     public ClusterNodeFlags? Flags { get; private set; }
 
