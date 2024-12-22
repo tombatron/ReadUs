@@ -91,7 +91,7 @@ public class RedisClusterFixture : IAsyncLifetime
     
     public async Task InitializeAsync()
     {
-        Environment.SetEnvironmentVariable("__UNIT_TESTING__", "TRUE");
+        StartTesting();
         
         await ClusterNetwork.CreateAsync();
         
@@ -136,6 +136,6 @@ public class RedisClusterFixture : IAsyncLifetime
         
         await ClusterNetwork.DisposeAsync();
 
-        Environment.SetEnvironmentVariable("__UNIT_TESTING__", null);
+        StopTesting();
     }
 }

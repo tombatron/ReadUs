@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Threading;
@@ -166,9 +167,8 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Handle the result of the `cluster nodes` command by populating a data structure with the 
         // addresses, role, and slots assigned to each node. 
         var nodes = new ClusterNodesResult(rawResult);
-
-        // TODO: Fix this. I'm sure there is a way to support using Testcontainers without doing all this. 
-        if (Environment.GetEnvironmentVariable("__UNIT_TESTING__") is not null)
+        
+        if (IsTesting())
         {
             // We're in a unit test. The containers that are set up by Testcontainers are in a bridge network and the `CLUSTER NODES`
             // command is going to report back an IP address that we won't be able to connect to, so here we're going to swap
