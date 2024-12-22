@@ -17,12 +17,12 @@ public class RedisClusterFixture : IAsyncLifetime
     public RedisConnectionConfiguration Configuration { get; private set; }
     
     
-    private static readonly INetwork ClusterNetwork = new NetworkBuilder()
+    public static readonly INetwork ClusterNetwork = new NetworkBuilder()
         .WithName("cluster-network")
         .WithDriver(NetworkDriver.Bridge)
         .Build();
 
-    private static readonly RedisContainer Node1 = new RedisBuilder()
+    public readonly RedisContainer Node1 = new RedisBuilder()
         .WithImage("redis:7.0")
         .WithName("node-1")
         .WithCommand(
@@ -44,7 +44,7 @@ public class RedisClusterFixture : IAsyncLifetime
         .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"))
         .Build();
     
-    private static readonly RedisContainer Node2 = new RedisBuilder()
+    public readonly RedisContainer Node2 = new RedisBuilder()
         .WithImage("redis:7.0")
         .WithName("node-2")
         .WithCommand(
@@ -66,7 +66,7 @@ public class RedisClusterFixture : IAsyncLifetime
         .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"))
         .Build();
     
-    private static readonly RedisContainer Node3 = new RedisBuilder()
+    public readonly RedisContainer Node3 = new RedisBuilder()
         .WithImage("redis:7.0")
         .WithName("node-3")
         .WithCommand(
@@ -82,7 +82,6 @@ public class RedisClusterFixture : IAsyncLifetime
             "--save", ""
         )
         .WithNetwork(ClusterNetwork)
-        
         .WithHostname("node-3")
         .WithExposedPort(6379)        
         .WithPortBinding(6381, 6379)
