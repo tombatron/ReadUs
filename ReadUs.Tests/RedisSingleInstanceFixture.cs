@@ -1,4 +1,7 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using Testcontainers.Redis;
 using Xunit;
@@ -7,12 +10,15 @@ namespace ReadUs.Tests;
 
 public class RedisSingleInstanceFixture : IAsyncLifetime
 {
-    public readonly RedisContainer SingleNode = new RedisBuilder()
-        .WithImage("redis:7.0")
-        .WithPortBinding(63790, 6379)
-        .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"))
-        .Build();
-    
+    private static readonly ConcurrentStack<int> Ports = new ConcurrentStack<int>(Enumerable.Range(60_000, 1_000));
+
+    // public readonly RedisContainer SingleNode = new RedisBuilder()
+    //     .WithImage("redis:7.0")
+    //     .WithPortBinding(63790, 6379)
+    //     .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"))
+    //     .Build();
+    public readonly RedisContainer SingleNode = CreateNode("single-node").Build();
+
     public async Task InitializeAsync()
     {
         await SingleNode.StartAsync();
@@ -22,5 +28,20 @@ public class RedisSingleInstanceFixture : IAsyncLifetime
     {
         await SingleNode.StopAsync();
         await SingleNode.DisposeAsync();
+    }
+
+    public static RedisBuilder CreateNode(string name)
+    {
+        if (Ports.TryPop(out var port))
+        {
+            return new RedisBuilder()
+                .WithImage("redis:7.0")
+                .WithPortBinding(port, 6379)
+                .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"));
+        }
+        else
+        {
+            throw new Exception("No more ports available");
+        }
     }
 }
