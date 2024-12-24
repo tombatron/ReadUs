@@ -16,7 +16,6 @@ public class RedisSingleInstanceFixture : IAsyncLifetime
     public async Task InitializeAsync()
     {
         await SingleNode.StartAsync();
-        var whatever = 0;
     }
 
     public async Task DisposeAsync()
