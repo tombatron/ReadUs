@@ -7,13 +7,15 @@ using Xunit;
 
 namespace ReadUs.Tests.Integration;
 
-public sealed class RedisCommandsTests : IDisposable
+public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixture>, IDisposable
 {
     private readonly RedisConnectionPool _pool;
 
-    public RedisCommandsTests()
+    public RedisCommandsTests(RedisSingleInstanceFixture fixture)
     {
-        _pool = new RedisSingleInstanceConnectionPool(new RedisConnectionConfiguration("tombaserver.local", 6379));
+        var connstring = fixture.SingleNode.GetConnectionString();
+
+        _pool = new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
     }
 
     [Fact]

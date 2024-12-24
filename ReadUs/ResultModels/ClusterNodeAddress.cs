@@ -10,7 +10,7 @@ public class ClusterNodeAddress
     private ClusterNodeAddress(char[] rawValue)
     {
         _rawValue = rawValue;
-
+        
         var startIndex = 0;
         var nextDelimiter = Array.IndexOf(rawValue, ':', startIndex);
 
@@ -24,6 +24,15 @@ public class ClusterNodeAddress
         startIndex = nextDelimiter + 1;
 
         ClusterPort = int.Parse(rawValue[startIndex..]);
+    }
+
+    internal ClusterNodeAddress(IPAddress ipAddress, int redisPort, int clusterPort)
+    {
+        IpAddress = ipAddress;
+        RedisPort = redisPort;
+        ClusterPort = clusterPort;
+        
+        _rawValue = $"{IpAddress}:{RedisPort}@{ClusterPort}".ToCharArray();
     }
 
     public IPAddress IpAddress { get; private set; }

@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using static ReadUs.Extras.AsyncTools;
@@ -17,7 +19,8 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     private ClusterNodesResult _existingClusterNodes;
     private RedisConnectionConfiguration _configuration;
 
-    internal RedisClusterConnectionPool(ClusterNodesResult? clusterNodesResult, RedisConnectionConfiguration configuration)
+    internal RedisClusterConnectionPool(ClusterNodesResult? clusterNodesResult,
+        RedisConnectionConfiguration configuration)
     {
         if (clusterNodesResult is null)
         {
@@ -149,7 +152,8 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         }
     }
 
-    internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration, [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
+    internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration,
+        [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
     {
         // First, let's create a connection to whatever server that was provided.
         using var probingConnection = new RedisConnection(configuration);
@@ -163,6 +167,18 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Handle the result of the `cluster nodes` command by populating a data structure with the 
         // addresses, role, and slots assigned to each node. 
         var nodes = new ClusterNodesResult(rawResult);
+        
+        if (IsTesting())
+        {
+            // We're in a unit test. The containers that are set up by Testcontainers are in a bridge network and the `CLUSTER NODES`
+            // command is going to report back an IP address that we won't be able to connect to, so here we're going to swap
+            // out the IP addresses for loopback.
+            foreach (var node in nodes)
+            {
+                node.Address =
+                    new ClusterNodeAddress(IPAddress.Loopback, node.Address!.RedisPort, node.Address!.ClusterPort);
+            }
+        }
 
         if (nodes.HasError)
         {

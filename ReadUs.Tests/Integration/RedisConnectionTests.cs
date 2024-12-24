@@ -1,3 +1,4 @@
+using System;
 using ReadUs.ResultModels;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,12 +10,12 @@ namespace ReadUs.Tests.Integration;
 
 public sealed class RedisConnectionTests
 {
-    public sealed class RoleCommandOnSingleInstance
+    public sealed class RoleCommandOnSingleInstance(RedisSingleInstanceFixture fixture) : IClassFixture<RedisSingleInstanceFixture>
     {
         [Fact]
         public void CanExecute()
         {
-            var connection = new RedisConnection(SingleInstanceConnectionConfigurtion);
+            var connection = new RedisConnection(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
 
             connection.Connect();
 
@@ -26,7 +27,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public async Task CanExecuteAsync()
         {
-            var connection = new RedisConnection(SingleInstanceConnectionConfigurtion);
+            var connection = new RedisConnection(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
 
             await connection.ConnectAsync();
 
@@ -36,20 +37,19 @@ public sealed class RedisConnectionTests
         }
     }
 
-    public sealed class RoleCommandOnCluster
+    public sealed class RoleCommandOnCluster: IClassFixture<RedisClusterFixture>
     {
         private readonly RedisClusterConnection _connection;
 
-        public RoleCommandOnCluster()
+        public RoleCommandOnCluster(RedisClusterFixture fixture)
         {
-
-            TryGetClusterInformation(ClusterConnectionConfiguration, out var clusterNodes);
-
-            var connectionPool = new RedisClusterConnectionPool(clusterNodes, ClusterConnectionConfiguration);
+            var connectionString = new Uri($"redis://{fixture.Node1.GetConnectionString()}?connectionsPerNode=5");
+            
+            var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
 
             var database = connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
 
-            _connection = database.Connection as RedisClusterConnection;
+            _connection = database!.Connection as RedisClusterConnection;
         }
 
         [Fact]
