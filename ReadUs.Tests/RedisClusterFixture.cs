@@ -30,6 +30,9 @@ public class RedisClusterFixture : IAsyncLifetime
     public readonly RedisContainer Node1;
     public readonly RedisContainer Node2;
     public readonly RedisContainer Node3;
+    public readonly RedisContainer Node4;
+    public readonly RedisContainer Node5;
+    public readonly RedisContainer Node6;
 
     public RedisClusterFixture()
     {
@@ -38,6 +41,9 @@ public class RedisClusterFixture : IAsyncLifetime
         Node1 = CreateNode("node-1").Build();
         Node2 = CreateNode("node-2").Build();
         Node3 = CreateNode("node-3").Build();
+        Node4 = CreateNode("node-4").Build();
+        Node5 = CreateNode("node-5").Build();
+        Node6 = CreateNode("node-6").Build();
     }
 
     public async Task InitializeAsync()
@@ -49,16 +55,25 @@ public class RedisClusterFixture : IAsyncLifetime
         await Node1.StartAsync();
         await Node2.StartAsync();
         await Node3.StartAsync();
+        await Node4.StartAsync();
+        await Node5.StartAsync();
+        await Node6.StartAsync();
 
-        var clusterCreationResult = await Node1.ExecAsync(GetClusterCreationCommand(0));
+        var clusterCreationResult = await Node1.ExecAsync(GetClusterCreationCommand(1));
 
         var output = clusterCreationResult.Stdout;
+
+        Console.WriteLine(output);
+
         var err = clusterCreationResult.Stderr;
 
         // If the cluster was created correctly, we expect that there will be nothing present in the standard error
         // output, and that the end of the standard output will be that all 16,384 slots are covered by the cluster.
         Assert.Empty(err);
         Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
+
+        
+        await Task.Delay(1_000); // Wait a second for Redis to settle down and have properly assigned node roles.
 
         var connectionString = new Uri($"redis://localhost:{_containers[0].port}");
 
@@ -70,19 +85,32 @@ public class RedisClusterFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await Node3.StopAsync();
-        await Node2.StopAsync();
-        await Node1.StopAsync();
+        try
+        {
+            await Node6.StopAsync();
+            await Node5.StopAsync();
+            await Node4.StopAsync();
+            await Node3.StopAsync();
+            await Node2.StopAsync();
+            await Node1.StopAsync();
 
-        await ClusterNetwork.DeleteAsync();
+            await ClusterNetwork.DeleteAsync();
 
-        await Node3.DisposeAsync();
-        await Node2.DisposeAsync();
-        await Node1.DisposeAsync();
+            await Node6.DisposeAsync();
+            await Node5.DisposeAsync();
+            await Node4.DisposeAsync();
+            await Node3.DisposeAsync();
+            await Node2.DisposeAsync();
+            await Node1.DisposeAsync();
 
-        await ClusterNetwork.DisposeAsync();
+            await ClusterNetwork.DisposeAsync();
 
-        StopTesting();
+            StopTesting();
+        }
+        catch
+        {
+            // ¯\_(ツ)_/¯
+        }
     }
 
     private List<(string name, int port)> _containers = new List<(string name, int port)>();
@@ -116,7 +144,7 @@ public class RedisClusterFixture : IAsyncLifetime
             .WithHostname(containerName)
             .WithExposedPort(port)
             .WithPortBinding(port, port)
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "-p", serverPort,"PING"));
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "-p", serverPort, "PING"));
     }
 
     private IList<string> GetClusterCreationCommand(int numberOfReplicas)
@@ -129,7 +157,7 @@ public class RedisClusterFixture : IAsyncLifetime
             "--cluster", "create"
         };
 
-        foreach(var (container, port) in _containers)
+        foreach (var (container, port) in _containers)
         {
             commandResult.Add($"{container}:{port}");
         }
