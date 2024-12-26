@@ -19,11 +19,11 @@ public class ClusterNodeAddress
         startIndex = nextDelimiter + 1;
         nextDelimiter = Array.IndexOf(rawValue, '@', startIndex);
 
-        RedisPort = int.Parse(rawValue[startIndex..nextDelimiter]);
+        RedisPort = int.Parse(rawValue.AsSpan()[startIndex..nextDelimiter]);
 
         startIndex = nextDelimiter + 1;
 
-        ClusterPort = int.Parse(rawValue[startIndex..]);
+        ClusterPort = int.Parse(rawValue.AsSpan()[startIndex..]);
     }
 
     internal ClusterNodeAddress(IPAddress ipAddress, int redisPort, int clusterPort)

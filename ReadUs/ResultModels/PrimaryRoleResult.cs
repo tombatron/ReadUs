@@ -25,8 +25,12 @@ public sealed class PrimaryRoleResult : RoleResult
             associatedReplicas = new ReplicaDescription[replicas.Length];
 
             for (var i = 0; i < replicas.Length; i++)
+            {
                 if (replicas[i].TryToArray(out var replica) && replica.Length == 3)
+                {
                     associatedReplicas[i] = new ReplicaDescription(replica[0], replica[1], replica[2]);
+                }
+            }
         }
 
         return new PrimaryRoleResult(currentReplicationOffset, associatedReplicas);

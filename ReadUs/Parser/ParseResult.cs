@@ -12,7 +12,7 @@ public readonly struct ParseResult
 
     private readonly ParseResult[]? _array;
 
-    public bool IsArray => _array != default;
+    public bool IsArray => _array != null;
 
     internal ParseResult(ResultType type, char[]? value, int totalRawLength, ParseResult[]? array = default)
     {
@@ -31,7 +31,7 @@ public readonly struct ParseResult
             return true;
         }
 
-        array = Array.Empty<ParseResult>();
+        array = [];
         return false;
     }
 

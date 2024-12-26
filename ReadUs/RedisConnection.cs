@@ -69,7 +69,7 @@ public class RedisConnection : IRedisConnection
 
     public string ConnectionName { get; }
 
-    public bool IsBusy => _semaphore.CurrentCount == 0; // (* ￣︿￣)
+    public bool IsBusy => _semaphore.CurrentCount == 0; // (* ￣︿￣) ???
 
     public bool IsConnected => _socket.Connected;
 

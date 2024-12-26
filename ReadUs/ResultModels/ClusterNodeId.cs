@@ -9,22 +9,11 @@ public sealed class ClusterNodeId
         _rawValue = rawValue;
     }
 
-    public static implicit operator ClusterNodeId(char[] rawValue)
-    {
-        return new ClusterNodeId(rawValue);
-    }
+    public static implicit operator ClusterNodeId(char[] rawValue) => new(rawValue);
 
-    public static implicit operator string(ClusterNodeId nodeId)
-    {
-        return new string(nodeId._rawValue).Trim();
-    }
+    public static implicit operator string(ClusterNodeId nodeId) => new string(nodeId._rawValue).Trim();
 
-    public override bool Equals(object? obj)
-    {
-        if (obj is ClusterNodeId otherClusterNodeId) return GetHashCode() == otherClusterNodeId.GetHashCode();
-
-        return false;
-    }
+    public override bool Equals(object? obj) => obj is ClusterNodeId && GetHashCode() == obj.GetHashCode();
 
     public override int GetHashCode()
     {

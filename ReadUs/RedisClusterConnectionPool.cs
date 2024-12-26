@@ -74,7 +74,10 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
     private void DisposeAllConnections()
     {
-        foreach (var connection in _allConnections) connection.Dispose();
+        foreach (var connection in _allConnections)
+        {
+            connection.Dispose();
+        }
     }
 
     private void Reinitialize()
@@ -160,9 +163,13 @@ public class RedisClusterConnectionPool : RedisConnectionPool
             // We're in a unit test. The containers that are set up by Testcontainers are in a bridge network and the `CLUSTER NODES`
             // command is going to report back an IP address that we won't be able to connect to, so here we're going to swap
             // out the IP addresses for loopback.
+        {
             foreach (var node in nodes)
+            {
                 node.Address =
                     new ClusterNodeAddress(IPAddress.Loopback, node.Address!.RedisPort, node.Address!.ClusterPort);
+            }
+        }
 
         if (nodes.HasError)
         {

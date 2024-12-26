@@ -59,7 +59,10 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
 
     public void Dispose()
     {
-        foreach (var connection in this) connection.Dispose();
+        foreach (var connection in this)
+        {
+            connection.Dispose();
+        }
     }
 
     // TODO: Let's find a way to get rid of these... This will require a redesign of some sort. 

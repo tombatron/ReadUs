@@ -27,15 +27,19 @@ public class ClusterNodeFlags : ReadOnlyCollection<string>
 
     public static implicit operator ClusterNodeRole(ClusterNodeFlags flags)
     {
-        if (flags.Contains(PrimaryRoleFlag)) return ClusterNodeRole.Primary;
+        if (flags.Contains(PrimaryRoleFlag))
+        {
+            return ClusterNodeRole.Primary;
+        }
 
-        if (flags.Contains(SecondaryRoleFlag)) return ClusterNodeRole.Secondary;
+        if (flags.Contains(SecondaryRoleFlag))
+        {
+            return ClusterNodeRole.Secondary;
+        }
 
         return ClusterNodeRole.Undefined;
     }
 
-    public static implicit operator string(ClusterNodeFlags clusterNodeFlags)
-    {
-        return string.Join("|", clusterNodeFlags.ToArray());
-    }
+    public static implicit operator string(ClusterNodeFlags clusterNodeFlags) =>
+        string.Join("|", clusterNodeFlags.ToArray());
 }

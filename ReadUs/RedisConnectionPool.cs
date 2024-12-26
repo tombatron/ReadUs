@@ -15,11 +15,12 @@ public abstract class RedisConnectionPool : IRedisConnectionPool
     {
         RedisConnectionConfiguration configuration = connectionString;
 
-        // TODO: Sentinel connection pool?
-
+        // TODO: Sentinel connection pool
         if (RedisClusterConnectionPool.TryGetClusterInformation(configuration, out var clusterNodesResult))
+        {
             return new RedisClusterConnectionPool(clusterNodesResult, configuration);
-
+        }
+        
         return new RedisSingleInstanceConnectionPool(configuration);
     }
 }

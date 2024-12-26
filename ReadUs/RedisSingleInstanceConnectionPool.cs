@@ -19,14 +19,20 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
     {
         var connection = GetReadUsConnection();
 
-        if (!connection.IsConnected) await connection.ConnectAsync();
+        if (!connection.IsConnected)
+        {
+            await connection.ConnectAsync();
+        }
 
         return new RedisSingleInstanceDatabase(connection, this);
     }
 
     private IRedisConnection GetReadUsConnection()
     {
-        if (_backingPool.TryDequeue(out var connection)) return connection;
+        if (_backingPool.TryDequeue(out var connection))
+        {
+            return connection;
+        }
 
         var newConnection = new RedisConnection(_configuration);
 
@@ -42,6 +48,9 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
 
     public override void Dispose()
     {
-        foreach (var connection in _allConnections) connection.Dispose();
+        foreach (var connection in _allConnections)
+        {
+            connection.Dispose();
+        }
     }
 }

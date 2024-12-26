@@ -71,7 +71,9 @@ public class RedisClusterDatabase : RedisDatabase
         var setMultipleTasks = new List<Task>();
 
         foreach (var keyGroup in keyGroups)
+        {
             setMultipleTasks.Add(base.SetMultipleAsync(keyGroup.ToArray(), cancellationToken));
+        }
 
         await Task.WhenAll(setMultipleTasks);
     }

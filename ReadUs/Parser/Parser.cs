@@ -43,36 +43,32 @@ public static class Parser
             result = Parse(rawResult);
             return true;
         }
-        catch (Exception
-               ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
+        catch (Exception ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
         {
             result = default;
             return false;
         }
     }
 
-    private static ParseResult HandleSimpleString(Span<char> rawSimpleString)
-    {
-        return SimpleValueParse(ResultType.SimpleString, rawSimpleString);
-    }
-
-    private static ParseResult HandleError(Span<char> rawError)
-    {
-        return SimpleValueParse(ResultType.Error, rawError);
-    }
-
-    private static ParseResult HandleInteger(Span<char> rawInteger)
-    {
-        return SimpleValueParse(ResultType.Integer, rawInteger);
-    }
-
+    private static ParseResult HandleSimpleString(Span<char> rawSimpleString) =>
+        SimpleValueParse(ResultType.SimpleString, rawSimpleString);
+    
+    private static ParseResult HandleError(Span<char> rawError) =>
+        SimpleValueParse(ResultType.Error, rawError);
+    
+    private static ParseResult HandleInteger(Span<char> rawInteger) =>
+        SimpleValueParse(ResultType.Integer, rawInteger);
+    
     private static ParseResult HandleBulkString(Span<char> rawBulkString)
     {
         var firstCarriageReturn = rawBulkString.IndexOf('\r') - 1;
         var bulkStringLength = rawBulkString.Slice(1, firstCarriageReturn);
         var bulkStringLengthInt = int.Parse(bulkStringLength);
 
-        if (bulkStringLengthInt == -1) return new ParseResult(ResultType.BulkString, null, 5);
+        if (bulkStringLengthInt == -1)
+        {
+            return new ParseResult(ResultType.BulkString, null, 5);
+        }
 
         var bulkStringContent =
             rawBulkString.Slice(TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength,

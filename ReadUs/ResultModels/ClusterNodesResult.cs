@@ -42,24 +42,19 @@ public class ClusterNodesResult : List<ClusterNodesResultItem>
         }
     }
 
-    public override string ToString()
-    {
-        return string.Join("|", this.Select(x => x.ToString()));
-    }
-
-    public string GetNodesSignature()
-    {
-        var unhashedSignature = ToString().Replace("myself|", string.Empty);
-
-        return CreateMd5Hash(unhashedSignature);
-    }
+    public override string ToString() => string.Join("|", this.Select(x => x.ToString()));
+    
+    public string GetNodesSignature() => CreateMd5Hash(ToString().Replace("myself|", string.Empty));
 }
 
 public class ClusterNodesResultItem
 {
     public ClusterNodesResultItem(char[] rawLine)
     {
-        if (rawLine is null) return;
+        if (rawLine.Length == 0)
+        {
+            return;
+        }
 
         var startIndex = 0;
 
@@ -117,7 +112,7 @@ public class ClusterNodesResultItem
     public ClusterNodeFlags? Flags { get; }
 
     /// <summary>
-    ///     This will be null if this node is a primary.
+    /// This will be null if this node is a primary.
     /// </summary>
     public ClusterNodePrimaryId? PrimaryId { get; private set; }
 
@@ -131,8 +126,11 @@ public class ClusterNodesResultItem
 
     public ClusterSlots? Slots { get; }
 
-    public override string ToString()
-    {
-        return $"{Id ?? "NOID"}:{Address ?? "NOADDRESS"}:{Flags ?? "NOFLAGS"}:{Slots ?? "NOSLOTS"}";
-    }
+    private const string NoId = "NOID";
+    private const string NoAddress = "NOADDRESS";
+    private const string NoFlags = "NOFLAGS";
+    private const string NoSlots = "NOSLOTS";
+    
+    public override string ToString() =>
+        $"{Id ?? NoId}:{Address ?? NoAddress}:{Flags ?? NoFlags}:{Slots ?? NoSlots}";
 }

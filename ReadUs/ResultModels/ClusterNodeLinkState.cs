@@ -2,16 +2,16 @@
 
 public abstract class ClusterNodeLinkState
 {
-    private static readonly ClusterNodeLinkStateConnected _connected = new();
-    private static readonly ClusterNodeLinkStateDisconnected _disconnected = new();
+    private static readonly ClusterNodeLinkStateConnected Connected = new();
+    private static readonly ClusterNodeLinkStateDisconnected Disconnected = new();
 
     public static implicit operator ClusterNodeLinkState(char[] rawValue)
     {
         return rawValue[0] switch
         {
-            'c' => _connected,
-            'd' => _disconnected,
-            _ => _disconnected
+            'c' => Connected,
+            'd' => Disconnected,
+            _ => Disconnected
         };
     }
 }
