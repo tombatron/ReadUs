@@ -19,7 +19,7 @@ public class RedisConnection : IRedisConnection
 {
     private static int _connectionCount;
 
-    private static readonly byte[] RoleCommandBytes = [82, 79, 76, 69, 13, 10];
+    private static readonly byte[] RoleCommandBytes = "ROLE\r\n"u8.ToArray();
     private readonly TimeSpan _commandTimeout;
     private readonly SemaphoreSlim _semaphore;
 
@@ -251,9 +251,6 @@ public class RedisConnection : IRedisConnection
                     }
                 }
             }
-
-            // var responseResult = await pipe.Reader.ReadAsync(cancellationTimeout.Token).ConfigureAwait(false);
-            // socketResult = responseResult.Buffer.ToArray();
         }
         finally
         {

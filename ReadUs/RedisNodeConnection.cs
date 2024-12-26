@@ -18,7 +18,7 @@ public sealed class RedisNodeConnection : RedisConnection, IRedisNodeConnection
         Slots = nodeDescription.Slots;
     }
 
-    public ClusterNodeRole Role { get; }
+    public new ClusterNodeRole Role { get; }
 
     public ClusterSlots? Slots { get; }
 }
