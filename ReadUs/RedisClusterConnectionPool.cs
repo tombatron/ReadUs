@@ -1,32 +1,29 @@
-﻿using ReadUs.ResultModels;
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.ResultModels;
 using static ReadUs.Extras.AsyncTools;
 
 namespace ReadUs;
 
 public class RedisClusterConnectionPool : RedisConnectionPool
 {
-    private readonly ConcurrentQueue<IRedisConnection> _backingPool = new ConcurrentQueue<IRedisConnection>();
-    private readonly List<RedisClusterConnection> _allConnections = new List<RedisClusterConnection>();
+    private static bool _isReinitializing;
+    private readonly List<RedisClusterConnection> _allConnections = new();
+    private readonly ConcurrentQueue<IRedisConnection> _backingPool = new();
+    private readonly RedisConnectionConfiguration _configuration;
 
     private ClusterNodesResult _existingClusterNodes;
-    private RedisConnectionConfiguration _configuration;
 
     internal RedisClusterConnectionPool(ClusterNodesResult? clusterNodesResult,
         RedisConnectionConfiguration configuration)
     {
         if (clusterNodesResult is null)
-        {
             // TODO: Handle this better. 
             throw new Exception("Cluster nodes were null. That's weird.");
-        }
 
         // TODO: Think about how to make this more robust. This won't survive any kind of change
         //       to the cluster. 
@@ -41,14 +38,11 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Need to check if we are reinitializing. That shouldn't happen too often, but
         // if it does we'll want to wait until that is complete before returning anything
         // to the caller. 
-        await WaitWhileAsync(() => _isReinitializing, default(CancellationToken));
+        await WaitWhileAsync(() => _isReinitializing, default);
 
         var connection = GetReadUsConnection();
 
-        if (!connection.IsConnected)
-        {
-            await connection.ConnectAsync();
-        }
+        if (!connection.IsConnected) await connection.ConnectAsync();
 
         var database = new RedisClusterDatabase(connection, this);
 
@@ -59,10 +53,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
     private IRedisConnection GetReadUsConnection()
     {
-        if (_backingPool.TryDequeue(out var connection))
-        {
-            return connection;
-        }
+        if (_backingPool.TryDequeue(out var connection)) return connection;
 
         var newConnection = new RedisClusterConnection(_existingClusterNodes, _configuration.ConnectionsPerNode);
 
@@ -71,20 +62,20 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         return newConnection;
     }
 
-    public override void ReturnConnection(IRedisConnection connection) =>
+    public override void ReturnConnection(IRedisConnection connection)
+    {
         _backingPool.Enqueue(connection);
+    }
 
-    public override void Dispose() => DisposeAllConnections();
+    public override void Dispose()
+    {
+        DisposeAllConnections();
+    }
 
     private void DisposeAllConnections()
     {
-        foreach (var connection in _allConnections)
-        {
-            connection.Dispose();
-        }
+        foreach (var connection in _allConnections) connection.Dispose();
     }
-
-    private static bool _isReinitializing = false;
 
     private void Reinitialize()
     {
@@ -110,7 +101,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // reprobe the cluster and get a new configuration. 
         if (TryGetClusterInformation(_configuration, out var clusterNodes))
         {
-            Console.WriteLine($"reinit - cluster info acquired: {clusterNodes.ToString()}");
+            Console.WriteLine($"reinit - cluster info acquired: {clusterNodes}");
             // It looks like we were able to talk to the cluster to get a new configuration. Let's
             // provide that collection to the existing `_existingClusterNodes` field...
             _existingClusterNodes = clusterNodes;
@@ -119,7 +110,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
             // so we can get on with our work.
             _isReinitializing = false;
 
-            Console.WriteLine($"reinit - clustered pool reinitialized.");
+            Console.WriteLine("reinit - clustered pool reinitialized.");
         }
         else
         {
@@ -134,10 +125,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         var exception = args.Exception;
 
         // If the `RedisError` is null, then there's nothing for us to evaluate now is there?
-        if (exception.RedisError is null)
-        {
-            return;
-        }
+        if (exception.RedisError is null) return;
 
         var redisErrorMessage = exception.RedisError;
 
@@ -167,30 +155,24 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Handle the result of the `cluster nodes` command by populating a data structure with the 
         // addresses, role, and slots assigned to each node. 
         var nodes = new ClusterNodesResult(rawResult);
-        
+
         if (IsTesting())
-        {
             // We're in a unit test. The containers that are set up by Testcontainers are in a bridge network and the `CLUSTER NODES`
             // command is going to report back an IP address that we won't be able to connect to, so here we're going to swap
             // out the IP addresses for loopback.
             foreach (var node in nodes)
-            {
                 node.Address =
                     new ClusterNodeAddress(IPAddress.Loopback, node.Address!.RedisPort, node.Address!.ClusterPort);
-            }
-        }
 
         if (nodes.HasError)
         {
-            clusterNodesResult = default(ClusterNodesResult);
+            clusterNodesResult = default;
 
             return false;
         }
-        else
-        {
-            clusterNodesResult = nodes;
 
-            return true;
-        }
+        clusterNodesResult = nodes;
+
+        return true;
     }
 }

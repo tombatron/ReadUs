@@ -10,15 +10,15 @@ public class ParseResultTests
         [Fact]
         public void ReturnFalseIfArrayIsNull()
         {
-            var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4);
 
-            Assert.False(parseResult.TryToArray(out var _));
+            Assert.False(parseResult.TryToArray(out _));
         }
 
         [Fact]
         public void ReturnEmptyArrayIfNotArray()
         {
-            var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            var parseResult = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4);
 
             var result = parseResult.TryToArray(out var arrayResult);
 
@@ -29,19 +29,19 @@ public class ParseResultTests
         [Fact]
         public void ReturnTrueIfArrayIsNotNull()
         {
-            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
-            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1);
+            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4);
 
             var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
 
-            Assert.True(parseResult.TryToArray(out var _));
+            Assert.True(parseResult.TryToArray(out _));
         }
 
         [Fact]
         public void ReturnArrayIfItsAnArray()
         {
-            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
-            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1);
+            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4);
 
             var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
 
@@ -57,7 +57,7 @@ public class ParseResultTests
         [Fact]
         public void ProjectValueToString()
         {
-            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1);
 
             Assert.Equal("1", firstItem.ToString());
         }
@@ -65,8 +65,8 @@ public class ParseResultTests
         [Fact]
         public void ProjectEmptyStringIfValueIsNull()
         {
-            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1, null);
-            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4, null);
+            var firstItem = new ParseResult(ResultType.Integer, "1".ToCharArray(), 1);
+            var secondItem = new ParseResult(ResultType.SimpleString, "Hello".ToCharArray(), 4);
 
             var parseResult = new ParseResult(ResultType.Array, null, 0, new[] { firstItem, secondItem });
 

@@ -1,13 +1,13 @@
-using ReadUs.ResultModels;
 using System;
+using ReadUs.ResultModels;
 
 namespace ReadUs;
 
 public sealed class RedisNodeConnection : RedisConnection, IRedisNodeConnection
 {
-    public RedisNodeConnection(ClusterNodesResultItem nodeDescription) : 
+    public RedisNodeConnection(ClusterNodesResultItem nodeDescription) :
         base(
-            nodeDescription?.Address?.IpAddress ?? throw new Exception("IP Address cannot be null."), 
+            nodeDescription?.Address?.IpAddress ?? throw new Exception("IP Address cannot be null."),
             nodeDescription?.Address?.RedisPort ?? throw new Exception("Port cannot be null.")
         )
     {

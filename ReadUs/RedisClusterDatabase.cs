@@ -1,9 +1,9 @@
-using ReadUs.ResultModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.ResultModels;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
@@ -14,8 +14,10 @@ public class RedisClusterDatabase : RedisDatabase
     {
     }
 
-    public override Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys) =>
-        BlockingLeftPopAsync(TimeSpan.MaxValue, keys);
+    public override Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys)
+    {
+        return BlockingLeftPopAsync(TimeSpan.MaxValue, keys);
+    }
 
     public override async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
@@ -32,8 +34,10 @@ public class RedisClusterDatabase : RedisDatabase
         return (BlockingPopResult)result;
     }
 
-    public override Task<BlockingPopResult> BlockingRightPopAsync(params RedisKey[] keys) =>
-        BlockingRightPopAsync(TimeSpan.MaxValue, keys);
+    public override Task<BlockingPopResult> BlockingRightPopAsync(params RedisKey[] keys)
+    {
+        return BlockingRightPopAsync(TimeSpan.MaxValue, keys);
+    }
 
     public override async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
@@ -59,17 +63,16 @@ public class RedisClusterDatabase : RedisDatabase
         return Task.CompletedTask;
     }
 
-    public override async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default)
+    public override async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
+        CancellationToken cancellationToken = default)
     {
         var keyGroups = keysAndValues.GroupBy(x => x.Key.Slot);
 
         var setMultipleTasks = new List<Task>();
 
-        foreach(var keyGroup in keyGroups)
-        {
+        foreach (var keyGroup in keyGroups)
             setMultipleTasks.Add(base.SetMultipleAsync(keyGroup.ToArray(), cancellationToken));
-        }
 
-        await Task.WhenAll(setMultipleTasks);            
+        await Task.WhenAll(setMultipleTasks);
     }
 }

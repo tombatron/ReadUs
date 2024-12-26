@@ -14,16 +14,12 @@ public abstract class RedisConnectionPool : IRedisConnectionPool
     public static IRedisConnectionPool Create(Uri connectionString)
     {
         RedisConnectionConfiguration configuration = connectionString;
-    
+
         // TODO: Sentinel connection pool?
-            
+
         if (RedisClusterConnectionPool.TryGetClusterInformation(configuration, out var clusterNodesResult))
-        {
             return new RedisClusterConnectionPool(clusterNodesResult, configuration);
-        }
-        else
-        {
-            return new RedisSingleInstanceConnectionPool(configuration);
-        }
+
+        return new RedisSingleInstanceConnectionPool(configuration);
     }
 }

@@ -1,16 +1,15 @@
 using System;
-using ReadUs.ResultModels;
 using System.Linq;
 using System.Threading.Tasks;
+using ReadUs.ResultModels;
 using Xunit;
-using static ReadUs.RedisClusterConnectionPool;
-using static ReadUs.Tests.TestUtilities;
 
 namespace ReadUs.Tests.Integration;
 
 public sealed class RedisConnectionTests
 {
-    public sealed class RoleCommandOnSingleInstance(RedisSingleInstanceFixture fixture) : IClassFixture<RedisSingleInstanceFixture>
+    public sealed class RoleCommandOnSingleInstance(RedisSingleInstanceFixture fixture)
+        : IClassFixture<RedisSingleInstanceFixture>
     {
         [Fact]
         public void CanExecute()
@@ -37,17 +36,18 @@ public sealed class RedisConnectionTests
         }
     }
 
-    public sealed class RoleCommandOnCluster: IClassFixture<RedisClusterFixture>
+    public sealed class RoleCommandOnCluster : IClassFixture<RedisClusterFixture>
     {
         private readonly RedisClusterConnection _connection;
 
         public RoleCommandOnCluster(RedisClusterFixture fixture)
         {
             var connectionString = new Uri($"redis://{fixture.Node1.GetConnectionString()}?connectionsPerNode=5");
-            
+
             var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
 
-            var database = connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
+            var database =
+                connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
 
             _connection = database!.Connection as RedisClusterConnection;
         }

@@ -1,31 +1,30 @@
-using DotNet.Testcontainers.Builders;
-using DotNet.Testcontainers.Configurations;
-using DotNet.Testcontainers.Networks;
-using ReadUs.ResultModels;
-using static ReadUs.RedisClusterConnectionPool;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Configurations;
+using DotNet.Testcontainers.Networks;
+using ReadUs.ResultModels;
 using Testcontainers.Redis;
 using Xunit;
+using static ReadUs.RedisClusterConnectionPool;
 
 namespace ReadUs.Tests;
 
 // ReSharper disable once ClassNeverInstantiated.Global
 public class RedisClusterFixture : IAsyncLifetime
 {
-    private static readonly ConcurrentStack<int> Ports = new ConcurrentStack<int>(Enumerable.Range(7_000, 5_000));
-
-    public ClusterNodesResult ClusterNodes { get; private set; }
-    public RedisConnectionConfiguration Configuration { get; private set; }
+    private static readonly ConcurrentStack<int> Ports = new(Enumerable.Range(7_000, 5_000));
 
 
     public static readonly INetwork ClusterNetwork = new NetworkBuilder()
         .WithName("cluster-network")
         .WithDriver(NetworkDriver.Bridge)
         .Build();
+
+    private readonly List<(string name, int port)> _containers = new();
 
     public readonly RedisContainer Node1;
     public readonly RedisContainer Node2;
@@ -45,6 +44,9 @@ public class RedisClusterFixture : IAsyncLifetime
         Node5 = CreateNode("node-5").Build();
         Node6 = CreateNode("node-6").Build();
     }
+
+    public ClusterNodesResult ClusterNodes { get; private set; }
+    public RedisConnectionConfiguration Configuration { get; private set; }
 
     public async Task InitializeAsync()
     {
@@ -72,7 +74,7 @@ public class RedisClusterFixture : IAsyncLifetime
         Assert.Empty(err);
         Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
 
-        
+
         await Task.Delay(1_000); // Wait a second for Redis to settle down and have properly assigned node roles.
 
         var connectionString = new Uri($"redis://localhost:{_containers[0].port}");
@@ -112,8 +114,6 @@ public class RedisClusterFixture : IAsyncLifetime
             // ¯\_(ツ)_/¯
         }
     }
-
-    private List<(string name, int port)> _containers = new List<(string name, int port)>();
 
     private RedisBuilder CreateNode(string baseName)
     {
@@ -157,10 +157,7 @@ public class RedisClusterFixture : IAsyncLifetime
             "--cluster", "create"
         };
 
-        foreach (var (container, port) in _containers)
-        {
-            commandResult.Add($"{container}:{port}");
-        }
+        foreach (var (container, port) in _containers) commandResult.Add($"{container}:{port}");
 
         commandResult.Add("--cluster-replicas");
         commandResult.Add(numberOfReplicas.ToString());

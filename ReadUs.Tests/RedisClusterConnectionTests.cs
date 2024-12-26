@@ -8,8 +8,10 @@ public class RedisClusterConnectionTests : IClassFixture<RedisClusterFixture>
 {
     private readonly RedisClusterFixture _redisClusterFixture;
 
-    public RedisClusterConnectionTests(RedisClusterFixture redisClusterFixture) =>
+    public RedisClusterConnectionTests(RedisClusterFixture redisClusterFixture)
+    {
         _redisClusterFixture = redisClusterFixture;
+    }
 
     [Fact]
     public void ItInitializesAllNodes()

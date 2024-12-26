@@ -15,8 +15,13 @@ public readonly struct RedisKey
         Slot = ComputeHashSlot(name);
     }
 
-    public static implicit operator RedisKey(string keyName) =>
-        new RedisKey(keyName);
+    public static implicit operator RedisKey(string keyName)
+    {
+        return new RedisKey(keyName);
+    }
 
-    internal RedisKey[] ToArray() => new RedisKey[] { this };
+    internal RedisKey[] ToArray()
+    {
+        return new[] { this };
+    }
 }

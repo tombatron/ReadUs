@@ -9,10 +9,7 @@ internal static class KeyValuePairExtensions
 
     internal static RedisKey[]? Keys(this KeyValuePair<RedisKey, string>[]? @this)
     {
-        if (@this is null)
-        {
-            return default;
-        }
+        if (@this is null) return default;
 
         return @this.Length != 0 ? @this.Select(x => x.Key).ToArray() : EmptyRedisKeyArray;
     }

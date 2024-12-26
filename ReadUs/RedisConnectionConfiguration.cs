@@ -1,6 +1,6 @@
-using ReadUs.Exceptions;
 using System;
 using System.Web;
+using ReadUs.Exceptions;
 
 namespace ReadUs;
 
@@ -16,7 +16,8 @@ public readonly struct RedisConnectionConfiguration
 
     public int ConnectionsPerNode { get; }
 
-    public RedisConnectionConfiguration(string serverAddress, int serverPort = DefaultRedisPort, int connectionsPerNode = 1)
+    public RedisConnectionConfiguration(string serverAddress, int serverPort = DefaultRedisPort,
+        int connectionsPerNode = 1)
     {
         ServerAddress = serverAddress;
         ServerPort = serverPort;
@@ -26,9 +27,8 @@ public readonly struct RedisConnectionConfiguration
     public static implicit operator RedisConnectionConfiguration(Uri connectionString)
     {
         if (string.Compare(RedisScheme, connectionString.Scheme, false) != 0)
-        {
-            throw new RedisConnectionConfigurationException($"The provided scheme `{connectionString.Scheme}` is invalid, it must be `{RedisScheme}`.");
-        }
+            throw new RedisConnectionConfigurationException(
+                $"The provided scheme `{connectionString.Scheme}` is invalid, it must be `{RedisScheme}`.");
 
         var host = connectionString.DnsSafeHost;
         var port = connectionString.Port == 0 ? DefaultRedisPort : connectionString.Port;
@@ -38,13 +38,9 @@ public readonly struct RedisConnectionConfiguration
         var connectionsPerNode = 1;
 
         if (int.TryParse(queryEntries.Get(ConnectionsPerNodeKey) ?? "1", out var parsedConnectionsPerNode))
-        {
             connectionsPerNode = parsedConnectionsPerNode;
-        }
         else
-        {
             throw new RedisConnectionConfigurationException("`connectionsPerNode` must be a valid integer.");
-        }
 
         return new RedisConnectionConfiguration(host, port, connectionsPerNode);
     }

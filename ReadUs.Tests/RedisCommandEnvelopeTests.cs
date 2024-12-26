@@ -26,7 +26,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void TrueIfAllKeysAreInSameSlot()
         {
-            var keys = new RedisKey[] 
+            var keys = new RedisKey[]
             {
                 "fc11bb8af5b440cfb13fd08a143a007a",
                 "d32334dafd114fd08c55aed91c148d66",
@@ -120,7 +120,8 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillSucceed()
         {
-            ReadOnlyMemory<byte> command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+            ReadOnlyMemory<byte> command =
+                new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
 
             ReadOnlyMemory<byte> expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
 

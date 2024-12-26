@@ -1,8 +1,8 @@
-﻿using ReadUs.ResultModels;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.ResultModels;
 
 namespace ReadUs;
 
@@ -28,5 +28,6 @@ public interface IRedisDatabase : IDisposable
 
     Task<int> ListLengthAsync(RedisKey key);
 
-    Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default);
+    Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
+        CancellationToken cancellationToken = default);
 }

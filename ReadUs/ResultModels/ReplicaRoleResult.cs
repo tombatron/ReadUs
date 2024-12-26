@@ -5,33 +5,34 @@ namespace ReadUs.ResultModels;
 
 public sealed class ReplicaRoleResult : RoleResult
 {
-    /// <summary>
-    /// The IP address of the primary node that this replica is associated with.
-    /// </summary>
-    public IPAddress PrimaryAddress { get; }
-
-    /// <summary>
-    /// The port of the primary node that this replica is associated with.
-    /// </summary>
-    public int PrimaryPort { get; }
-
-    /// <summary>
-    /// The current state of replication between this replica and its primary.
-    /// </summary>
-    public ReplicationState ReplicationState { get; }
-
-    /// <summary>
-    /// The amount of data received from the replica so far in terms of primary replication.
-    /// </summary>
-    public long DataReceivedTotal { get; }
-
-    public ReplicaRoleResult(IPAddress primaryAddress, int primaryPort, ReplicationState replicationState, long dataReceivedTotal)
+    public ReplicaRoleResult(IPAddress primaryAddress, int primaryPort, ReplicationState replicationState,
+        long dataReceivedTotal)
     {
         PrimaryAddress = primaryAddress;
         PrimaryPort = primaryPort;
         ReplicationState = replicationState;
         DataReceivedTotal = dataReceivedTotal;
     }
+
+    /// <summary>
+    ///     The IP address of the primary node that this replica is associated with.
+    /// </summary>
+    public IPAddress PrimaryAddress { get; }
+
+    /// <summary>
+    ///     The port of the primary node that this replica is associated with.
+    /// </summary>
+    public int PrimaryPort { get; }
+
+    /// <summary>
+    ///     The current state of replication between this replica and its primary.
+    /// </summary>
+    public ReplicationState ReplicationState { get; }
+
+    /// <summary>
+    ///     The amount of data received from the replica so far in terms of primary replication.
+    /// </summary>
+    public long DataReceivedTotal { get; }
 
     public static explicit operator ReplicaRoleResult(ParseResult[] result)
     {

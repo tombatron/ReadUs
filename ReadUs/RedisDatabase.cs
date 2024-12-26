@@ -1,22 +1,21 @@
-using ReadUs.Exceptions;
-using ReadUs.Parser;
-using ReadUs.ResultModels;
 using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.Exceptions;
+using ReadUs.Parser;
+using ReadUs.ResultModels;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
 public abstract class RedisDatabase : IRedisDatabase
 {
-    internal delegate void RedisServerExceptionEventHandler(object sender, RedisServerExceptionEventArgs args);
-    internal event RedisServerExceptionEventHandler? RedisServerExceptionEvent;
-
     protected readonly IRedisConnection _connection;
     protected readonly IRedisConnectionPool _pool;
+
+    private bool _isDisposed;
 
     public RedisDatabase(IRedisConnection connection, IRedisConnectionPool pool)
     {
@@ -36,7 +35,8 @@ public abstract class RedisDatabase : IRedisDatabase
 
     public abstract Task SelectAsync(int databaseId, CancellationToken cancellationToken = default);
 
-    public virtual async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cacncellationToken = default)
+    public virtual async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
+        CancellationToken cacncellationToken = default)
     {
         CheckIfDisposed();
 
@@ -122,8 +122,6 @@ public abstract class RedisDatabase : IRedisDatabase
         EvaluateResultAndThrow(result);
     }
 
-    private bool _isDisposed = false;
-
     public virtual void Dispose()
     {
         _pool.ReturnConnection(_connection);
@@ -131,12 +129,12 @@ public abstract class RedisDatabase : IRedisDatabase
         _isDisposed = true;
     }
 
+    internal event RedisServerExceptionEventHandler? RedisServerExceptionEvent;
+
     protected void CheckIfDisposed()
     {
         if (_isDisposed)
-        {
             throw new RedisDatabaseDisposedException("This instance of `RedisDatabase` has already been disposed.");
-        }
     }
 
     protected void EvaluateResultAndThrow(ParseResult result, [CallerMemberName] string callingMember = "")
@@ -144,7 +142,9 @@ public abstract class RedisDatabase : IRedisDatabase
         if (result.Type == ResultType.Error)
         {
             // This is kind of junky... we'll deal with it later. 
-            var exceptionToThrow = new RedisServerException($"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}", result.ToString());
+            var exceptionToThrow = new RedisServerException(
+                $"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}",
+                result.ToString());
 
             RedisServerExceptionEvent?.Invoke(this, new RedisServerExceptionEventArgs(exceptionToThrow));
 
@@ -154,14 +154,11 @@ public abstract class RedisDatabase : IRedisDatabase
 
     protected static int ParseAndReturnInt(ParseResult result, [CallerMemberName] string callingMember = "")
     {
-        if (result.Type == ResultType.Integer)
-        {
-            return int.Parse(result.ToString());
-        }
-        else
-        {
-            // TODO: Need a real custom exception here. 
-            throw new Exception($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
-        }
+        if (result.Type == ResultType.Integer) return int.Parse(result.ToString());
+
+        // TODO: Need a real custom exception here. 
+        throw new Exception($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
     }
+
+    internal delegate void RedisServerExceptionEventHandler(object sender, RedisServerExceptionEventArgs args);
 }

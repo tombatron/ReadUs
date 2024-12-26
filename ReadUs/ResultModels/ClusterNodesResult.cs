@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using ReadUs.Parser;
@@ -14,14 +13,17 @@ public class ClusterNodesResult : List<ClusterNodesResultItem>
     {
     }
 
-    public ClusterNodesResult(ParseResult parsedResult) => Initialize(parsedResult);
+    public ClusterNodesResult(ParseResult parsedResult)
+    {
+        Initialize(parsedResult);
+    }
 
     public bool HasError { get; private set; }
 
     private void Initialize(ParseResult parseResult)
     {
         HasError = parseResult.Type == ResultType.Error;
-        
+
         var startIndex = 0;
 
         var parsedResultArray = parseResult.Value ?? [];
@@ -30,10 +32,7 @@ public class ClusterNodesResult : List<ClusterNodesResultItem>
         {
             var nextLineBreak = Array.IndexOf(parsedResultArray, '\n', startIndex + 1);
 
-            if (nextLineBreak < 0)
-            {
-                return;
-            }
+            if (nextLineBreak < 0) return;
 
             var rawLine = parsedResultArray[startIndex..nextLineBreak];
 
@@ -43,7 +42,10 @@ public class ClusterNodesResult : List<ClusterNodesResultItem>
         }
     }
 
-    public override string ToString() => string.Join("|", this.Select(x => x.ToString()));
+    public override string ToString()
+    {
+        return string.Join("|", this.Select(x => x.ToString()));
+    }
 
     public string GetNodesSignature()
     {
@@ -57,10 +59,7 @@ public class ClusterNodesResultItem
 {
     public ClusterNodesResultItem(char[] rawLine)
     {
-        if (rawLine is null)
-        {
-            return;
-        }
+        if (rawLine is null) return;
 
         var startIndex = 0;
 
@@ -104,24 +103,21 @@ public class ClusterNodesResultItem
         LinkState = rawLine[startIndex..(nextSpaceIndex == -1 ? rawLine.Length - 1 : nextSpaceIndex)];
 
         // If the `nextSpaceIndex` is -1 at this point this is a secondary node and won't have `slots` defined.
-        if (nextSpaceIndex == -1)
-        {
-            return;
-        }
+        if (nextSpaceIndex == -1) return;
 
         startIndex = nextSpaceIndex + 1;
 
         Slots = rawLine[startIndex..];
     }
 
-    public ClusterNodeId? Id { get; private set; }
+    public ClusterNodeId? Id { get; }
 
     public ClusterNodeAddress? Address { get; internal set; }
 
-    public ClusterNodeFlags? Flags { get; private set; }
+    public ClusterNodeFlags? Flags { get; }
 
     /// <summary>
-    /// This will be null if this node is a primary.
+    ///     This will be null if this node is a primary.
     /// </summary>
     public ClusterNodePrimaryId? PrimaryId { get; private set; }
 
@@ -133,8 +129,10 @@ public class ClusterNodesResultItem
 
     public ClusterNodeLinkState? LinkState { get; private set; }
 
-    public ClusterSlots? Slots { get; private set; }
+    public ClusterSlots? Slots { get; }
 
-    public override string ToString() =>
-        $"{Id ?? "NOID"}:{Address ?? "NOADDRESS"}:{Flags ?? "NOFLAGS"}:{Slots ?? "NOSLOTS"}";
+    public override string ToString()
+    {
+        return $"{Id ?? "NOID"}:{Address ?? "NOADDRESS"}:{Flags ?? "NOFLAGS"}:{Slots ?? "NOSLOTS"}";
+    }
 }

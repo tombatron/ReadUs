@@ -10,7 +10,7 @@ namespace ReadUs.Tests;
 
 public class RedisSingleInstanceFixture : IAsyncLifetime
 {
-    private static readonly ConcurrentStack<int> Ports = new ConcurrentStack<int>(Enumerable.Range(60_000, 1_000));
+    private static readonly ConcurrentStack<int> Ports = new(Enumerable.Range(60_000, 1_000));
 
     // public readonly RedisContainer SingleNode = new RedisBuilder()
     //     .WithImage("redis:7.0")
@@ -33,15 +33,11 @@ public class RedisSingleInstanceFixture : IAsyncLifetime
     public static RedisBuilder CreateNode(string name)
     {
         if (Ports.TryPop(out var port))
-        {
             return new RedisBuilder()
                 .WithImage("redis:7.0")
                 .WithPortBinding(port, 6379)
                 .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"));
-        }
-        else
-        {
-            throw new Exception("No more ports available");
-        }
+
+        throw new Exception("No more ports available");
     }
 }

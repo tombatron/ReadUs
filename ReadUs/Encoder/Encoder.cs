@@ -10,43 +10,32 @@ public static class Encoder
 
     public static byte[] Encode(params object?[] items)
     {
-        if (items == default)
+        if (items == default) return NullBulkStringBytes;
+
+        var result = new StringBuilder();
+
+        if (items.Length > 1)
         {
-            return NullBulkStringBytes;
+            result.Append('*');
+            result.Append(items.Length.ToString());
+            result.Append(EncoderCarriageReturnLineFeed);
         }
-        else
-        {
-            var result = new StringBuilder();
 
-            if (items.Length > 1)
-            {
-                result.Append('*');
-                result.Append(items.Length.ToString());
-                result.Append(EncoderCarriageReturnLineFeed);
-            }
+        foreach (var item in items) result.Append(CreateBulkString(item));
 
-            foreach (var item in items)
-            {
-                result.Append(CreateBulkString(item));
-            }
-
-            return Encoding.ASCII.GetBytes(result.ToString());
-        }
+        return Encoding.ASCII.GetBytes(result.ToString());
     }
 
     private static string CreateBulkString(object? item)
     {
-        string? bulkString = item switch
+        var bulkString = item switch
         {
             RedisKey key => key.Name,
             null => null,
             _ => item.ToString()
         };
 
-        if (bulkString is null)
-        {
-            return NullBulkString;
-        }
+        if (bulkString is null) return NullBulkString;
 
         var result = new StringBuilder();
 

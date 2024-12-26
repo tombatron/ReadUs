@@ -30,12 +30,13 @@ public readonly struct ParseResult
             array = _array;
             return true;
         }
-        else
-        {
-            array = Array.Empty<ParseResult>();
-            return false;
-        }
+
+        array = Array.Empty<ParseResult>();
+        return false;
     }
 
-    public override string ToString() => new string(Value);
+    public override string ToString()
+    {
+        return new string(Value);
+    }
 }

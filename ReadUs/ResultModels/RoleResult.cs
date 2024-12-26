@@ -27,10 +27,8 @@ public abstract class RoleResult
 
             return role;
         }
-        else
-        {
-            // TODO: Throw a custom exception here. 
-            throw new Exception("We expected a result that was a multi-bulk here."); // Or something.
-        }
+
+        // TODO: Throw a custom exception here. 
+        throw new Exception("We expected a result that was a multi-bulk here."); // Or something.
     }
 }

@@ -22,17 +22,17 @@ internal static class RedisCommandNames
 
     internal const string Cluster = "CLUSTER";
 
+    internal const string Client = "CLIENT";
+
+    internal const string Role = "ROLE";
+
     internal static class ClusterSubcommands
     {
         internal const string Nodes = "NODES";
     }
 
-    internal const string Client = "CLIENT";
-
     internal static class ClientSubcommands
     {
         internal const string SetName = "SETNAME";
     }
-
-    internal const string Role = "ROLE";
 }

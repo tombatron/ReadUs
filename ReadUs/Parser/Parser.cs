@@ -43,21 +43,28 @@ public static class Parser
             result = Parse(rawResult);
             return true;
         }
-        catch (Exception ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
+        catch (Exception
+               ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
         {
             result = default;
             return false;
         }
     }
 
-    private static ParseResult HandleSimpleString(Span<char> rawSimpleString) =>
-        SimpleValueParse(ResultType.SimpleString, rawSimpleString);
+    private static ParseResult HandleSimpleString(Span<char> rawSimpleString)
+    {
+        return SimpleValueParse(ResultType.SimpleString, rawSimpleString);
+    }
 
-    private static ParseResult HandleError(Span<char> rawError) =>
-        SimpleValueParse(ResultType.Error, rawError);
+    private static ParseResult HandleError(Span<char> rawError)
+    {
+        return SimpleValueParse(ResultType.Error, rawError);
+    }
 
-    private static ParseResult HandleInteger(Span<char> rawInteger) =>
-        SimpleValueParse(ResultType.Integer, rawInteger);
+    private static ParseResult HandleInteger(Span<char> rawInteger)
+    {
+        return SimpleValueParse(ResultType.Integer, rawInteger);
+    }
 
     private static ParseResult HandleBulkString(Span<char> rawBulkString)
     {
@@ -65,18 +72,16 @@ public static class Parser
         var bulkStringLength = rawBulkString.Slice(1, firstCarriageReturn);
         var bulkStringLengthInt = int.Parse(bulkStringLength);
 
-        if (bulkStringLengthInt == -1)
-        {
-            return new ParseResult(ResultType.BulkString, null, 5);
-        }
-        else
-        {
-            var bulkStringContent = rawBulkString.Slice(TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength, bulkStringLengthInt);
+        if (bulkStringLengthInt == -1) return new ParseResult(ResultType.BulkString, null, 5);
 
-            var totalRawLength = TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength + bulkStringLengthInt + CarriageReturnLineFeedLength;
+        var bulkStringContent =
+            rawBulkString.Slice(TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength,
+                bulkStringLengthInt);
 
-            return new ParseResult(ResultType.BulkString, bulkStringContent.ToArray(), totalRawLength);
-        }
+        var totalRawLength = TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength +
+                             bulkStringLengthInt + CarriageReturnLineFeedLength;
+
+        return new ParseResult(ResultType.BulkString, bulkStringContent.ToArray(), totalRawLength);
     }
 
     private static ParseResult HandleArray(Span<char> rawArray)
@@ -119,19 +124,14 @@ public static class Parser
                 // if all we've got left is the final item in the array, if so, we'll go ahead and
                 // increment the parsed array members counter because for now we're assuming that 
                 // the final item in the array is nil.
-                if (parsedArrayMembers == (arrayLengthInt - 1))
-                {
-                    parsedArrayMembers++;
-                }
+                if (parsedArrayMembers == arrayLengthInt - 1) parsedArrayMembers++;
 
                 break;
             }
         }
 
         if (parsedArrayMembers != arrayLengthInt)
-        {
             throw new Exception("You ain't got the whole array dawg."); // TODO: Custom exception.
-        }
 
         return new ParseResult(ResultType.Array, rawArray.ToArray(), totalRawLength, parsedArray);
     }

@@ -18,6 +18,11 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
         _pool = new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
     }
 
+    public void Dispose()
+    {
+        _pool.Dispose();
+    }
+
     [Fact]
     public async Task Select_Changes_Database()
     {
@@ -101,7 +106,8 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
         using var commands = await _pool.GetAsync();
 
 
-        var keysAndValues = new[]{
+        var keysAndValues = new[]
+        {
             new KeyValuePair<RedisKey, string>(firstKey, "testing"),
             new KeyValuePair<RedisKey, string>(secondKey, "testing")
         };
@@ -110,20 +116,13 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
     }
 
     [Fact]
-    public void  Scratch()
+    public void Scratch()
     {
-        var keys = Enumerable.Range(1, 16000).Select(x=> new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "")).ToArray();
+        var keys = Enumerable.Range(1, 16000)
+            .Select(x => new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "")).ToArray();
 
-        var groups = keys.GroupBy(x=>x.Key.Slot);
+        var groups = keys.GroupBy(x => x.Key.Slot);
 
-        foreach(var g in groups)
-        {
-            Debug.WriteLine(g);
-        }
-    }
-
-    public void Dispose()
-    {
-        _pool.Dispose();
+        foreach (var g in groups) Debug.WriteLine(g);
     }
 }

@@ -4,7 +4,9 @@ namespace ReadUs.Exceptions;
 
 public class RedisDatabaseDisposedException : Exception
 {
-    public RedisDatabaseDisposedException() {}
+    public RedisDatabaseDisposedException()
+    {
+    }
 
     public RedisDatabaseDisposedException(string message) : base(message)
     {

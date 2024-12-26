@@ -6,6 +6,9 @@ namespace ReadUs.ResultModels;
 
 public class ClusterNodeFlags : ReadOnlyCollection<string>
 {
+    private const string PrimaryRoleFlag = "master";
+    private const string SecondaryRoleFlag = "slave";
+
     private ClusterNodeFlags(IList<string> list) : base(list)
     {
     }
@@ -17,27 +20,22 @@ public class ClusterNodeFlags : ReadOnlyCollection<string>
         return new ClusterNodeFlags(flagEntries);
     }
 
-    public static implicit operator ClusterNodeFlags(char[] rawValue) =>
-        FromCharArray(rawValue);
-
-    private const string PrimaryRoleFlag = "master";
-    private const string SecondaryRoleFlag = "slave";
+    public static implicit operator ClusterNodeFlags(char[] rawValue)
+    {
+        return FromCharArray(rawValue);
+    }
 
     public static implicit operator ClusterNodeRole(ClusterNodeFlags flags)
     {
-        if (flags.Contains(PrimaryRoleFlag))
-        {
-            return ClusterNodeRole.Primary;
-        }
+        if (flags.Contains(PrimaryRoleFlag)) return ClusterNodeRole.Primary;
 
-        if (flags.Contains(SecondaryRoleFlag))
-        {
-            return ClusterNodeRole.Secondary;
-        }
+        if (flags.Contains(SecondaryRoleFlag)) return ClusterNodeRole.Secondary;
 
         return ClusterNodeRole.Undefined;
     }
 
-    public static implicit operator string(ClusterNodeFlags clusterNodeFlags) =>
-        string.Join("|", clusterNodeFlags.ToArray());
+    public static implicit operator string(ClusterNodeFlags clusterNodeFlags)
+    {
+        return string.Join("|", clusterNodeFlags.ToArray());
+    }
 }

@@ -4,8 +4,10 @@ namespace ReadUs;
 
 internal sealed class RedisServerExceptionEventArgs
 {
-    internal RedisServerException Exception { get; }
-
-    internal RedisServerExceptionEventArgs(RedisServerException exception) =>
+    internal RedisServerExceptionEventArgs(RedisServerException exception)
+    {
         Exception = exception;
+    }
+
+    internal RedisServerException Exception { get; }
 }
