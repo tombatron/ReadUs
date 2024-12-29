@@ -1,5 +1,3 @@
-using System;
-using Xunit;
 using static ReadUs.Encoder.Encoder;
 
 namespace ReadUs.Tests;

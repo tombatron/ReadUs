@@ -1,6 +1,4 @@
-using System;
 using ReadUs.Exceptions;
-using Xunit;
 
 namespace ReadUs.Tests;
 

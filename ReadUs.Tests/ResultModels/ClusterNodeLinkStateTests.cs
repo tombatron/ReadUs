@@ -1,6 +1,4 @@
-﻿using System;
-using ReadUs.ResultModels;
-using Xunit;
+﻿using ReadUs.ResultModels;
 
 namespace ReadUs.Tests.ResultModels;
 

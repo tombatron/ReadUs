@@ -1,5 +1,3 @@
-using System;
-
 namespace ReadUs.Tests;
 
 internal static class TestUtilities

@@ -1,5 +1,3 @@
-using Xunit;
-
 namespace ReadUs.Tests;
 
 public class RedisKeyUtilitiesTests

@@ -1,6 +1,3 @@
-using System.Threading.Tasks;
-using Xunit;
-
 namespace ReadUs.Tests;
 
 public class RedisClusterConnectionPoolTests : IClassFixture<RedisClusterFixture>

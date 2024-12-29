@@ -1,6 +1,5 @@
 ﻿using System.Text;
 using ReadUs.ResultModels;
-using Xunit;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs.Tests.ResultModels;

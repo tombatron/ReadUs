@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using ReadUs.ResultModels;
-using Xunit;
 using static ReadUs.ResultModels.ClusterSlots;
 
 namespace ReadUs.Tests.ResultModels;

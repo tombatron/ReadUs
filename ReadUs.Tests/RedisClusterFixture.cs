@@ -1,14 +1,11 @@
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Networks;
 using ReadUs.ResultModels;
 using Testcontainers.Redis;
-using Xunit;
 using static ReadUs.RedisClusterConnectionPool;
 
 namespace ReadUs.Tests;
