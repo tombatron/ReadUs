@@ -1,0 +1,5 @@
+# Enforce code style for control blocks
+[*.cs]
+# Use braces for all control structures (if, else, for, while, etc.)
+csharp_prefer_braces = always
+csharp_prefer_braces_severity = error
