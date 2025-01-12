@@ -9,14 +9,14 @@ public static class Parser
     private const int TokenLength = 1;
     private const int CarriageReturnLineFeedLength = 2;
 
-    public static ParseResult Parse(Span<byte> rawResult)
+    public static Result<ParseResult> Parse(Span<byte> rawResult)
     {
         var chars = Encoding.ASCII.GetString(rawResult).ToCharArray();
 
         return Parse(chars);
     }
 
-    public static ParseResult Parse(Span<char> rawResult)
+    public static Result<ParseResult> Parse(Span<char> rawResult)
     {
         switch (rawResult[0])
         {
@@ -31,35 +31,20 @@ public static class Parser
             case ProtocolHeaders.Array:
                 return HandleArray(rawResult);
             default:
-                // TODO: Create and throw an appropriate exception here. 
-                throw new Exception("(╯°□°）╯︵ ┻━┻");
+                return Result<ParseResult>.Error($"When parsing the Redis protocol response we encountered an unexpected prefix token. Token was: {rawResult[0]}");
         }
     }
-
-    public static bool TryParse(Span<char> rawResult, out ParseResult result)
-    {
-        try
-        {
-            result = Parse(rawResult);
-            return true;
-        }
-        catch (Exception ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
-        {
-            result = default;
-            return false;
-        }
-    }
-
-    private static ParseResult HandleSimpleString(Span<char> rawSimpleString) =>
+    
+    private static Result<ParseResult> HandleSimpleString(Span<char> rawSimpleString) =>
         SimpleValueParse(ResultType.SimpleString, rawSimpleString);
     
-    private static ParseResult HandleError(Span<char> rawError) =>
+    private static Result<ParseResult> HandleError(Span<char> rawError) =>
         SimpleValueParse(ResultType.Error, rawError);
     
-    private static ParseResult HandleInteger(Span<char> rawInteger) =>
+    private static Result<ParseResult> HandleInteger(Span<char> rawInteger) =>
         SimpleValueParse(ResultType.Integer, rawInteger);
     
-    private static ParseResult HandleBulkString(Span<char> rawBulkString)
+    private static Result<ParseResult> HandleBulkString(Span<char> rawBulkString)
     {
         var firstCarriageReturn = rawBulkString.IndexOf('\r') - 1;
         var bulkStringLength = rawBulkString.Slice(1, firstCarriageReturn);
@@ -67,7 +52,7 @@ public static class Parser
 
         if (bulkStringLengthInt == -1)
         {
-            return new ParseResult(ResultType.BulkString, null, 5);
+            return Result<ParseResult>.Ok(new ParseResult(ResultType.BulkString, null, 5));
         }
 
         var bulkStringContent =
@@ -77,10 +62,10 @@ public static class Parser
         var totalRawLength = TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength +
                              bulkStringLengthInt + CarriageReturnLineFeedLength;
 
-        return new ParseResult(ResultType.BulkString, bulkStringContent.ToArray(), totalRawLength);
+        return Result<ParseResult>.Ok(new ParseResult(ResultType.BulkString, bulkStringContent.ToArray(), totalRawLength));
     }
 
-    private static ParseResult HandleArray(Span<char> rawArray)
+    private static Result<ParseResult> HandleArray(Span<char> rawArray)
     {
         // We need to parse an array. Let's first find out where the first carriage return
         // is. Once we have that we can determine how many items are present in this array.
