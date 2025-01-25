@@ -1,31 +1,30 @@
 ﻿using System;
+using ReadUs.Exceptions;
 using ReadUs.Parser;
 
 namespace ReadUs.ResultModels;
 
-public class BlockingPopResult
+public class BlockingPopResult(string listKey, string value)
 {
-    public BlockingPopResult(string listKey, string value)
-    {
-        ListKey = listKey;
-        Value = value;
-    }
+    public string ListKey { get; } = listKey;
 
-    public string ListKey { get; }
-
-    public string Value { get; }
+    public string Value { get; } = value;
 
     public static explicit operator BlockingPopResult(ParseResult result)
     {
         if (result.TryToArray(out var resultArray))
         {
+            if (resultArray.Length < 2)
+            {
+                throw new RedisWrongTypeException("We expected a multi-bulk result with at least two items.");
+            }
+            
             var listKey = resultArray[0];
             var value = resultArray[1];
 
             return new BlockingPopResult(listKey.ToString(), value.ToString());
         }
-
-        // TODO: Throw custom exception here.
-        throw new Exception("We expected a result that was a multi-bulk here.");
+        
+        throw new RedisWrongTypeException("We expected a result that was a multi-bulk here.");
     }
 }
