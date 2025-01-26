@@ -10,58 +10,51 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-public abstract class RedisDatabase : IRedisDatabase
+public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectionPool pool) : IRedisDatabase
 {
-    protected readonly IRedisConnection _connection;
-    protected readonly IRedisConnectionPool _pool;
-
     private bool _isDisposed;
 
-    public RedisDatabase(IRedisConnection connection, IRedisConnectionPool pool)
-    {
-        _connection = connection;
-        _pool = pool;
-    }
+    public IRedisConnection Connection => connection;
 
-    public IRedisConnection Connection => _connection;
+    public abstract Task<Result<BlockingPopResult>> BlockingLeftPopAsync(params RedisKey[] keys);
 
-    public abstract Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys);
+    public abstract Task<Result<BlockingPopResult>> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys);
 
-    public abstract Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys);
+    public abstract Task<Result<BlockingPopResult>> BlockingRightPopAsync(params RedisKey[] keys);
 
-    public abstract Task<BlockingPopResult> BlockingRightPopAsync(params RedisKey[] keys);
+    public abstract Task<Result<BlockingPopResult>> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys);
 
-    public abstract Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys);
+    public abstract Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default);
 
-    public abstract Task SelectAsync(int databaseId, CancellationToken cancellationToken = default);
-
-    public virtual async Task SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
+    public virtual async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
         CancellationToken cacncellationToken = default)
     {
         CheckIfDisposed();
 
         var command = RedisCommandEnvelope.CreateSetMultipleCommand(keysAndValues);
 
-        var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await connection.SendCommandAsync(command).ConfigureAwait(false);
 
         var result = Parse(rawResult);
 
         EvaluateResultAndThrow(result);
+
+        return Result.Ok;
     }
 
-    public virtual async Task<string> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
+    public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
     {
         CheckIfDisposed();
 
         var command = RedisCommandEnvelope.CreateGetCommand(key);
 
-        var rawResult = await _connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
+        var rawResult = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
         var result = Parse(rawResult);
 
         EvaluateResultAndThrow(result);
 
-        return result.ToString();
+        return Result<string>.Ok(result.ToString());
     }
 
     public virtual async Task<int> LeftPushAsync(RedisKey key, params string[] element)
