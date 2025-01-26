@@ -134,7 +134,9 @@ public abstract class RedisDatabase : IRedisDatabase
     protected void CheckIfDisposed()
     {
         if (_isDisposed)
+        {
             throw new RedisDatabaseDisposedException("This instance of `RedisDatabase` has already been disposed.");
+        }
     }
 
     protected void EvaluateResultAndThrow(ParseResult result, [CallerMemberName] string callingMember = "")

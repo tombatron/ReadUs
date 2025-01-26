@@ -11,7 +11,6 @@ internal class Program
 
         using var pool = RedisConnectionPool.Create(connectionString);
 
-
         // if (db is RedisSingleInstanceDatabase sidb)
         // {
         //     var roleResult = sidb.UnderlyingConnection.Role();
@@ -35,7 +34,6 @@ internal class Program
         do
         {
             while (!System.Console.KeyAvailable)
-                // while(true)
             {
                 var key = Guid.NewGuid().ToString("n");
                 var value = Guid.NewGuid().ToString("n");

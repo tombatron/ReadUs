@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.Exceptions;
 using ReadUs.ResultModels;
 using static ReadUs.Parser.Parser;
 using static ReadUs.StandardValues;
@@ -85,6 +86,7 @@ public class RedisConnection : IRedisConnection
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         using var cancellationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        
         cancellationTimeout.CancelAfter(_commandTimeout);
 
         try
@@ -98,6 +100,8 @@ public class RedisConnection : IRedisConnection
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // We're in here now assuming that the cancellation is because the timeout has lapsed.
+            Trace.WriteLine("Connection attempt timed out.");
+            
             throw;
         }
     }
@@ -112,24 +116,22 @@ public class RedisConnection : IRedisConnection
 
             return (RoleResult)result;
         }
-
-        // TODO: Need a custom exception here.
-        throw new Exception("Socket isn't ready can't execute command.");
+        
+        throw new RedisConnectionException("Socket isn't ready can't execute command.");
     }
 
     public async Task<RoleResult> RoleAsync(CancellationToken cancellationToken = default)
     {
         if (IsConnected)
         {
-            var rawResult = await SendCommandAsync(RoleCommandBytes, TimeSpan.FromSeconds(1)).ConfigureAwait(false);
+            var rawResult = await SendCommandAsync(RoleCommandBytes, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
 
             var result = Parse(rawResult);
 
             return (RoleResult)result;
         }
-
-        // TODO: Need a custom exception here.
-        throw new Exception("Socket isn't ready can't execute command.");
+        
+        throw new RedisConnectionException("Socket isn't ready can't execute command.");
     }
 
     public byte[] SendCommand(RedisCommandEnvelope command)
@@ -139,7 +141,7 @@ public class RedisConnection : IRedisConnection
 
     public Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken)
     {
-        return SendCommandAsync(command.ToByteArray(), command.Timeout);
+        return SendCommandAsync(command.ToByteArray(), command.Timeout, cancellationToken);
     }
 
     public void Dispose()
@@ -202,8 +204,7 @@ public class RedisConnection : IRedisConnection
         throw new Exception("I guess we didn't get anything...");
     }
 
-    public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout,
-        CancellationToken cancellationToken = default)
+    public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         using var cancellationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cancellationTimeout.CancelAfter(timeout);
@@ -220,8 +221,8 @@ public class RedisConnection : IRedisConnection
             while (true)
             {
                 var memory = pipe.Writer.GetMemory(512);
-                var bytesReceived = await _socket.ReceiveAsync(memory, SocketFlags.None, cancellationTimeout.Token)
-                    .ConfigureAwait(false);
+                
+                var bytesReceived = await _socket.ReceiveAsync(memory, SocketFlags.None, cancellationTimeout.Token).ConfigureAwait(false);
 
                 if (bytesReceived == 0)
                 {
@@ -239,6 +240,7 @@ public class RedisConnection : IRedisConnection
                     }
                     
                     var readResult = await pipe.Reader.ReadAsync(cancellationTimeout.Token).ConfigureAwait(false);
+                    
                     var buffer = readResult.Buffer;
                     
                     if (IsResponseComplete(buffer))
@@ -261,6 +263,7 @@ public class RedisConnection : IRedisConnection
 
         if (socketResult is null)
         {
+            // Pretty sure that Redis commands should always return something...
             throw new Exception("I guess we didn't get anything...");
         }
 

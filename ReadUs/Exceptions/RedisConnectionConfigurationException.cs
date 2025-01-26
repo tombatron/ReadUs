@@ -12,8 +12,7 @@ public class RedisConnectionConfigurationException : Exception
     {
     }
 
-    public RedisConnectionConfigurationException(string message, Exception innerException) : base(message,
-        innerException)
+    public RedisConnectionConfigurationException(string message, Exception innerException) : base(message, innerException)
     {
     }
 }

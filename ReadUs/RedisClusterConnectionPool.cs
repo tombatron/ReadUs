@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.ResultModels;
 using static ReadUs.Extras.AsyncTools;
@@ -38,11 +39,14 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Need to check if we are reinitializing. That shouldn't happen too often, but
         // if it does we'll want to wait until that is complete before returning anything
         // to the caller. 
-        await WaitWhileAsync(() => _isReinitializing, default);
+        await WaitWhileAsync(() => _isReinitializing, CancellationToken.None);
 
         var connection = GetReadUsConnection();
 
-        if (!connection.IsConnected) await connection.ConnectAsync();
+        if (!connection.IsConnected)
+        {
+            await connection.ConnectAsync();
+        }
 
         var database = new RedisClusterDatabase(connection, this);
 
