@@ -26,14 +26,18 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public abstract Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default);
 
-    public virtual async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
-        CancellationToken cacncellationToken = default)
+    public virtual async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default)
     {
-        CheckIfDisposed();
-
+        if (IsDisposed(out var error))
+        {
+            return Result.Error(error!);
+        }
+        
         var command = RedisCommandEnvelope.CreateSetMultipleCommand(keysAndValues);
 
-        var rawResult = await connection.SendCommandAsync(command).ConfigureAwait(false);
+        // TODO: Handle this using the result type instead of by allowing this to throw an exception. But we need to test several scenarios
+        //       so that we make sure that we're handling only the exceptions we expect to handle.
+        var rawResult = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
         var result = Parse(rawResult);
 
@@ -44,7 +48,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateGetCommand(key);
 
@@ -59,7 +63,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<int> LeftPushAsync(RedisKey key, params string[] element)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateLeftPushCommand(key, element);
 
@@ -74,7 +78,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<int> ListLengthAsync(RedisKey key)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateListLengthCommand(key);
 
@@ -89,7 +93,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<int> RightPushAsync(RedisKey key, params string[] element)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateRightPushCommand(key, element);
 
@@ -104,7 +108,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateSetCommand(key, value);
 
@@ -124,12 +128,16 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     internal event RedisServerExceptionEventHandler? RedisServerExceptionEvent;
 
-    protected void CheckIfDisposed()
+    protected bool IsDisposed(out string? errorMessage)
     {
+        errorMessage = null;
+        
         if (_isDisposed)
         {
-            throw new RedisDatabaseDisposedException("This instance of `RedisDatabase` has already been disposed.");
+            errorMessage = "This instance of `RedisDatabase` has already been disposed.";
         }
+
+        return _isDisposed;
     }
 
     protected void EvaluateResultAndThrow(ParseResult result, [CallerMemberName] string callingMember = "")

@@ -21,7 +21,7 @@ public class RedisClusterDatabase : RedisDatabase
 
     public override async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
@@ -41,7 +41,7 @@ public class RedisClusterDatabase : RedisDatabase
 
     public override async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
 
@@ -56,7 +56,7 @@ public class RedisClusterDatabase : RedisDatabase
 
     public override Task SelectAsync(int databaseId, CancellationToken cancellationToken = default)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         // No-Op, this command doesn't really do anything on clusters. 
 

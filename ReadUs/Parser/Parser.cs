@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using ReadUs.Exceptions;
 using static ReadUs.Parser.ProtocolHeaders;
 
 namespace ReadUs.Parser;
@@ -9,20 +10,20 @@ public static class Parser
     private const int TokenLength = 1;
     private const int CarriageReturnLineFeedLength = 2;
 
-    public static ParseResult Parse(Span<byte> rawResult)
+    public static Result<ParseResult> Parse(Span<byte> rawResult)
     {
         var chars = Encoding.ASCII.GetString(rawResult).ToCharArray();
 
         return Parse(chars);
     }
 
-    public static ParseResult Parse(Span<char> rawResult)
+    public static Result<ParseResult> Parse(Span<char> rawResult)
     {
         switch (rawResult[0])
         {
             case SimpleString:
                 return HandleSimpleString(rawResult);
-            case Error:
+            case ProtocolHeaders.Error:
                 return HandleError(rawResult);
             case Integer:
                 return HandleInteger(rawResult);
@@ -31,8 +32,7 @@ public static class Parser
             case ProtocolHeaders.Array:
                 return HandleArray(rawResult);
             default:
-                // TODO: Create and throw an appropriate exception here. 
-                throw new Exception("(╯°□°）╯︵ ┻━┻");
+                return Result<ParseResult>.Error($"The provided Span<char> was not prefixed with a known header value. Got: {rawResult[0]} \n(╯°□°）╯︵ ┻━┻");
         }
     }
 
@@ -50,7 +50,7 @@ public static class Parser
         }
     }
 
-    private static ParseResult HandleSimpleString(Span<char> rawSimpleString) =>
+    private static Result<ParseResult> HandleSimpleString(Span<char> rawSimpleString) =>
         SimpleValueParse(ResultType.SimpleString, rawSimpleString);
     
     private static ParseResult HandleError(Span<char> rawError) =>
@@ -132,13 +132,13 @@ public static class Parser
         return new ParseResult(ResultType.Array, rawArray.ToArray(), totalRawLength, parsedArray);
     }
 
-    private static ParseResult SimpleValueParse(ResultType type, Span<char> rawValue)
+    private static Result<ParseResult> SimpleValueParse(ResultType type, Span<char> rawValue)
     {
         var firstCarriageReturn = rawValue.IndexOf('\r') - 1;
         var simpleValueContent = rawValue.Slice(1, firstCarriageReturn);
 
         var totalRawLength = TokenLength + simpleValueContent.Length + CarriageReturnLineFeedLength;
 
-        return new ParseResult(type, simpleValueContent.ToArray(), totalRawLength);
+        return Result<ParseResult>.Ok(new ParseResult(type, simpleValueContent.ToArray(), totalRawLength));
     }
 }

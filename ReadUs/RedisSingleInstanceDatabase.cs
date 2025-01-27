@@ -16,7 +16,7 @@ public class RedisSingleInstanceDatabase : RedisDatabase
 
     public override async Task SelectAsync(int databaseId, CancellationToken cancellationToken = default)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateSelectCommand(databaseId);
 
@@ -34,7 +34,7 @@ public class RedisSingleInstanceDatabase : RedisDatabase
 
     public override async Task<BlockingPopResult> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
@@ -54,7 +54,7 @@ public class RedisSingleInstanceDatabase : RedisDatabase
 
     public override async Task<BlockingPopResult> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        CheckIfDisposed();
+        IsDisposed();
 
         var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
 
