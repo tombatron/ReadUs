@@ -29,7 +29,7 @@ public class RedisClusterDatabase : RedisDatabase
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return (BlockingPopResult)result;
     }
@@ -49,7 +49,7 @@ public class RedisClusterDatabase : RedisDatabase
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return (BlockingPopResult)result;
     }

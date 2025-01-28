@@ -24,7 +24,7 @@ public class RedisSingleInstanceDatabase : RedisDatabase
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
     }
 
     public override Task<BlockingPopResult> BlockingLeftPopAsync(params RedisKey[] keys)
@@ -42,7 +42,7 @@ public class RedisSingleInstanceDatabase : RedisDatabase
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return (BlockingPopResult)result;
     }
@@ -62,7 +62,7 @@ public class RedisSingleInstanceDatabase : RedisDatabase
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return (BlockingPopResult)result;
     }

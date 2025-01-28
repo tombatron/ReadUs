@@ -39,11 +39,16 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         //       so that we make sure that we're handling only the exceptions we expect to handle.
         var rawResult = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
-        var result = Parse(rawResult);
+        // var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        var result = Parse(rawResult) switch
+        {
+            Ok<ParseResult> okResult => EvaluateResult(okResult.Value),
+            Error<ParseResult> errorResult => Result.Error(errorResult.Message);
+            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
+        };
 
-        return Result.Ok;
+        return result;
     }
 
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
@@ -56,7 +61,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return Result<string>.Ok(result.ToString());
     }
@@ -71,7 +76,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return ParseAndReturnInt(result);
     }
@@ -86,7 +91,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return ParseAndReturnInt(result);
     }
@@ -101,7 +106,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
 
         return ParseAndReturnInt(result);
     }
@@ -116,7 +121,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
         var result = Parse(rawResult);
 
-        EvaluateResultAndThrow(result);
+        EvaluateResult(result);
     }
 
     public virtual void Dispose()
@@ -140,7 +145,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         return _isDisposed;
     }
 
-    protected void EvaluateResultAndThrow(ParseResult result, [CallerMemberName] string callingMember = "")
+    protected Result EvaluateResult(ParseResult result, [CallerMemberName] string callingMember = "")
     {
         if (result.Type == ResultType.Error)
         {

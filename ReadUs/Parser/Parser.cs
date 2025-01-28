@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Text;
-using ReadUs.Exceptions;
 using static ReadUs.Parser.ProtocolHeaders;
 
 namespace ReadUs.Parser;
@@ -36,30 +35,16 @@ public static class Parser
         }
     }
 
-    public static bool TryParse(Span<char> rawResult, out ParseResult result)
-    {
-        try
-        {
-            result = Parse(rawResult);
-            return true;
-        }
-        catch (Exception ex) // TODO: Catch whatever exception we decide to throw there in the default case of the parse method north of here.
-        {
-            result = default;
-            return false;
-        }
-    }
-
     private static Result<ParseResult> HandleSimpleString(Span<char> rawSimpleString) =>
         SimpleValueParse(ResultType.SimpleString, rawSimpleString);
     
-    private static ParseResult HandleError(Span<char> rawError) =>
+    private static Result<ParseResult> HandleError(Span<char> rawError) =>
         SimpleValueParse(ResultType.Error, rawError);
     
-    private static ParseResult HandleInteger(Span<char> rawInteger) =>
+    private static Result<ParseResult> HandleInteger(Span<char> rawInteger) =>
         SimpleValueParse(ResultType.Integer, rawInteger);
     
-    private static ParseResult HandleBulkString(Span<char> rawBulkString)
+    private static Result<ParseResult> HandleBulkString(Span<char> rawBulkString)
     {
         var firstCarriageReturn = rawBulkString.IndexOf('\r') - 1;
         var bulkStringLength = rawBulkString.Slice(1, firstCarriageReturn);
@@ -67,7 +52,7 @@ public static class Parser
 
         if (bulkStringLengthInt == -1)
         {
-            return new ParseResult(ResultType.BulkString, null, 5);
+            return Result<ParseResult>.Ok(new ParseResult(ResultType.BulkString, null, 5));
         }
 
         var bulkStringContent =
@@ -77,10 +62,10 @@ public static class Parser
         var totalRawLength = TokenLength + bulkStringLength.Length + CarriageReturnLineFeedLength +
                              bulkStringLengthInt + CarriageReturnLineFeedLength;
 
-        return new ParseResult(ResultType.BulkString, bulkStringContent.ToArray(), totalRawLength);
+        return Result<ParseResult>.Ok(new ParseResult(ResultType.BulkString, bulkStringContent.ToArray(), totalRawLength));
     }
 
-    private static ParseResult HandleArray(Span<char> rawArray)
+    private static Result<ParseResult> HandleArray(Span<char> rawArray)
     {
         // We need to parse an array. Let's first find out where the first carriage return
         // is. Once we have that we can determine how many items are present in this array.
@@ -108,9 +93,16 @@ public static class Parser
             // Recursive call to the parse method to handle the each item within the array.
             var parsedResult = Parse(rawArray.Slice(totalRawLength));
 
-            parsedArray[i] = parsedResult;
+            if (parsedResult is Error<ParseResult> err)
+            {
+                return err;
+            }
 
-            totalRawLength += parsedResult.TotalRawLength;
+            var unwrappedParsedResult = parsedResult.Unwrap();
+
+            parsedArray[i] = unwrappedParsedResult;
+
+            totalRawLength += unwrappedParsedResult.TotalRawLength;
 
             parsedArrayMembers++;
 
@@ -120,16 +112,21 @@ public static class Parser
                 // if all we've got left is the final item in the array, if so, we'll go ahead and
                 // increment the parsed array members counter because for now we're assuming that 
                 // the final item in the array is nil.
-                if (parsedArrayMembers == arrayLengthInt - 1) parsedArrayMembers++;
+                if (parsedArrayMembers == arrayLengthInt - 1)
+                {
+                    parsedArrayMembers++;
+                }
 
                 break;
             }
         }
 
         if (parsedArrayMembers != arrayLengthInt)
-            throw new Exception("You ain't got the whole array dawg."); // TODO: Custom exception.
-
-        return new ParseResult(ResultType.Array, rawArray.ToArray(), totalRawLength, parsedArray);
+        {
+            return Result<ParseResult>.Error("You ain't got the whole array dawg.");
+        }
+        
+        return Result<ParseResult>.Ok(new ParseResult(ResultType.Array, rawArray.ToArray(), totalRawLength, parsedArray));
     }
 
     private static Result<ParseResult> SimpleValueParse(ResultType type, Span<char> rawValue)
