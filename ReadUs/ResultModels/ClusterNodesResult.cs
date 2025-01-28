@@ -13,20 +13,28 @@ public class ClusterNodesResult : List<ClusterNodesResultItem>
     {
     }
 
-    public ClusterNodesResult(ParseResult parsedResult)
+    public ClusterNodesResult(Result<ParseResult> parsedResult)
     {
         Initialize(parsedResult);
     }
 
     public bool HasError { get; private set; }
 
-    private void Initialize(ParseResult parseResult)
+    private void Initialize(Result<ParseResult> parseResult)
     {
-        HasError = parseResult.Type == ResultType.Error;
+        if (parseResult is Error<ParseResult>)
+        {
+            HasError = true;
+            return;
+        }
+
+        var parsedResult = parseResult.Unwrap();
+        
+        HasError = parsedResult.Type == ResultType.Error;
 
         var startIndex = 0;
 
-        var parsedResultArray = parseResult.Value ?? [];
+        var parsedResultArray = parsedResult.Value ?? [];
 
         while (true)
         {
