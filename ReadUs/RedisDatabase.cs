@@ -39,12 +39,10 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         //       so that we make sure that we're handling only the exceptions we expect to handle.
         var rawResult = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
-        // var result = Parse(rawResult);
-
         var result = Parse(rawResult) switch
         {
-            Ok<ParseResult> okResult => EvaluateResult(okResult.Value),
-            Error<ParseResult> errorResult => Result.Error(errorResult.Message);
+            Ok<ParseResult> ok => EvaluateResult(ok.Value),
+            Error<ParseResult> err => Result.Error(err.Message),
             _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
         };
 
@@ -53,32 +51,44 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
     {
-        IsDisposed();
+        if (IsDisposed(out var error))
+        {
+            return Result<string>.Error(error!);
+        }
 
         var command = RedisCommandEnvelope.CreateGetCommand(key);
 
         var rawResult = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
-        var result = Parse(rawResult);
+        var result = Parse(rawResult) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult<string>(ok.Value, (pr) => Result<string>.Ok(pr.ToString())),
+            Error<ParseResult> err => Result<string>.Error(err.Message),
+            _ => Result<string>.Error("An unexpected error occurred while attempting to parse the result of the GET command.")
+        };
 
-        EvaluateResult(result);
-
-        return Result<string>.Ok(result.ToString());
+        return result;
     }
 
-    public virtual async Task<int> LeftPushAsync(RedisKey key, params string[] element)
+    public virtual async Task<Result<int>> LeftPushAsync(RedisKey key, params string[] element)
     {
-        IsDisposed();
+        if (IsDisposed(out var error))
+        {
+            return Result<int>.Error(error!);
+        }
 
         var command = RedisCommandEnvelope.CreateLeftPushCommand(key, element);
 
-        var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await connection.SendCommandAsync(command).ConfigureAwait(false);
 
-        var result = Parse(rawResult);
+        var result = Parse(rawResult) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult<int>(ok.Value, ParseAndReturnInt),
+            Error<ParseResult> err => Result<int>.Error(err.Message),
+            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the LPUSH command.")
+        };
 
-        EvaluateResult(result);
-
-        return ParseAndReturnInt(result);
+        return result;
     }
 
     public virtual async Task<int> ListLengthAsync(RedisKey key)
@@ -87,7 +97,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
         var command = RedisCommandEnvelope.CreateListLengthCommand(key);
 
-        var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await connection.SendCommandAsync(command).ConfigureAwait(false);
 
         var result = Parse(rawResult);
 
@@ -149,23 +159,37 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
     {
         if (result.Type == ResultType.Error)
         {
-            // This is kind of junky... we'll deal with it later. 
-            var exceptionToThrow = new RedisServerException(
-                $"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}",
-                result.ToString());
+            var errorMessage = $"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}";
 
-            RedisServerExceptionEvent?.Invoke(this, new RedisServerExceptionEventArgs(exceptionToThrow));
+            // TODO: Probably need to address this one too...   
+            RedisServerExceptionEvent?.Invoke(this, new RedisServerExceptionEventArgs(new RedisServerException(errorMessage, string.Empty)));
 
-            throw exceptionToThrow;
+            return Result.Error(errorMessage);
         }
+
+        return Result.Ok;
     }
-
-    protected static int ParseAndReturnInt(ParseResult result, [CallerMemberName] string callingMember = "")
+    
+    protected Result<T> EvaluateResult<T>(ParseResult result, Func<ParseResult, Result<T>> converter, [CallerMemberName] string callingMember = "") where T : notnull
     {
-        if (result.Type == ResultType.Integer) return int.Parse(result.ToString());
+        var evalResult = EvaluateResult(result, callingMember);
+        
+        return evalResult switch
+        {
+            Ok => converter(result),
+            Error err => Result<T>.Error(err.Message),
+            _ => Result<T>.Error("Ran into an unexpected (and I'll be honest, I thought it was impossible) error while evaluating the result of a Redis command.")
+        };
+    }    
 
-        // TODO: Need a real custom exception here. 
-        throw new Exception($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
+    protected static Result<int> ParseAndReturnInt(ParseResult result)
+    {
+        if (result.Type == ResultType.Integer)
+        {
+            return Result<int>.Ok(int.Parse(result.ToString()));
+        }
+
+        return Result<int>.Error($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
     }
 
     internal delegate void RedisServerExceptionEventHandler(object sender, RedisServerExceptionEventArgs args);
