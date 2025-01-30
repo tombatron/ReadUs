@@ -8,6 +8,23 @@ public static class Parser
 {
     private const int TokenLength = 1;
     private const int CarriageReturnLineFeedLength = 2;
+    
+    public static Result<ParseResult> Parse(Result<byte[]> rawResult)
+    {
+        if(rawResult is Ok<byte[]> ok)
+        {
+            var chars = Encoding.ASCII.GetString(ok.Value).ToCharArray();
+            
+            return Parse(chars);
+        }
+
+        if (rawResult is Error<byte[]> err)
+        {
+            return Result<ParseResult>.Error(err.Message);
+        }
+        
+        return Result<ParseResult>.Error("Something went way wrong parsing the Redis response.");
+    }
 
     public static Result<ParseResult> Parse(Span<byte> rawResult)
     {
