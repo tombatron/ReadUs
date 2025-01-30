@@ -21,21 +21,20 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
         _connectionsPerNode = connectionsPerNode;
 
         foreach (var node in nodes)
+        {
             for (var i = 0; i < connectionsPerNode; i++)
+            {
                 Add(new RedisNodeConnection(node));
+            }            
+        }
     }
 
     public bool IsConnected => this.All(x => x.IsConnected);
 
-    public byte[] SendCommand(RedisCommandEnvelope command)
-    {
-        return GetNodeForKeys(command).SendCommand(command);
-    }
+    public Result<byte[]> SendCommand(RedisCommandEnvelope command) => GetNodeForKeys(command).SendCommand(command);
 
-    public Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
-    {
-        return GetNodeForKeys(command).SendCommandAsync(command);
-    }
+    public Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default) => 
+        GetNodeForKeys(command).SendCommandAsync(command, cancellationToken);
 
     public void Connect()
     {
@@ -43,7 +42,7 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
         {
             connection.Connect();
 
-            Console.WriteLine($"{connection.EndPoint.Address}:{connection.EndPoint.Port} connected.");
+            Trace.WriteLine($"{connection.EndPoint.Address}:{connection.EndPoint.Port} connected.");
         }
     }
 
@@ -67,22 +66,11 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
 
     // TODO: Let's find a way to get rid of these... This will require a redesign of some sort. 
 
-    public RoleResult Role()
-    {
-        throw new NotImplementedException("This command doesn't really make sense here...");
-    }
+    public Result<RoleResult> Role() => Result<RoleResult>.Error("This command doesn't really make sense here...");
 
-    public Task<RoleResult> RoleAsync(CancellationToken cancellationToken = default)
-    {
-        throw new NotImplementedException("This command doesn't really make sense here...");
-    }
-
-    // This is kind of chunky. If I'm not provided any keys, should I just arbitrariliy pick a connection? I'll have to think about that. 
-    public Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken)
-    {
-        throw new NotImplementedException("Cluster commands require keys...");
-    }
-
+    public Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default) =>
+        Task.FromResult(Result<RoleResult>.Error("This command doesn't really make sense here..."));
+    
     private IRedisNodeConnection GetNodeForKey(RedisKey key)
     {
         var qualifiedConnections = this.Where(x => !(x.Slots is null) && x.Slots.ContainsSlot(key.Slot));
