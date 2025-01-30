@@ -13,11 +13,11 @@ public interface IRedisConnection : IDisposable
 
     Task ConnectAsync(CancellationToken cancellationToken = default);
 
-    RoleResult Role();
+    Result<RoleResult> Role();
 
-    Task<RoleResult> RoleAsync(CancellationToken cancellationToken = default);
+    Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default);
 
-    byte[] SendCommand(RedisCommandEnvelope command);
+    Result<byte[]> SendCommand(RedisCommandEnvelope command);
 
-    Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
+    Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
 }

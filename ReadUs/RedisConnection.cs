@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.Exceptions;
+using ReadUs.Parser;
 using ReadUs.ResultModels;
 using static ReadUs.Parser.Parser;
 using static ReadUs.StandardValues;
@@ -106,37 +107,73 @@ public class RedisConnection : IRedisConnection
         }
     }
 
-    public RoleResult Role()
+    public Result<RoleResult> Role()
     {
         if (IsConnected)
         {
-            var rawResult = SendCommand(RoleCommandBytes);
+            var result = SendCommand(RoleCommandBytes);
 
-            var result = Parse(rawResult).Unwrap();
+            if (result is Ok<byte[]> ok)
+            {
+                var rawResult = ok.Value;
 
-            return (RoleResult)result;
+                var parsedResult = Parse(rawResult);
+
+                if (parsedResult is Ok<ParseResult> ook)
+                {
+                    return Result<RoleResult>.Ok((RoleResult)ook.Value);
+                }
+
+                if (parsedResult is Error<ParseResult> error)
+                {
+                    return Result<RoleResult>.Error(error.Message);
+                }
+            }
+
+            if (result is Error<byte[]> err)
+            {
+                return Result<RoleResult>.Error(err.Message);
+            }
         }
         
-        throw new RedisConnectionException("Socket isn't ready can't execute command.");
+        return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
     }
 
-    public async Task<RoleResult> RoleAsync(CancellationToken cancellationToken = default)
+    public async Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default)
     {
         if (IsConnected)
         {
-            var rawResult = await SendCommandAsync(RoleCommandBytes, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+            var result = await SendCommandAsync(RoleCommandBytes, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+            
+            if (result is Ok<byte[]> ok)
+            {
+                var rawResult = ok.Value;
 
-            var result = Parse(rawResult).Unwrap();
+                var parsedResult = Parse(rawResult);
+                
+                if (parsedResult is Ok<ParseResult> ook)
+                {
+                    return Result<RoleResult>.Ok((RoleResult)ook.Value);
+                }
 
-            return (RoleResult)result;
+                if (parsedResult is Error<ParseResult> error)
+                {
+                    return Result<RoleResult>.Error(error.Message);
+                }                
+            }
+
+            if (result is Error<byte[]> err)
+            {
+                return Result<RoleResult>.Error(err.Message);
+            }
         }
         
-        throw new RedisConnectionException("Socket isn't ready can't execute command.");
+        return Result<RoleResult>.Error("Socket isn't ready can't execute command.");
     }
 
-    public byte[] SendCommand(RedisCommandEnvelope command) => SendCommand(command.ToByteArray());
+    public Result<byte[]> SendCommand(RedisCommandEnvelope command) => SendCommand(command.ToByteArray());
 
-    public Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken) => 
+    public Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken) => 
         SendCommandAsync(command.ToByteArray(), command.Timeout, cancellationToken);
 
     public void Dispose()
@@ -147,7 +184,7 @@ public class RedisConnection : IRedisConnection
         Trace.WriteLine($"Connection {ConnectionName} ({EndPoint.Address}:{EndPoint.Port}) disposed.");
     }
 
-    public byte[] SendCommand(byte[] command)
+    public Result<byte[]> SendCommand(byte[] command)
     {
         _semaphore.Wait();
 
@@ -192,14 +229,14 @@ public class RedisConnection : IRedisConnection
 
             _semaphore.Release();
 
-            return result;
+            return Result<byte[]>.Ok(result);
         }
 
-        // TODO: This better...
-        throw new Exception("I guess we didn't get anything...");
+        // TODO: This, better...
+        return Result<byte[]>.Error("I guess we didn't get anything...");
     }
 
-    public async Task<byte[]> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken = default)
+    public async Task<Result<byte[]>> SendCommandAsync(byte[] command, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         using var cancellationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cancellationTimeout.CancelAfter(timeout);
@@ -259,10 +296,10 @@ public class RedisConnection : IRedisConnection
         if (socketResult is null)
         {
             // Pretty sure that Redis commands should always return something...
-            throw new Exception("I guess we didn't get anything...");
+            return Result<byte[]>.Error("I guess we didn't get anything...");
         }
 
-        return socketResult;
+        return Result<byte[]>.Ok(socketResult);
     }
 
     private static bool IsResponseComplete(ReadOnlySequence<byte> buffer)
