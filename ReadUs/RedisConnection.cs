@@ -112,7 +112,7 @@ public class RedisConnection : IRedisConnection
         {
             var rawResult = SendCommand(RoleCommandBytes);
 
-            var result = Parse(rawResult);
+            var result = Parse(rawResult).Unwrap();
 
             return (RoleResult)result;
         }
@@ -126,7 +126,7 @@ public class RedisConnection : IRedisConnection
         {
             var rawResult = await SendCommandAsync(RoleCommandBytes, TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
 
-            var result = Parse(rawResult);
+            var result = Parse(rawResult).Unwrap();
 
             return (RoleResult)result;
         }
@@ -134,15 +134,10 @@ public class RedisConnection : IRedisConnection
         throw new RedisConnectionException("Socket isn't ready can't execute command.");
     }
 
-    public byte[] SendCommand(RedisCommandEnvelope command)
-    {
-        return SendCommand(command.ToByteArray());
-    }
+    public byte[] SendCommand(RedisCommandEnvelope command) => SendCommand(command.ToByteArray());
 
-    public Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken)
-    {
-        return SendCommandAsync(command.ToByteArray(), command.Timeout, cancellationToken);
-    }
+    public Task<byte[]> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken) => 
+        SendCommandAsync(command.ToByteArray(), command.Timeout, cancellationToken);
 
     public void Dispose()
     {
