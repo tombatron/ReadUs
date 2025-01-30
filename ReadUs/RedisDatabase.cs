@@ -91,52 +91,72 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         return result;
     }
 
-    public virtual async Task<int> ListLengthAsync(RedisKey key)
+    public virtual async Task<Result<int>> ListLengthAsync(RedisKey key)
     {
-        IsDisposed();
+        if (IsDisposed(out var error))
+        {
+            return Result<int>.Error(error!);
+        }
 
         var command = RedisCommandEnvelope.CreateListLengthCommand(key);
 
         var rawResult = await connection.SendCommandAsync(command).ConfigureAwait(false);
 
-        var result = Parse(rawResult);
+        var result = Parse(rawResult) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
+            Error<ParseResult> err => Result<int>.Error(err.Message),
+            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the LLEN command.")
+        };
 
-        EvaluateResult(result);
-
-        return ParseAndReturnInt(result);
+        return result;
     }
 
-    public virtual async Task<int> RightPushAsync(RedisKey key, params string[] element)
+    public virtual async Task<Result<int>> RightPushAsync(RedisKey key, params string[] element)
     {
-        IsDisposed();
+        if (IsDisposed(out var error))
+        {
+            return Result<int>.Error(error!);
+        }
 
         var command = RedisCommandEnvelope.CreateRightPushCommand(key, element);
 
-        var rawResult = await _connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await connection.SendCommandAsync(command).ConfigureAwait(false);
 
-        var result = Parse(rawResult);
+        var result = Parse(rawResult) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
+            Error<ParseResult> err => Result<int>.Error(err.Message),
+            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the RPUSH command.")
+        };
 
-        EvaluateResult(result);
-
-        return ParseAndReturnInt(result);
+        return result;
     }
 
-    public virtual async Task SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default)
+    public virtual async Task<Result> SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default)
     {
-        IsDisposed();
+        if (IsDisposed(out var error))
+        {
+            return Result.Error(error!);
+        }
 
         var command = RedisCommandEnvelope.CreateSetCommand(key, value);
 
-        var rawResult = await _connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
+        var rawResult = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
-        var result = Parse(rawResult);
+        var result = Parse(rawResult) switch
+        {
+            Ok<ParseResult> => Result.Ok,
+            Error<ParseResult> err => Result.Error(err.Message),
+            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
+        };
 
-        EvaluateResult(result);
+        return result;
     }
 
     public virtual void Dispose()
     {
-        _pool.ReturnConnection(_connection);
+        pool.ReturnConnection(connection);
 
         _isDisposed = true;
     }
