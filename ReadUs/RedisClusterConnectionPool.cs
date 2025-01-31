@@ -53,7 +53,10 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
     private IRedisConnection GetReadUsConnection()
     {
-        if (_backingPool.TryDequeue(out var connection)) return connection;
+        if (_backingPool.TryDequeue(out var connection))
+        {
+            return connection;
+        }
 
         var newConnection = new RedisClusterConnection(_existingClusterNodes, _configuration.ConnectionsPerNode);
 

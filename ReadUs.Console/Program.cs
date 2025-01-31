@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Tombatron.Results;
+using Cons = System.Console;
 
 namespace ReadUs.Console;
 
@@ -30,34 +32,56 @@ internal class Program
         // sw.Stop();
 
         // Console.WriteLine($"Done in {sw.ElapsedMilliseconds}ms");
-        System.Console.WriteLine("Hi...");
+        Cons.WriteLine("Hi...");
+        
         do
         {
-            while (!System.Console.KeyAvailable)
+            while (!Cons.KeyAvailable)
             {
                 var key = Guid.NewGuid().ToString("n");
                 var value = Guid.NewGuid().ToString("n");
 
-                System.Console.WriteLine($"Writing Key {key}...");
+                Cons.WriteLine($"Writing Key {key}...");
 
-                try
+                var success = false;
+
+                while (!success)
                 {
                     using var db = await pool.GetAsync();
 
-                    await db.SetAsync(key, value);
-                    var result = await db.GetAsync(key);
-                    
-                    System.Console.WriteLine($"Read back {result}");
-                }
-                catch (Exception ex)
-                {
-                    System.Console.WriteLine(ex.Message);
+                    var setResult = await db.SetAsync(key, value);
+
+                    if (setResult is Error err)
+                    {
+                        Cons.WriteLine($"There was an error executing the set command: {err.Message}");
+                        
+                        continue;
+                    }
+
+                    if (setResult is Ok)
+                    {
+                        var result = await db.GetAsync(key);
+
+                        if (result is Ok<string> ok)
+                        {
+                            success = true;
+                            
+                            Cons.WriteLine($"Read back {result}");
+
+                            continue;
+                        }
+
+                        if (result is Error<string> erro)
+                        {
+                            Cons.WriteLine($"There was an error executing the get command: {erro.Message}");   
+                        }
+                    }
                 }
 
-                System.Console.WriteLine("Waiting 250ms...");
+                Cons.WriteLine("Waiting 250ms...");
 
                 await Task.Delay(250);
             }
-        } while (System.Console.ReadKey(true).Key != ConsoleKey.Escape);
+        } while (Cons.ReadKey(true).Key != ConsoleKey.Escape);
     }
 }
