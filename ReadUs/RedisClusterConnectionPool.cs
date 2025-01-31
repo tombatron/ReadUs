@@ -22,13 +22,9 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     internal RedisClusterConnectionPool(ClusterNodesResult? clusterNodesResult,
         RedisConnectionConfiguration configuration)
     {
-        if (clusterNodesResult is null)
-            // TODO: Handle this better. 
-            throw new Exception("Cluster nodes were null. That's weird.");
-
         // TODO: Think about how to make this more robust. This won't survive any kind of change
         //       to the cluster. 
-        _existingClusterNodes = clusterNodesResult;
+        _existingClusterNodes = clusterNodesResult ?? throw new Exception("Cluster nodes were null. That's weird.");
 
         _configuration = configuration;
     }
@@ -147,8 +143,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         }
     }
 
-    internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration,
-        [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
+    internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration, [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
     {
         // First, let's create a connection to whatever server that was provided.
         using var probingConnection = new RedisConnection(configuration);
@@ -158,10 +153,17 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
         // Next, execute the `cluster nodes` command to get an inventory of the cluster.
         var rawResult = probingConnection.SendCommand(RedisCommandEnvelope.CreateClusterNodesCommand());
+        
+        if(rawResult is Error<byte[]>)
+        {
+            clusterNodesResult = null;
+
+            return false;
+        }
 
         // Handle the result of the `cluster nodes` command by populating a data structure with the 
         // addresses, role, and slots assigned to each node. 
-        var nodes = new ClusterNodesResult(rawResult);
+        var nodes = new ClusterNodesResult(rawResult.Unwrap());
 
         if (IsTesting())
             // We're in a unit test. The containers that are set up by Testcontainers are in a bridge network and the `CLUSTER NODES`
@@ -177,7 +179,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
         if (nodes.HasError)
         {
-            clusterNodesResult = default;
+            clusterNodesResult = null;
 
             return false;
         }
