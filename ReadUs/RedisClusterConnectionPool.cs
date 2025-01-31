@@ -172,8 +172,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         {
             foreach (var node in nodes)
             {
-                node.Address =
-                    new ClusterNodeAddress(IPAddress.Loopback, node.Address!.RedisPort, node.Address!.ClusterPort);
+                node.Address = new ClusterNodeAddress(IPAddress.Loopback, node.Address!.RedisPort, node.Address!.ClusterPort);
             }
         }
 
