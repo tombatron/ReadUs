@@ -40,11 +40,11 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
 
         await commands.SelectAsync(10);
 
-        var databaseTenValue = await commands.GetAsync(testKey);
+        var databaseTenValue = (await commands.GetAsync(testKey)).Unwrap();
 
         await commands.SelectAsync(0);
 
-        var databaseZeroValue = await commands.GetAsync(testKey);
+        var databaseZeroValue = (await commands.GetAsync(testKey)).Unwrap();
 
         Assert.Equal("Hello World", databaseTenValue);
         Assert.Equal("Goodnight Moon", databaseZeroValue);
@@ -59,7 +59,7 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
 
         await commands.SetAsync(testKey, "The quick brown fox jumped over the lazy moon.");
 
-        var retrievedValue = await commands.GetAsync(testKey);
+        var retrievedValue = (await commands.GetAsync(testKey)).Unwrap();
 
         Assert.Equal("The quick brown fox jumped over the lazy moon.", retrievedValue);
     }
@@ -73,7 +73,7 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
 
         await commands.SetAsync(testKey, "Never eat soggy waffles.");
 
-        var retrievedValue = await commands.GetAsync(testKey);
+        var retrievedValue = (await commands.GetAsync(testKey)).Unwrap();
 
         Assert.Equal("Never eat soggy waffles.", retrievedValue);
     }
@@ -85,11 +85,11 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
 
         using var commands = await _pool.GetAsync();
 
-        var initialLength = await commands.ListLengthAsync(testKey);
+        var initialLength = (await commands.ListLengthAsync(testKey)).Unwrap();
 
         await commands.LeftPushAsync(testKey, "Yo");
 
-        var finalLength = await commands.ListLengthAsync(testKey);
+        var finalLength = (await commands.ListLengthAsync(testKey)).Unwrap();
 
         Assert.Equal(0, initialLength);
         Assert.Equal(1, finalLength);

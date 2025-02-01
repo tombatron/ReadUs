@@ -10,7 +10,7 @@ public class ParserTests
         [Fact]
         public void Parse()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.SimpleString);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.SimpleString).Unwrap();
 
             Assert.Equal(ResultType.SimpleString, result.Type);
             Assert.Equal("OK".ToCharArray(), result.Value);
@@ -22,7 +22,7 @@ public class ParserTests
         [Fact]
         public void Parse()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.Error);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.Error).Unwrap();
 
             Assert.Equal(ResultType.Error, result.Type);
             Assert.Equal("Error Message".ToCharArray(), result.Value);
@@ -34,7 +34,7 @@ public class ParserTests
         [Fact]
         public void Parse()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.Integer);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.Integer).Unwrap();
 
             Assert.Equal(ResultType.Integer, result.Type);
             Assert.Equal("1000".ToCharArray(), result.Value);
@@ -46,7 +46,7 @@ public class ParserTests
         [Fact]
         public void Parse()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.BulkString);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.BulkString).Unwrap();
 
             Assert.Equal(ResultType.BulkString, result.Type);
             Assert.Equal("foobar".ToCharArray(), result.Value);
@@ -55,7 +55,7 @@ public class ParserTests
         [Fact]
         public void ParseEmpty()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.EmptyBulkString);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.EmptyBulkString).Unwrap();
 
             Assert.Equal(ResultType.BulkString, result.Type);
             Assert.Equal("".ToCharArray(), result.Value);
@@ -64,7 +64,7 @@ public class ParserTests
         [Fact]
         public void ParseNull()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.NullBulkString);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.NullBulkString).Unwrap();
 
             Assert.Equal(ResultType.BulkString, result.Type);
             Assert.Null(result.Value);
@@ -76,7 +76,7 @@ public class ParserTests
         [Fact]
         public void Parse()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.Array);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.Array).Unwrap();
 
             result.TryToArray(out var arrayValue);
 
@@ -90,7 +90,7 @@ public class ParserTests
         [Fact]
         public void ParseMixed()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.MixedArray);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.MixedArray).Unwrap();
 
             result.TryToArray(out var arrayValue);
 
@@ -108,7 +108,7 @@ public class ParserTests
         [Fact]
         public void ParseArrayOfArrays()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.ArrayOfArrays);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.ArrayOfArrays).Unwrap();
 
             result.TryToArray(out var arrayValue);
 
@@ -128,7 +128,7 @@ public class ParserTests
         [Fact]
         public void ArrayWithNull()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.ArrayWithNull);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.ArrayWithNull).Unwrap();
 
             result.TryToArray(out var arrayValue);
 
@@ -141,7 +141,7 @@ public class ParserTests
         [Fact]
         public void RoleResponseFromPrimary()
         {
-            var result = ReadUs.Parser.Parser.Parse(SampleData.RoleResponseFromPrimary);
+            var result = ReadUs.Parser.Parser.Parse(SampleData.RoleResponseFromPrimary).Unwrap();
 
             result.TryToArray(out var arrayValue);
 
