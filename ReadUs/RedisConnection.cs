@@ -373,8 +373,7 @@ public class RedisConnection : IRedisConnection
     {
         var reader = new SequenceReader<byte>(buffer);
 
-        if (!reader.TryReadTo(out ReadOnlySpan<byte> lengthBytes, CarriageReturnLineFeed.AsSpan(),
-                advancePastDelimiter: true))
+        if (!reader.TryReadTo(out ReadOnlySpan<byte> lengthBytes, CarriageReturnLineFeed.AsSpan(), advancePastDelimiter: true))
         {
             return false;
         }
@@ -385,8 +384,10 @@ public class RedisConnection : IRedisConnection
         {
             throw new InvalidOperationException("Unable to parse array length.");
         }
-        
-        var start = HeaderTokenLength + lengthBytes.Length + CrlfLength;
+
+        // TODO: I hacked this to make it work. I've gotta roll back and address this response handling because I don't
+        //       remember how it works. (っ °Д °;)っ
+        var start = HeaderTokenLength + lengthBytes.Length + 1;
 
         var parsedMembers = 0;
 
