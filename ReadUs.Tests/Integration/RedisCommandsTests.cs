@@ -98,7 +98,7 @@ public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixtur
     [Fact]
     public async Task CanSetMultiple()
     {
-        var baseTestKey = $"{Guid.NewGuid().ToString("N")}:";
+        var baseTestKey = $"{Guid.NewGuid():N}:";
 
         var firstKey = $"{baseTestKey}1";
         var secondKey = $"{baseTestKey}2";
