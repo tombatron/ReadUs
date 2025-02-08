@@ -17,8 +17,7 @@ public readonly struct RedisConnectionConfiguration
 
     public int ConnectionsPerNode { get; }
 
-    public RedisConnectionConfiguration(string serverAddress, int serverPort = DefaultRedisPort,
-        int connectionsPerNode = 1)
+    public RedisConnectionConfiguration(string serverAddress, int serverPort = DefaultRedisPort, int connectionsPerNode = 1)
     {
         ServerAddress = serverAddress;
         ServerPort = serverPort;
