@@ -87,11 +87,16 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
         // If the command being executed doesn't have any keys, then we don't really 
         // have anything to decide which node to execute the command against. So for now,
         // we'll just return the first connection in the current collection.
-        if (command.Keys is null) return this[0];
+        if (command.Keys is null)
+        {
+            return this[0];
+        }
 
         // Check if the keys all belong to the same slot. 
         if (!command.AllKeysInSingleSlot)
+        {
             throw new Exception("Multi-key operations against different slots isn't supported yet.");
+        }
 
         // Everything is in the same slot so just go get a node. 
         return GetNodeForKey(command.Keys.First());
