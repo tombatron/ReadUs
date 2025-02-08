@@ -8,4 +8,6 @@ public interface IRedisConnectionPool : IDisposable
     Task<IRedisDatabase> GetAsync();
 
     void ReturnConnection(IRedisConnection connection);
+
+    IRedisSubscription CreateSubscriber();
 }
