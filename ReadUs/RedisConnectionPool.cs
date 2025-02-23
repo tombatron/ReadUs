@@ -8,6 +8,10 @@ public abstract class RedisConnectionPool : IRedisConnectionPool
     public abstract Task<IRedisDatabase> GetAsync();
 
     public abstract void ReturnConnection(IRedisConnection connection);
+    public IRedisSubscription CreateSubscriber()
+    {
+        throw new NotImplementedException();
+    }
 
     public abstract void Dispose();
 
