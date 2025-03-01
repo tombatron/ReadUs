@@ -7,6 +7,7 @@ namespace ReadUs;
 
 public interface IRedisConnection : IDisposable
 {
+    string ConnectionName { get; }
     bool IsConnected { get; }
 
     void Connect();

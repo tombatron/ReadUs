@@ -29,6 +29,8 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
         }
     }
 
+    // TODO: This is a bit of a hack. We need to figure out a better way to handle this.
+    public string ConnectionName => "Redis Cluster Connection";
     public bool IsConnected => this.All(x => x.IsConnected);
 
     public Result<byte[]> SendCommand(RedisCommandEnvelope command) => GetNodeForKeys(command).SendCommand(command);
