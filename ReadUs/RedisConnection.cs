@@ -19,7 +19,7 @@ namespace ReadUs;
 public class RedisConnection : IRedisConnection
 {
     private const int MinimumBufferSize = 512;
-    
+
     private static int _connectionCount = 0;
 
     private readonly IPEndPoint _endPoint;
@@ -29,23 +29,32 @@ public class RedisConnection : IRedisConnection
     // TODO: Going to rename this at some point. 
     private Task _backgroundTask;
     private CancellationTokenSource _backgroundTaskCancellationTokenSource = new();
-    private readonly Channel<Result<byte[]>> _channel = Channel.CreateBounded<Result<byte[]>>(1);
+    private readonly Channel<byte[]> _channel = Channel.CreateBounded<byte[]>(1);
 
     public IPEndPoint EndPoint => _endPoint;
 
-    public RedisConnection(IPAddress ipAddress, int port) : 
+    public RedisConnection(RedisConnectionConfiguration configuration) :
+        this(configuration.ServerAddress, configuration.ServerPort)
+    {
+    }
+
+    public RedisConnection(string address, int port) :
+        this(ResolveIpAddress(address), port)
+    {
+    }
+
+    public RedisConnection(IPAddress ipAddress, int port) :
         this(new IPEndPoint(ipAddress, port), TimeSpan.FromSeconds(30))
     {
-        
     }
-    
+
     public RedisConnection(IPEndPoint endPoint, TimeSpan commandTimeout)
     {
         _endPoint = endPoint;
         _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         _commandTimeout = commandTimeout;
     }
-    
+
     public string ConnectionName { get; } = $"ReadUs_Connection_{++_connectionCount}";
 
     public bool IsConnected => _socket.Connected;
@@ -53,12 +62,12 @@ public class RedisConnection : IRedisConnection
     public void Connect()
     {
         _socket.Connect(_endPoint);
-        
+
         Trace.WriteLine($"Connected {ConnectionName} to {_endPoint.Address}:{_endPoint.Port}.");
 
         _backgroundTask = Task.Run(() => ConnectionWorker(_channel, _socket, this, CancellationToken.None), _backgroundTaskCancellationTokenSource.Token);
 
-        SetConnectionClientName();
+        //SetConnectionClientName();
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -88,20 +97,20 @@ public class RedisConnection : IRedisConnection
 
     public Result<byte[]> SendCommand(RedisCommandEnvelope command)
     {
-        // Write command. 
-        _socket.Send(command.ToByteArray());
-
-        // Read response. 
-        var reader = _channel.Reader;
-
-        // Wait until there is something to read. 
-        // TODO: Probably need to think about a timeout here, but for now we'll just block without one. 
-        reader.WaitToReadAsync().GetAwaiter().GetResult();
-
-        if (reader.TryRead(out var response))
-        {
-            return response;
-        }
+        // // Write command. 
+        // _socket.Send(command.ToByteArray());
+        //
+        // // Read response. 
+        // var reader = _channel.Reader;
+        //
+        // // Wait until there is something to read. 
+        // // TODO: Probably need to think about a timeout here, but for now we'll just block without one. 
+        // reader.WaitToReadAsync().GetAwaiter().GetResult();
+        //
+        // if (reader.TryRead(out var response))
+        // {
+        //     return response;
+        // }
 
         return Result<byte[]>.Error("Failed to read response.");
     }
@@ -109,25 +118,27 @@ public class RedisConnection : IRedisConnection
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
         // Write command.
-        await _socket.SendAsync(command.ToByteArray(), cancellationToken);
-        
+        await _socket.SendAsync(command, cancellationToken);
+
         // Wait for a response.
         await _channel.Reader.WaitToReadAsync(cancellationToken);
-        
+
         if (_channel.Reader.TryRead(out var response))
         {
-            return response;
+            var stringResponse = Encoding.ASCII.GetString(response);
+            return Result<byte[]>.Ok(response);
         }
 
         return Result<byte[]>.Error("Failed to read response.");
     }
+    
 
-    private static async Task ConnectionWorker(Channel<Result<byte[]>> channel, Socket socket, RedisConnection @this, CancellationToken cancellationToken)
+    private static async Task ConnectionWorker(Channel<byte[]> channel, Socket socket, RedisConnection @this, CancellationToken cancellationToken)
     {
+        var pipe = new Pipe();
+
         while (!cancellationToken.IsCancellationRequested)
         {
-            var pipe = new Pipe();
-            
             var writer = pipe.Writer;
             var reader = pipe.Reader;
 
@@ -160,9 +171,11 @@ public class RedisConnection : IRedisConnection
                 break;
             }
         }
+
+        await writer.CompleteAsync();
     }
 
-    private static async Task ReadPipe(PipeReader reader, Channel<Result<byte[]>> channel, CancellationToken cancellationToken)
+    private static async Task ReadPipe(PipeReader reader, Channel<byte[]> channel, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -170,23 +183,16 @@ public class RedisConnection : IRedisConnection
 
             var buffer = result.Buffer;
 
-            // TODO: This is probably super bad for performance gonna need to refactor this later.
-            // I'm just trying to get this working. This is pretty inefficient because it's possible
-            // that for bigger responses we'd be copying the buffer a lot.
-            // Need something that can efficiently handle very large response. 
-            var parseResult = Parse(buffer.ToArray().AsSpan());
+            var position = buffer.Start;
+            var consumed = position;
 
-            if (parseResult is Ok<ParseResult> ok)
+            if (IsResponseComplete(buffer, out var pos))
             {
-                await channel.Writer.WriteAsync(Result<byte[]>.Ok(buffer.ToArray()), cancellationToken);
+                await channel.Writer.WriteAsync(buffer.ToArray(), cancellationToken);
+                consumed = buffer.GetPosition(pos + 2); // Add two for the crlf
             }
 
-            if (parseResult is Error<ParseResult> err)
-            {
-                // Hrmmm...
-            }
-            
-            reader.AdvanceTo(buffer.Start, buffer.End);
+            reader.AdvanceTo(consumed, position);
 
             if (result.IsCompleted)
             {
@@ -213,7 +219,7 @@ public class RedisConnection : IRedisConnection
                 {
                     return Result<RoleResult>.Ok((RoleResult)parseOk.Value);
                 }
-                
+
                 if (parseResult is Error<ParseResult> parseErr)
                 {
                     return Result<RoleResult>.Error(parseErr.Message);
@@ -255,70 +261,96 @@ public class RedisConnection : IRedisConnection
                 return Result<RoleResult>.Error(err.Message);
             }
         }
-        
+
         return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
     }
 
     // Putting the `SetConnectionClientName` and `SetConnectionClientNameAsync` methods here to show that they are really only relevent
     // to a specific connection.    
-    private void SetConnectionClientName() =>
+    private void SetConnectionClientName()
+    {
         SendCommand(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName));
 
-    private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
-        await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
+        // Handle the response...
+    }
 
+    private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken)
+    {
+        var result = await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
+        var resultText = Encoding.ASCII.GetString(result.Unwrap());
+    }
 
     public void Dispose()
     {
         _backgroundTaskCancellationTokenSource.Cancel();
-        
+
         _socket.Close();
         _socket.Dispose();
     }
-    
-    private static bool IsResponseComplete(ReadOnlySequence<byte> buffer)
+
+    private static bool IsResponseComplete(ReadOnlySequence<byte> buffer, out long consumedLength)
     {
         if (buffer.Length == 0)
         {
+            consumedLength = 0;
             return false;
         }
-        
+
         var firstByte = buffer.FirstSpan[0];
-        
+
         switch (firstByte)
         {
             case SimpleStringHeader:
             case ErrorHeader:
             case IntegerHeader:
-                return EndsWithCrLf(buffer);
+                return EndsWithCrLf(buffer, out consumedLength);
             case BulkStringHeader:
-                return IsCompleteBulkString(buffer);
+                return IsCompleteBulkString(buffer, out consumedLength);
             case ArrayHeader:
-                return IsArrayComplete(buffer);
+                return IsArrayComplete(buffer, out consumedLength);
             default:
                 throw new Exception("(╯°□°）╯︵ ┻━┻");
         }
     }
-    
+
     private static readonly byte[] CarriageReturnLineFeed = "\r\n"u8.ToArray();
-    private static bool EndsWithCrLf(ReadOnlySequence<byte> buffer)
-    {
-        if (buffer.Length < 2)
-        {
-            return false;
-        }
-        
-        var endSlice = buffer.Slice(buffer.Length - CarriageReturnLineFeed.Length, CarriageReturnLineFeed.Length );
-        
-        return endSlice.ToArray().AsSpan().SequenceEqual(CarriageReturnLineFeed);        
-    }    
-    
-    private static bool IsCompleteBulkString(ReadOnlySequence<byte> buffer)
+
+    private static bool EndsWithCrLf(ReadOnlySequence<byte> buffer, out long consumedLength)
     {
         var reader = new SequenceReader<byte>(buffer);
 
-        if (!reader.TryReadTo(out ReadOnlySpan<byte> lengthBytes, CarriageReturnLineFeed.AsSpan(), advancePastDelimiter: false))
+        if (reader.Remaining < 2)
         {
+            // If the buffer is less than 2 bytes long, it's not possible for it to end with a CRLF.
+            consumedLength = 0;
+            return false;
+        }
+
+        if (!reader.TryReadTo(out ReadOnlySpan<byte> _, CarriageReturnLineFeed.AsSpan(), advancePastDelimiter: true))
+        {
+            // If we can't find the first byte of the CRLF, it's not possible for it to end with a CRLF.
+            consumedLength = 0;
+            return false;
+        }
+
+        consumedLength = reader.Consumed;
+        return true;
+    }
+
+    private static bool IsCompleteBulkString(ReadOnlySequence<byte> buffer, out long consumedLength)
+    {
+        var reader = new SequenceReader<byte>(buffer);
+
+        if (reader.Remaining < 2)
+        {
+            // If the buffer is less than 2 bytes long, it's not possible for it to be a bulk string.
+            consumedLength = 0;
+            return false;
+        }
+
+        if (!reader.TryReadTo(out ReadOnlySpan<byte> lengthBytes, CarriageReturnLineFeed.AsSpan(), advancePastDelimiter: true))
+        {
+            consumedLength = 0;
             return false;
         }
 
@@ -328,69 +360,118 @@ public class RedisConnection : IRedisConnection
         {
             throw new InvalidOperationException("Unable to parse bulk string length.");
         }
-        
-        var expectedLength = HeaderTokenLength + lengthString.Length + CrlfLength + length + CrlfLength;
 
-        if (buffer.Length < expectedLength)
+        var expectedLength = length + CrlfLength; // We've already read past the initial header. 
+
+        if (reader.Remaining < expectedLength)
         {
-            return false; 
-        }
-        
-        var endSlice = buffer.Slice(expectedLength - CrlfLength, CrlfLength);
-        
-        var isComplete = endSlice.ToArray().SequenceEqual(CarriageReturnLineFeed);
-
-        return isComplete;
-    }
-    
-    private static bool IsArrayComplete(ReadOnlySequence<byte> buffer)
-    {
-        var reader = new SequenceReader<byte>(buffer);
-
-        if (!reader.TryReadTo(out ReadOnlySpan<byte> lengthBytes, CarriageReturnLineFeed.AsSpan(), advancePastDelimiter: true))
-        {
+            consumedLength = 0;
             return false;
         }
 
-        var lengthString = Encoding.ASCII.GetString(lengthBytes)[1..]; // The first character would be a *.
+        reader.Advance(expectedLength);
 
-        if (!int.TryParse(lengthString, out var length))
+        consumedLength = reader.Consumed;
+        return true;
+    }
+
+    private static bool IsArrayComplete(ReadOnlySequence<byte> buffer, out long consumedLength)
+    {
+        var reader = new SequenceReader<byte>(buffer);
+
+        // Make sure we have something to work with.
+        if (reader.Remaining < 2)
         {
-            throw new InvalidOperationException("Unable to parse array length.");
+            consumedLength = 0;
+            return false;
         }
 
-        // TODO: I hacked this to make it work. I've gotta roll back and address this response handling because I don't
-        //       remember how it works. (っ °Д °;)っ
-        var start = HeaderTokenLength + lengthBytes.Length + 1;
+        // Skip the type header...
+        reader.Advance(1);
 
-        var parsedMembers = 0;
+        // Read the length of the array.
+        if (!reader.TryReadTo(out ReadOnlySpan<byte> lengthBytes, CarriageReturnLineFeed.AsSpan(), advancePastDelimiter: true))
+        {
+            consumedLength = 0;
+            return false;
+        }
+
+        // Parse the length...
+        if (!int.TryParse(Encoding.ASCII.GetString(lengthBytes), out var length))
+        {
+            consumedLength = 0;
+            return false;
+        }
+
+        // It's possible that the array is empty...
+        if (length == 0)
+        {
+            consumedLength = reader.Consumed;
+            return true;
+        }
 
         for (var i = 0; i < length; i++)
         {
-            var contentSlice = buffer.Slice(start);
-
-            // Are we checking the final item in the response? If so, it's possible that the
-            // item will be nil... I suppose it's possible that the response hasn't fully
-            // made it to us but uh... not sure at this point a way around this...
-            if (parsedMembers == length - 1 && contentSlice.Length == 0)
+            if (reader.Remaining == 0)
             {
-                // We're here, it looks like we're on the final item in the array and there is
-                // no more data in the buffer...
-                return true;
-            }
-            
-            var complete = IsResponseComplete(contentSlice.Slice(0, contentSlice.Length));
-
-            if (complete)
-            {
-                parsedMembers++;
-            }
-            else
-            {
+                // Not enough data
+                consumedLength = 0;
                 return false;
             }
+
+            // Peak at the next type character...
+            reader.TryPeek(out var type);
+
+            bool elementComplete = false;
+            long elementLength;
+
+            switch (type)
+            {
+                case SimpleStringHeader:
+                case ErrorHeader:
+                case IntegerHeader:
+                    elementComplete = EndsWithCrLf(reader.UnreadSequence, out elementLength);
+                    break;
+                case BulkStringHeader:
+                    elementComplete = IsCompleteBulkString(reader.UnreadSequence, out elementLength);
+                    break;
+                case ArrayHeader:
+                    elementComplete = IsArrayComplete(reader.UnreadSequence, out elementLength);
+                    break;
+                default:
+                    // Whatever...
+                    consumedLength = 0;
+                    return false;
+            }
+
+            if (!elementComplete)
+            {
+                consumedLength = 0;
+                return false;
+            }
+
+            reader.Advance(elementLength);
         }
 
-        return parsedMembers == length;
-    }    
+        consumedLength = reader.Consumed;
+
+        return true;
+    }
+
+    private static IPAddress ResolveIpAddress(string address)
+    {
+        // We're starting with a string. We're assuming that the string is an IP address but
+        // just in case let's check. 
+        if (IPAddress.TryParse(address, out var ipAddress))
+            // Looks like we were right, let's return the parsed IP address.
+            return ipAddress;
+
+        // OK, it looks like it wasn't an IP address, let's see if we can assume this is a 
+        // host name... This will throw if the provided address does not resolve.
+        var resolvedAddresses = Dns.GetHostAddresses(address);
+
+        // I'm not really sure what to do with multiple results yet so we're just going to
+        // pick the first one. 
+        return resolvedAddresses[0];
+    }
 }

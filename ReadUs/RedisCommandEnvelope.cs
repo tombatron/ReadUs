@@ -49,11 +49,20 @@ public readonly struct RedisCommandEnvelope
     {
         var availableParameters = new List<object>();
 
-        if (CommandName is not null) availableParameters.Add(CommandName);
+        if (CommandName is not null)
+        {
+            availableParameters.Add(CommandName);
+        }
 
-        if (SubCommandName is not null) availableParameters.Add(SubCommandName);
+        if (SubCommandName is not null)
+        {
+            availableParameters.Add(SubCommandName);
+        }
 
-        if (Items is not null) availableParameters.AddRange(Items);
+        if (Items is not null)
+        {
+            availableParameters.AddRange(Items);
+        }
 
         var combinedParameters = CombineParameters(availableParameters.ToArray());
 
