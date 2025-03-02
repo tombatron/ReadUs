@@ -26,8 +26,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public async Task CanExecuteAsync()
         {
-            // var connection = new RedisConnection(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
-            var connection = new RedisConnection(new Uri("redis://tombaserver.local:6379"));
+            var connection = new RedisConnection(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
 
             await connection.ConnectAsync();
 

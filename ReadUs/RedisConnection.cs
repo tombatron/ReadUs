@@ -2,7 +2,6 @@
 using System.Buffers;
 using System.Diagnostics;
 using System.IO.Pipelines;
-using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -20,7 +19,7 @@ public class RedisConnection : IRedisConnection
 {
     private const int MinimumBufferSize = 512;
 
-    private static int _connectionCount = 0;
+    private static int _connectionCount;
 
     private readonly IPEndPoint _endPoint;
     private readonly Socket _socket;
@@ -59,16 +58,7 @@ public class RedisConnection : IRedisConnection
 
     public bool IsConnected => _socket.Connected;
 
-    public void Connect()
-    {
-        _socket.Connect(_endPoint);
-
-        Trace.WriteLine($"Connected {ConnectionName} to {_endPoint.Address}:{_endPoint.Port}.");
-
-        _backgroundTask = Task.Run(() => ConnectionWorker(_channel, _socket, this, CancellationToken.None), _backgroundTaskCancellationTokenSource.Token);
-
-        SetConnectionClientName();
-    }
+    public void Connect() => ConnectAsync().GetAwaiter().GetResult();
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
