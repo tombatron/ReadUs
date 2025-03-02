@@ -38,7 +38,10 @@ internal static class ParameterUtilities
                     continue;
                 }
 
-                foreach (var obj2 in UnwindObjectArray(objArray)) yield return obj2;
+                foreach (var obj2 in UnwindObjectArray(objArray))
+                {
+                    yield return obj2;
+                }
             }
             else
             {
