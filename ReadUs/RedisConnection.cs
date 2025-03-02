@@ -10,12 +10,12 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using ReadUs.Parser;
 using ReadUs.ResultModels;
-using static ReadUs.Parser.Parser;
+
 using static ReadUs.StandardValues;
 
 namespace ReadUs;
 
-public class RedisConnection : IRedisConnection
+public partial class RedisConnection : IRedisConnection
 {
     private const int MinimumBufferSize = 512;
 
@@ -57,54 +57,7 @@ public class RedisConnection : IRedisConnection
     public string ConnectionName { get; } = $"ReadUs_Connection_{++_connectionCount}";
 
     public bool IsConnected => _socket.Connected;
-
-    public void Connect() => ConnectAsync().GetAwaiter().GetResult();
-
-    public async Task ConnectAsync(CancellationToken cancellationToken = default)
-    {
-        using var cancellationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        cancellationTimeout.CancelAfter(_commandTimeout);
-
-        try
-        {
-            await _socket.ConnectAsync(_endPoint, cancellationTimeout.Token).ConfigureAwait(false);
-
-            Trace.WriteLine($"Connected {ConnectionName} to {_endPoint.Address}:{_endPoint.Port}.");
-
-            _backgroundTask = Task.Run(() => ConnectionWorker(_channel, _socket, this, cancellationToken), _backgroundTaskCancellationTokenSource.Token);
-
-            await SetConnectionClientNameAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        {
-            // We're in here now assuming that the cancellation is because the timeout has lapsed.
-            Trace.WriteLine("Connection attempt timed out.");
-
-            throw;
-        }
-    }
-
-    public Result<byte[]> SendCommand(RedisCommandEnvelope command) => 
-        SendCommandAsync(command).GetAwaiter().GetResult();
-
-    public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
-    {
-        // Write command.
-        await _socket.SendAsync(command, cancellationToken);
-
-        // Wait for a response.
-        await _channel.Reader.WaitToReadAsync(cancellationToken);
-
-        if (_channel.Reader.TryRead(out var response))
-        {
-            return Result<byte[]>.Ok(response);
-        }
-
-        return Result<byte[]>.Error("Failed to read response.");
-    }
     
-
     private static async Task ConnectionWorker(Channel<byte[]> channel, Socket socket, RedisConnection @this, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -177,77 +130,7 @@ public class RedisConnection : IRedisConnection
 
         await reader.CompleteAsync();
     }
-
-    // Putting the `Role` and `RoleAsync` methods here to show that they are really only relevent
-    // to a specific connection.    
-    public Result<RoleResult> Role()
-    {
-        if (IsConnected)
-        {
-            var result = SendCommand(RedisCommandEnvelope.CreateRoleCommand());
-
-            if (result is Ok<byte[]> ok)
-            {
-                var parseResult = Parse(ok.Value);
-
-                if (parseResult is Ok<ParseResult> parseOk)
-                {
-                    return Result<RoleResult>.Ok((RoleResult)parseOk.Value);
-                }
-
-                if (parseResult is Error<ParseResult> parseErr)
-                {
-                    return Result<RoleResult>.Error(parseErr.Message);
-                }
-            }
-
-            if (result is Error<byte[]> err)
-            {
-                return Result<RoleResult>.Error(err.Message);
-            }
-        }
-
-        return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
-    }
-
-    public async Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default)
-    {
-        if (IsConnected)
-        {
-            var result = await SendCommandAsync(RedisCommandEnvelope.CreateRoleCommand(), cancellationToken);
-
-            if (result is Ok<byte[]> ok)
-            {
-                var parseResult = Parse(ok.Value);
-
-                if (parseResult is Ok<ParseResult> parseOk)
-                {
-                    return Result<RoleResult>.Ok((RoleResult)parseOk.Value);
-                }
-
-                if (parseResult is Error<ParseResult> parseErr)
-                {
-                    return Result<RoleResult>.Error(parseErr.Message);
-                }
-            }
-
-            if (result is Error<byte[]> err)
-            {
-                return Result<RoleResult>.Error(err.Message);
-            }
-        }
-
-        return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
-    }
-
-    // Putting the `SetConnectionClientName` and `SetConnectionClientNameAsync` methods here to show that they are really only relevent
-    // to a specific connection.    
-    private void SetConnectionClientName() => 
-        SendCommand(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName));
-
-    private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
-        await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
-
+    
     public void Dispose()
     {
         _backgroundTaskCancellationTokenSource.Cancel();
