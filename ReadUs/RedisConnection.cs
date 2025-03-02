@@ -57,17 +57,31 @@ public partial class RedisConnection : IRedisConnection
     
     private static async Task ConnectionWorker(Channel<byte[]> channel, Socket socket, RedisConnection @this, CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            var pipe = new Pipe();
-            
-            var writer = pipe.Writer;
-            var reader = pipe.Reader;
+        var pipe = new Pipe();
+        var writer = pipe.Writer;
+        var reader = pipe.Reader;
 
+        try
+        {
             var fillTask = FillPipe(socket, writer, cancellationToken);
             var readTask = ReadPipe(reader, channel, cancellationToken);
 
-            await Task.WhenAll(fillTask, readTask);
+            await Task.WhenAny(fillTask, readTask);
+
+            if (!fillTask.IsCompleted)
+            {
+                await writer.CompleteAsync();
+            }
+
+            if (!readTask.IsCompleted)
+            {
+                await reader.CompleteAsync();
+            }
+        }
+        finally
+        {
+            await writer.CompleteAsync();
+            await reader.CompleteAsync();
         }
     }
 
