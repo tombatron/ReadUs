@@ -28,7 +28,7 @@ public class RedisConnection : IRedisConnection
 
     // TODO: Going to rename this at some point. 
     private Task _backgroundTask;
-    private CancellationTokenSource _backgroundTaskCancellationTokenSource = new();
+    private readonly CancellationTokenSource _backgroundTaskCancellationTokenSource = new();
     private readonly Channel<byte[]> _channel = Channel.CreateBounded<byte[]>(1);
 
     public IPEndPoint EndPoint => _endPoint;
@@ -67,7 +67,7 @@ public class RedisConnection : IRedisConnection
 
         _backgroundTask = Task.Run(() => ConnectionWorker(_channel, _socket, this, CancellationToken.None), _backgroundTaskCancellationTokenSource.Token);
 
-        //SetConnectionClientName();
+        SetConnectionClientName();
     }
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
@@ -95,25 +95,8 @@ public class RedisConnection : IRedisConnection
         }
     }
 
-    public Result<byte[]> SendCommand(RedisCommandEnvelope command)
-    {
-        // // Write command. 
-        // _socket.Send(command.ToByteArray());
-        //
-        // // Read response. 
-        // var reader = _channel.Reader;
-        //
-        // // Wait until there is something to read. 
-        // // TODO: Probably need to think about a timeout here, but for now we'll just block without one. 
-        // reader.WaitToReadAsync().GetAwaiter().GetResult();
-        //
-        // if (reader.TryRead(out var response))
-        // {
-        //     return response;
-        // }
-
-        return Result<byte[]>.Error("Failed to read response.");
-    }
+    public Result<byte[]> SendCommand(RedisCommandEnvelope command) => 
+        SendCommandAsync(command).GetAwaiter().GetResult();
 
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
@@ -125,7 +108,6 @@ public class RedisConnection : IRedisConnection
 
         if (_channel.Reader.TryRead(out var response))
         {
-            var stringResponse = Encoding.ASCII.GetString(response);
             return Result<byte[]>.Ok(response);
         }
 
@@ -135,10 +117,10 @@ public class RedisConnection : IRedisConnection
 
     private static async Task ConnectionWorker(Channel<byte[]> channel, Socket socket, RedisConnection @this, CancellationToken cancellationToken)
     {
-        var pipe = new Pipe();
-
         while (!cancellationToken.IsCancellationRequested)
         {
+            var pipe = new Pipe();
+            
             var writer = pipe.Writer;
             var reader = pipe.Reader;
 
@@ -183,17 +165,20 @@ public class RedisConnection : IRedisConnection
 
             var buffer = result.Buffer;
 
-            var position = buffer.Start;
-            var consumed = position;
-
-            if (IsResponseComplete(buffer, out var pos))
+            if (IsResponseComplete(buffer, out var consumedLength))
             {
-                await channel.Writer.WriteAsync(buffer.ToArray(), cancellationToken);
-                consumed = buffer.GetPosition(pos + 2); // Add two for the crlf
+                // Slice off the data that we've consumed and return.
+                var responseData = buffer.Slice(0, consumedLength).ToArray();
+                
+                await channel.Writer.WriteAsync(responseData, cancellationToken);
+                
+                reader.AdvanceTo(buffer.GetPosition(consumedLength));
             }
-
-            reader.AdvanceTo(consumed, position);
-
+            else
+            {
+                reader.AdvanceTo(buffer.Start, buffer.End);
+            }
+            
             if (result.IsCompleted)
             {
                 break;
@@ -267,18 +252,11 @@ public class RedisConnection : IRedisConnection
 
     // Putting the `SetConnectionClientName` and `SetConnectionClientNameAsync` methods here to show that they are really only relevent
     // to a specific connection.    
-    private void SetConnectionClientName()
-    {
+    private void SetConnectionClientName() => 
         SendCommand(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName));
 
-        // Handle the response...
-    }
-
-    private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken)
-    {
-        var result = await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
-        var resultText = Encoding.ASCII.GetString(result.Unwrap());
-    }
+    private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
+        await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
 
     public void Dispose()
     {
