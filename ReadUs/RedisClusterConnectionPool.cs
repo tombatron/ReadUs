@@ -149,7 +149,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration, [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
     {
         // First, let's create a connection to whatever server that was provided.
-        using var probingConnection = new OldRedisConnection(configuration);
+        using var probingConnection = new RedisConnection(configuration);
 
         // Now let's... connect.
         probingConnection.Connect();
