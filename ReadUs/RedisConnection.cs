@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Buffers;
-using System.Diagnostics;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
@@ -8,8 +7,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
-using ReadUs.Parser;
-using ReadUs.ResultModels;
 
 using static ReadUs.StandardValues;
 
@@ -163,8 +160,6 @@ public partial class RedisConnection : IRedisConnection
                 throw new Exception("(╯°□°）╯︵ ┻━┻");
         }
     }
-
-    private static readonly byte[] CarriageReturnLineFeed = "\r\n"u8.ToArray();
 
     private static bool EndsWithCrLf(ReadOnlySequence<byte> buffer, out long consumedLength)
     {
