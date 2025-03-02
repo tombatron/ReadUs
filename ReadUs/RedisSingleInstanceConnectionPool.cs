@@ -34,7 +34,7 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
             return connection;
         }
 
-        var newConnection = new OldRedisConnection(_configuration);
+        var newConnection = new RedisConnection(_configuration);
 
         _allConnections.Add(newConnection);
 
