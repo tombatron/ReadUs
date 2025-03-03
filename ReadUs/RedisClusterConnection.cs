@@ -38,6 +38,11 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
     public Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default) => 
         GetNodeForKeys(command).SendCommandAsync(command, cancellationToken);
 
+    public Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
+
     public void Connect()
     {
         foreach (var connection in this)

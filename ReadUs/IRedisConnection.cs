@@ -21,4 +21,6 @@ public interface IRedisConnection : IDisposable
     Result<byte[]> SendCommand(RedisCommandEnvelope command);
 
     Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
+    
+    Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default);
 }

@@ -6,6 +6,8 @@ namespace ReadUs;
 public abstract class RedisConnectionPool : IRedisConnectionPool
 {
     public abstract Task<IRedisDatabase> GetAsync();
+    
+    public abstract Task<IRedisConnection> GetConnection();
 
     public abstract void ReturnConnection(IRedisConnection connection);
 

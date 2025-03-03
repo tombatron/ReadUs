@@ -51,6 +51,11 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         return database;
     }
 
+    public override Task<IRedisConnection> GetConnection()
+    {
+        throw new NotImplementedException();
+    }
+
     private IRedisConnection GetReadUsConnection()
     {
         if (_backingPool.TryDequeue(out var connection))

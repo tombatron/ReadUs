@@ -32,4 +32,6 @@ public interface IRedisDatabase : IDisposable
         CancellationToken cancellationToken = default);
     
     Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default);
+    
+    Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default);
 }

@@ -49,7 +49,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         return result;
     }
 
-    public async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
+    public virtual async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
     {
         var command = new RedisCommandEnvelope("PUBLISH", channel, null, null, false, message);
 
@@ -61,6 +61,17 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
             Error<ParseResult> err => Result<int>.Error(err.Message),
             _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the PUBLISH command.")
         };
+    }
+
+    public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        var command = new RedisCommandEnvelope("SUBSCRIBE", null, [channel], null, false);
+
+        var subscription = new RedisSubscription(pool, messageHandler);
+
+        await subscription.Initialize(command, cancellationToken);
+
+        return subscription;
     }
 
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
