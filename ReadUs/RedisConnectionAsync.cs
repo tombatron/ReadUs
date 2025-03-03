@@ -51,6 +51,23 @@ public partial class RedisConnection
         return Result<byte[]>.Error("Failed to read response.");
     }
     
+    // Initial stab at implementing pub/sub...
+    public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
+    {
+        // Write command.
+        await _socket.SendAsync(command, cancellationToken);
+        
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            await _channel.Reader.WaitToReadAsync(cancellationToken);
+            
+            if (_channel.Reader.TryRead(out var response))
+            {
+                onResponse(response);
+            }
+        }
+    }
+    
     private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
         await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
     
