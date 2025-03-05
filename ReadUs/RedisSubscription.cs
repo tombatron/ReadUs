@@ -11,13 +11,17 @@ namespace ReadUs;
 public class RedisSubscription(IRedisConnectionPool pool, Action<string> messageHandler) : IDisposable
 {
     private IRedisConnection? _connection;
-    
+    private Task _subscriptionTask = Task.CompletedTask;
+    private readonly CancellationTokenSource _cancellationTokenSource = new();
+
     internal async Task Initialize(RedisCommandEnvelope command, CancellationToken cancellationToken)
     {
+        var cancelToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellationTokenSource.Token).Token;
+
         _connection = await pool.GetConnection().ConfigureAwait(false);
 
         // TODO: Let's not await this, but rather store the task and await it in the Dispose method. or something
-        await _connection.SendCommandWithMultipleResponses(command, bytes =>
+        _subscriptionTask = _connection.SendCommandWithMultipleResponses(command, bytes =>
         {
             var message = Parse(bytes);
 
@@ -26,7 +30,7 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
                 if (ok.Value.TryToArray(out var values))
                 {
                     var messageType = values[0].ToString();
-                    
+
                     if (messageType == "message")
                     {
                         var messageValue = values[2].ToString();
@@ -40,9 +44,36 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
             {
                 throw new Exception("Whatever");
             }
-        }, cancellationToken);
+        }, cancelToken);
     }
-    
+
+    public async Task<Result> Unsubscribe() // TODO...
+    {
+        // First issue the UNSUBSCRIBE command.
+        var command = new RedisCommandEnvelope("UNSUBSCRIBE", null, null, null);
+        
+        var result = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
+
+        if (result is Ok<byte[]> _) // TODO: Looks like there's a bug in the analyzer. Remind me to fix the issue that a type check
+                                    //       isn't enough to satisfy the analyzer that the "OK" case is handled.
+        {
+            // OK, this connection shouldn't be getting any more messages, let's go ahead and cancel that long-running task.
+            await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
+
+            return Result.Ok;
+        }
+
+        if (result is Error<byte[]> err)
+        {
+            // Well... something went wrong. Let's return that error.
+            return Result.Error(err.Message);
+        }
+        
+        // TODO: This is a bug in the Result analyzer. I need to adjust it such that an an `else` is acceptable to handle
+        //       the inverse of an OK or ERROR case. 
+        return Result.Error("An unexpected error occurred while attempting to unsubscribe.");
+    }
+
     public void Dispose()
     {
         pool.ReturnConnection(_connection!);
