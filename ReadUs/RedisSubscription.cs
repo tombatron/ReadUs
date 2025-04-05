@@ -22,61 +22,52 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
 
         // TODO: Let's not await this, but rather store the task and await it in the Dispose method. or something
         _subscriptionTask = Task.Run(() => _connection.SendCommandWithMultipleResponses(command, bytes =>
-        {
-            var message = Parse(bytes);
-
-            if (message is Ok<ParseResult> ok)
             {
-                if (ok.Value.TryToArray(out var values))
+                var message = Parse(bytes);
+
+                if (message is Ok<ParseResult> ok)
                 {
-                    var messageType = values[0].ToString();
-
-                    if (messageType == "message")
+                    if (ok.Value.TryToArray(out var values))
                     {
-                        var messageValue = values[2].ToString();
+                        var messageType = values[0].ToString();
 
-                        messageHandler(messageValue);
+                        if (messageType == "message")
+                        {
+                            var messageValue = values[2].ToString();
+
+                            messageHandler(messageValue);
+                        }
                     }
                 }
-            }
 
-            if (message is Error<ParseResult> err)
-            {
-                throw new Exception("Whatever");
-            }
-        },cancelToken), 
+                if (message is Error<ParseResult> err)
+                {
+                    throw new Exception("Whatever");
+                }
+            }, cancelToken),
             cancelToken);
     }
 
-    public async Task<Result> Unsubscribe() // TODO...
+    public async Task<Result> Unsubscribe(params string[] channels) // TODO...
     {
-        // First issue the UNSUBSCRIBE command.
-        var command = new RedisCommandEnvelope("UNSUBSCRIBE", null, null, null);
-        
-        var result = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
+        var command = new RedisCommandEnvelope("UNSUBSCRIBE", channels, null, null, false);
 
-        if (result is Ok<byte[]> _) // TODO: Looks like there's a bug in the analyzer. Remind me to fix the issue that a type check
-                                    //       isn't enough to satisfy the analyzer that the "OK" case is handled.
+        var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
+
+        var result = response switch
         {
-            // OK, this connection shouldn't be getting any more messages, let's go ahead and cancel that long-running task.
-            await _cancellationTokenSource.CancelAsync().ConfigureAwait(false);
+            Ok<byte[]> _ => Result.Ok,
+            Error<byte[]> err => Result.Error(err.Message),
+            _ => Result.Error("An unexpected error occured while attempting to unsubscribe.")
+        };
 
-            return Result.Ok;
-        }
-
-        if (result is Error<byte[]> err)
-        {
-            // Well... something went wrong. Let's return that error.
-            return Result.Error(err.Message);
-        }
-        
-        // TODO: This is a bug in the Result analyzer. I need to adjust it such that an an `else` is acceptable to handle
-        //       the inverse of an OK or ERROR case. 
-        return Result.Error("An unexpected error occurred while attempting to unsubscribe.");
+        return result;
     }
 
     public void Dispose()
     {
+        _cancellationTokenSource.Cancel();
+        
         pool.ReturnConnection(_connection!);
     }
 }
