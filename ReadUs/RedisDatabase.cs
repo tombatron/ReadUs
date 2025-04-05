@@ -65,7 +65,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("SUBSCRIBE", null, [channel], null, false);
+        var command = new RedisCommandEnvelope("SUBSCRIBE", channel, [channel], null, false);
 
         var subscription = new RedisSubscription(pool, messageHandler);
 

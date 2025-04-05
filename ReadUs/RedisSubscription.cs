@@ -21,7 +21,7 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
         _connection = await pool.GetConnection().ConfigureAwait(false);
 
         // TODO: Let's not await this, but rather store the task and await it in the Dispose method. or something
-        _subscriptionTask = _connection.SendCommandWithMultipleResponses(command, bytes =>
+        _subscriptionTask = Task.Run(() => _connection.SendCommandWithMultipleResponses(command, bytes =>
         {
             var message = Parse(bytes);
 
@@ -44,7 +44,7 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
             {
                 throw new Exception("Whatever");
             }
-        }, cancelToken);
+        }), cancelToken);
     }
 
     public async Task<Result> Unsubscribe() // TODO...
