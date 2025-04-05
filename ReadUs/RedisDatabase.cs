@@ -65,14 +65,19 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("SUBSCRIBE", [channel], null, null, false);
+        return await Subscribe([channel], (c,m) => messageHandler(m), cancellationToken);
+    }
+    
+    public async Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        var command = new RedisCommandEnvelope("SUBSCRIBE", channels, null, null, false);
 
         var subscription = new RedisSubscription(pool, messageHandler);
 
         await subscription.Initialize(command, cancellationToken);
 
         return subscription;
-    }
+    }    
 
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
     {

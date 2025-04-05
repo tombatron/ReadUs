@@ -19,8 +19,7 @@ public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture) :
         {
             subscriptionMessage = message;
         });
-
-        subscription.Unsubscribe()
+        
         await Task.Delay(TimeSpan.FromMilliseconds(100));
         
         await db.Publish("channel", "hello world");

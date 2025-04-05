@@ -8,7 +8,7 @@ namespace ReadUs;
 
 // TODO: Change this to a static factory method.
 // TODO: In order to support multiple channels, we need to change the signature of the messageHandler to accept the channel name.
-public class RedisSubscription(IRedisConnectionPool pool, Action<string> messageHandler) : IDisposable
+public class RedisSubscription(IRedisConnectionPool pool, Action<string, string> messageHandler) : IDisposable
 {
     private IRedisConnection? _connection;
     private Task _subscriptionTask = Task.CompletedTask;
@@ -33,9 +33,10 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
 
                         if (messageType == "message")
                         {
+                            var channelValue = values[1].ToString();
                             var messageValue = values[2].ToString();
 
-                            messageHandler(messageValue);
+                            messageHandler(channelValue, messageValue);
                         }
                     }
                 }
