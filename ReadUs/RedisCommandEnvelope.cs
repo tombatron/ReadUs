@@ -9,19 +9,19 @@ using static ReadUs.StandardValues;
 
 namespace ReadUs;
 
-public readonly struct RedisCommandEnvelope
+public readonly struct RedisCommandEnvelope(string? command, string[]? subCommands, RedisKey[]? keys, TimeSpan? timeout, bool simpleCommand, params object[]? items)
 {
-    public string? CommandName { get; }
+    public string? Command { get; } = command;
 
-    public string? SubCommandName { get; }
+    public string[]? SubCommands { get; } = subCommands;
 
-    public RedisKey[]? Keys { get; }
+    public RedisKey[]? Keys { get; } = keys;
 
-    public object[]? Items { get; }
+    public object[]? Items { get; } = items;
 
-    public TimeSpan Timeout { get; }
+    public TimeSpan Timeout { get; } = timeout ?? TimeSpan.FromSeconds(5);
 
-    public bool SimpleCommand { get; }
+    public bool SimpleCommand { get; } = simpleCommand;
 
     public bool AllKeysInSingleSlot
     {
@@ -35,24 +35,9 @@ public readonly struct RedisCommandEnvelope
         }
     }
 
-    public RedisCommandEnvelope(string? commandName, string? subCommandName, RedisKey[]? keys, TimeSpan? timeout, params object[]? items) :
-        this(commandName, subCommandName, keys, timeout, false, items)
+    public RedisCommandEnvelope(string? command, string? subCommand, RedisKey[]? keys, TimeSpan? timeout, params object[]? items) :
+        this(command, subCommand is null ? null : [subCommand], keys, timeout, false, items)
     {
-    }
-
-    public RedisCommandEnvelope(string? commandName, string? subCommandName, RedisKey[]? keys, TimeSpan? timeout, bool simpleCommand, params object[]? items)
-    {
-        CommandName = commandName;
-
-        SubCommandName = subCommandName;
-
-        Keys = keys;
-
-        Items = items;
-
-        Timeout = timeout ?? TimeSpan.FromSeconds(5);
-
-        SimpleCommand = simpleCommand;
     }
 
     public byte[] ToByteArray() =>
@@ -62,11 +47,11 @@ public readonly struct RedisCommandEnvelope
     private byte[] ToSimpleByteArray()
     {
         // TODO: Throw exception here if CommandName is null.
-        var result = new byte[CommandName!.Length + CarriageReturnLineFeed.Length];
+        var result = new byte[Command!.Length + CarriageReturnLineFeed.Length];
         
         // TODO: Maybe for simple commands we can just hard code it?
-        Array.Copy(Encoding.UTF8.GetBytes(CommandName!), result, CommandName!.Length);
-        Array.Copy(CarriageReturnLineFeed, 0, result, CommandName!.Length, CarriageReturnLineFeed.Length);
+        Array.Copy(Encoding.UTF8.GetBytes(Command!), result, Command!.Length);
+        Array.Copy(CarriageReturnLineFeed, 0, result, Command!.Length, CarriageReturnLineFeed.Length);
 
         return result;
     }
@@ -75,14 +60,14 @@ public readonly struct RedisCommandEnvelope
     {
         var availableParameters = new List<object>();
 
-        if (CommandName is not null)
+        if (Command is not null)
         {
-            availableParameters.Add(CommandName);
+            availableParameters.Add(Command);
         }
 
-        if (SubCommandName is not null)
+        if (SubCommands is not null)
         {
-            availableParameters.Add(SubCommandName);
+            availableParameters.AddRange(SubCommands);
         }
 
         if (Items is not null)

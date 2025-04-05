@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.Parser;
@@ -37,6 +38,7 @@ public partial class RedisConnection
     
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
+        var stringCommand = Encoding.ASCII.GetString(command.ToByteArray());
         // Write command.
         await _socket.SendAsync(command, cancellationToken);
 

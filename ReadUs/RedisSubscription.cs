@@ -44,7 +44,8 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string> message
             {
                 throw new Exception("Whatever");
             }
-        }), cancelToken);
+        },cancelToken), 
+            cancelToken);
     }
 
     public async Task<Result> Unsubscribe() // TODO...

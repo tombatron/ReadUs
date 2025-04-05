@@ -51,7 +51,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("PUBLISH", channel, null, null, false, message);
+        var command = new RedisCommandEnvelope("PUBLISH", channel, null, null, message);
 
         var result = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
@@ -65,7 +65,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("SUBSCRIBE", channel, [channel], null, false);
+        var command = new RedisCommandEnvelope("SUBSCRIBE", [channel], null, null, false);
 
         var subscription = new RedisSubscription(pool, messageHandler);
 

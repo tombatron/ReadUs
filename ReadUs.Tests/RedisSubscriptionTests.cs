@@ -9,8 +9,8 @@ public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture) :
     [Fact]
     public async Task ItCanSubscribeAndUnsubscribe()
     {
-        //var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
-        var pool = RedisConnectionPool.Create(new Uri("redis://tombaserver.local:6379"));
+        var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
+
         var db = await pool.GetAsync();
 
         string subscriptionMessage = "got nothing";
@@ -20,6 +20,8 @@ public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture) :
             subscriptionMessage = message;
         });
 
+        await Task.Delay(TimeSpan.FromMilliseconds(100));
+        
         await db.Publish("channel", "hello world");
         
         await Task.Delay(TimeSpan.FromMilliseconds(100));
