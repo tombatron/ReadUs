@@ -63,11 +63,25 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         };
     }
 
+    /// <summary>
+    /// Subscribe to a Redis Pub/Sub channel.
+    /// </summary>
+    /// <param name="channel"></param>
+    /// <param name="messageHandler">`T` is the message.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
     {
         return await Subscribe([channel], (c,m) => messageHandler(m), cancellationToken);
     }
     
+    /// <summary>
+    /// Subscribe to one or more Redis Pub/Sub channels.
+    /// </summary>
+    /// <param name="channels"></param>
+    /// <param name="messageHandler">`T1` will be the channel the message came in from, `T2` will be the content of the message.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public async Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default)
     {
         var command = new RedisCommandEnvelope("SUBSCRIBE", channels, null, null, false);

@@ -12,7 +12,7 @@ public class RedisSingleInstanceFixture : IAsyncLifetime
 {
     private static readonly ConcurrentStack<int> Ports = new(Enumerable.Range(60_000, 1_000));
     
-    public readonly RedisContainer SingleNode = CreateNode("single-node").Build();
+    public readonly RedisContainer SingleNode = CreateNode($"single-node-{Guid.NewGuid()}").Build();
 
     public async Task InitializeAsync()
     {
