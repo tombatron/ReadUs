@@ -5,12 +5,13 @@ namespace ReadUs.Encoder;
 public static class Encoder
 {
     private const string EncoderCarriageReturnLineFeed = "\r\n";
+    private const int EncoderCarriageReturnLineFeedLength = 2;
     private const string NullBulkString = "$-1\r\n\r\n";
     private static readonly byte[] NullBulkStringBytes = Encoding.ASCII.GetBytes(NullBulkString);
 
     public static byte[] Encode(params object[]? items)
     {
-        if (items is null || items.Length == 0)
+        if (items == null || items.Length == 0)
         {
             return NullBulkStringBytes;
         }
@@ -46,7 +47,9 @@ public static class Encoder
             return NullBulkString;
         }
 
-        var result = new StringBuilder();
+        var resultLength = 1 + bulkString.Length + EncoderCarriageReturnLineFeedLength + bulkString.Length + EncoderCarriageReturnLineFeedLength;
+
+        var result = new StringBuilder(resultLength);
 
         result.Append('$');
         result.Append(bulkString.Length);

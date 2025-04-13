@@ -20,7 +20,7 @@ public class RedisClusterFixture : IAsyncLifetime
 
 
     public static readonly INetwork ClusterNetwork = new NetworkBuilder()
-        .WithName("cluster-network")
+        .WithName($"cluster-network-{Guid.NewGuid()}")
         .WithDriver(NetworkDriver.Bridge)
         .Build();
 

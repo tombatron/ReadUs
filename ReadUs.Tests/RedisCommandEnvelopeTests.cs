@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Xunit;
 using static ReadUs.Encoder.Encoder;
 
@@ -124,6 +125,19 @@ public class RedisCommandEnvelopeTests
                 new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
 
             ReadOnlyMemory<byte> expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
+
+            Assert.Equal(expected.ToArray(), command.ToArray());
+        }
+    }
+
+    public class MultipleSubCommands
+    {
+        [Fact]
+        public void AreCorrectlyHandled()
+        {
+            ReadOnlyMemory<byte> command = new RedisCommandEnvelope("SUBSCRIBE", ["TEST_CHANNEL", "ANOTHER_CHANNEL"], null, null, false);
+
+            ReadOnlyMemory<byte> expected = Encode("SUBSCRIBE", "TEST_CHANNEL", "ANOTHER_CHANNEL");
 
             Assert.Equal(expected.ToArray(), command.ToArray());
         }

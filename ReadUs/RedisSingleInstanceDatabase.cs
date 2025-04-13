@@ -9,6 +9,7 @@ namespace ReadUs;
 
 public class RedisSingleInstanceDatabase(IRedisConnection connection, RedisConnectionPool pool) : RedisDatabase(connection, pool)
 {
+    // TODO: I'm not sure that this is the right place for this. But that's a matter for another time. 
     public IRedisConnection UnderlyingConnection => connection;
 
     public override async Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default)

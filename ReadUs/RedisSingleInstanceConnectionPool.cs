@@ -27,6 +27,18 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
         return new RedisSingleInstanceDatabase(connection, this);
     }
 
+    public override async Task<IRedisConnection> GetConnection()
+    {
+        var connection = GetReadUsConnection();
+
+        if (!connection.IsConnected)
+        {
+            await connection.ConnectAsync();
+        }
+
+        return connection;
+    }
+
     private IRedisConnection GetReadUsConnection()
     {
         if (_backingPool.TryDequeue(out var connection))

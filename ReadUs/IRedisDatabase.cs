@@ -30,4 +30,10 @@ public interface IRedisDatabase : IDisposable
 
     Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
         CancellationToken cancellationToken = default);
+    
+    Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default);
+    
+    Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default);
+    
+    Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default);
 }

@@ -29,12 +29,19 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
         }
     }
 
+    // TODO: This is a bit of a hack. We need to figure out a better way to handle this.
+    public string ConnectionName => "Redis Cluster Connection";
     public bool IsConnected => this.All(x => x.IsConnected);
 
     public Result<byte[]> SendCommand(RedisCommandEnvelope command) => GetNodeForKeys(command).SendCommand(command);
 
     public Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default) => 
         GetNodeForKeys(command).SendCommandAsync(command, cancellationToken);
+
+    public Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
+    {
+        throw new NotImplementedException();
+    }
 
     public void Connect()
     {
@@ -87,11 +94,16 @@ public class RedisClusterConnection : List<RedisNodeConnection>, IRedisConnectio
         // If the command being executed doesn't have any keys, then we don't really 
         // have anything to decide which node to execute the command against. So for now,
         // we'll just return the first connection in the current collection.
-        if (command.Keys is null) return this[0];
+        if (command.Keys is null)
+        {
+            return this[0];
+        }
 
         // Check if the keys all belong to the same slot. 
         if (!command.AllKeysInSingleSlot)
+        {
             throw new Exception("Multi-key operations against different slots isn't supported yet.");
+        }
 
         // Everything is in the same slot so just go get a node. 
         return GetNodeForKey(command.Keys.First());

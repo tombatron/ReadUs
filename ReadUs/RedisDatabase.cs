@@ -49,6 +49,50 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         return result;
     }
 
+    public virtual async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
+    {
+        var command = new RedisCommandEnvelope("PUBLISH", channel, null, null, message);
+
+        var result = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
+            Error<ParseResult> err => Result<int>.Error(err.Message),
+            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the PUBLISH command.")
+        };
+    }
+
+    /// <summary>
+    /// Subscribe to a Redis Pub/Sub channel.
+    /// </summary>
+    /// <param name="channel"></param>
+    /// <param name="messageHandler">`T` is the message.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        return await Subscribe([channel], (c,m) => messageHandler(m), cancellationToken);
+    }
+    
+    /// <summary>
+    /// Subscribe to one or more Redis Pub/Sub channels.
+    /// </summary>
+    /// <param name="channels"></param>
+    /// <param name="messageHandler">`T1` will be the channel the message came in from, `T2` will be the content of the message.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        var command = new RedisCommandEnvelope("SUBSCRIBE", channels, null, null, false);
+
+        var subscription = new RedisSubscription(pool, messageHandler);
+
+        await subscription.Initialize(command, cancellationToken);
+
+        return subscription;
+    }    
+
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
     {
         if (IsDisposed(out var error))
