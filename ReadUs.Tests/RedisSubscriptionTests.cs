@@ -9,9 +9,8 @@ public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture) :
     [Fact]
     public async Task ItCanSubscribeAndReceiveMessages()
     {
-        // var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
-        var pool = RedisConnectionPool.Create(new Uri("redis://tombaserver.local:6379"));
-
+        var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
+        
         var db = await pool.GetAsync();
 
         string subscriptionMessage = "got nothing";
