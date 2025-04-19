@@ -37,7 +37,7 @@ public interface IRedisDatabase : IDisposable
     
     Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default);
     
-    Task<RedisSubscription> SubscribeWithPattern(string channelPattern, Action<string, string> messageHandler, CancellationToken cancellationToken = default);
+    Task<RedisSubscription> SubscribeWithPattern(string channelPattern, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default);
     
-    Task<RedisSubscription> SubscribeWithPattern(string[] channelPatterns, Action<string, string> messageHandler, CancellationToken cancellationToken = default);
+    Task<RedisSubscription> SubscribeWithPattern(string[] channelPatterns, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default);
 }

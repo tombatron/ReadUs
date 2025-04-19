@@ -91,7 +91,38 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
         await subscription.Initialize(command, cancellationToken);
 
         return subscription;
-    }    
+    }
+
+    /// <summary>
+    /// Subscribe to a series of Redis Pub/Sub channels using a pattern instead of a specific channel name.
+    /// </summary>
+    /// <param name="channelPattern"></param>
+    /// <param name="messageHandler">`T1` will be the channel pattern the message came in from, `T2` will be the specific channel, and `T3` will be the message.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    /// <exception cref="NotImplementedException"></exception>
+    public async Task<RedisSubscription> SubscribeWithPattern(string channelPattern, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        return await SubscribeWithPattern([channelPattern], messageHandler, cancellationToken);
+    }
+    
+    /// <summary>
+    /// Subscribe to a series of patterns of Redis Pub/Sub channels using multiple patterns instead of specific channel names.
+    /// </summary>
+    /// <param name="channelPatterns"></param>
+    /// <param name="messageHandler">`T1` will be the channel pattern the message came in from, `T2` will be the specific channel, and `T3` will be the message.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public async Task<RedisSubscription> SubscribeWithPattern(string[] channelPatterns, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        var command = new RedisCommandEnvelope("PSUBSCRIBE", channelPatterns, null, null, false);
+        
+        var subscription = new RedisSubscription(pool, messageHandler);
+        
+        await subscription.Initialize(command, cancellationToken);
+
+        return subscription;
+    }
 
     public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
     {

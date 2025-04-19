@@ -10,20 +10,20 @@ public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture) :
     public async Task ItCanPatternSubscribeAndReceiveMessages()
     {
         var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
-        
+                
         var db = await pool.GetAsync();
 
         var firstChannelMessage = "got nothing";
         var secondChannelMessage = "got nothing";
 
-        var subscription = await db.SubscribeWithPattern("channel_*", (channel, message) =>
+        var subscription = await db.SubscribeWithPattern("channel*", (pattern, channel, message) =>
         {
-            if (channel == "channel_1")
+            if (channel == "channel1")
             {
                 firstChannelMessage = message;
             }
 
-            if (channel == "channel_2")
+            if (channel == "channel2")
             {
                 secondChannelMessage = message;
             }
@@ -31,8 +31,8 @@ public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture) :
 
         await Task.Delay(TimeSpan.FromMilliseconds(1));
 
-        await db.Publish("channel_1", "channel_1 got a message");
-        await db.Publish("channel_2", "channel_2 got a message");
+        await db.Publish("channel1", "channel_1 got a message");
+        await db.Publish("channel2", "channel_2 got a message");
         
         await Task.Delay(TimeSpan.FromMilliseconds(1));
 
