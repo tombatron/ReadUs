@@ -39,4 +39,10 @@ public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture) :
         Assert.Equal("channel_1 got a message", firstChannelMessage);
         Assert.Equal("channel_2 got a message", secondChannelMessage);
     }
+
+    [Fact]
+    public async Task ItCanPatternSubscribeAndPatternUnsubscribe()
+    {
+        
+    }
 }

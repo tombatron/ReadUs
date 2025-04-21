@@ -8,30 +8,22 @@ namespace ReadUs;
 
 // TODO: Change this to a static factory method.
 // TODO: In order to support multiple channels, we need to change the signature of the messageHandler to accept the channel name.
-public class RedisSubscription : IDisposable
+public class RedisSubscription(IRedisConnectionPool pool, Action<string, string, string> messageHandler) : IDisposable
 {
     private IRedisConnection? _connection;
-    private IRedisConnectionPool _pool;
     private Task _subscriptionTask = Task.CompletedTask;
-    private Action<string, string, string> _messageHandler;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    public RedisSubscription(IRedisConnectionPool pool, Action<string, string> messageHandler) : 
+    public RedisSubscription(IRedisConnectionPool pool, Action<string, string> messageHandler) :
         this(pool, (_, channel, message) => messageHandler(channel, message))
     {
-    }
-
-    public RedisSubscription(IRedisConnectionPool pool, Action<string, string, string> messageHandler)
-    {
-        _pool = pool;
-        _messageHandler = messageHandler;
     }
 
     internal async Task Initialize(RedisCommandEnvelope command, CancellationToken cancellationToken)
     {
         var cancelToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellationTokenSource.Token).Token;
 
-        _connection = await _pool.GetConnection().ConfigureAwait(false);
+        _connection = await pool.GetConnection().ConfigureAwait(false);
 
         // TODO: Let's not await this, but rather store the task and await it in the Dispose method. or something
         _subscriptionTask = Task.Run(() => _connection.SendCommandWithMultipleResponses(command, bytes =>
@@ -49,7 +41,7 @@ public class RedisSubscription : IDisposable
                             var channelValue = values[1].ToString();
                             var messageValue = values[2].ToString();
 
-                            _messageHandler(string.Empty, channelValue, messageValue);
+                            messageHandler(string.Empty, channelValue, messageValue);
                         }
 
                         if (messageType == "pmessage")
@@ -58,7 +50,7 @@ public class RedisSubscription : IDisposable
                             var channelValue = values[2].ToString();
                             var messageValue = values[3].ToString();
 
-                            _messageHandler(patternValue, channelValue, messageValue);
+                            messageHandler(patternValue, channelValue, messageValue);
                         }
                     }
                 }
@@ -91,6 +83,6 @@ public class RedisSubscription : IDisposable
     {
         _cancellationTokenSource.Cancel();
 
-        _pool.ReturnConnection(_connection!);
+        pool.ReturnConnection(_connection!);
     }
 }
