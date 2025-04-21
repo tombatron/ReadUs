@@ -6,8 +6,6 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-// TODO: Change this to a static factory method.
-// TODO: In order to support multiple channels, we need to change the signature of the messageHandler to accept the channel name.
 public class RedisSubscription(IRedisConnectionPool pool, Action<string, string, string> messageHandler) : IDisposable
 {
     private IRedisConnection? _connection;
@@ -63,7 +61,7 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string,
             cancelToken);
     }
 
-    public async Task<Result> Unsubscribe(params string[] channels) // TODO...
+    public async Task<Result> Unsubscribe(params string[] channels)
     {
         var command = new RedisCommandEnvelope("UNSUBSCRIBE", channels, null, null, false);
 
@@ -74,6 +72,22 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string,
             Ok<byte[]> _ => Result.Ok,
             Error<byte[]> err => Result.Error(err.Message),
             _ => Result.Error("An unexpected error occured while attempting to unsubscribe.")
+        };
+
+        return result;
+    }
+
+    public async Task<Result> UnsubscribeWithPattern(params string[] channelPatterns)
+    {
+        var command = new RedisCommandEnvelope("PUNSUBSCRIBE", channelPatterns, null, null, false);
+
+        var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
+
+        var result = response switch
+        {
+            Ok<byte[]> _ => Result.Ok,
+            Error<byte[]> err => Result.Error(err.Message),
+            _ => Result.Error("An unexpected error occurred while attempting to unsubscribe with a pattern.")
         };
 
         return result;
