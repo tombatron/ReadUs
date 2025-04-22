@@ -35,4 +35,17 @@ internal static class RedisCommandNames
     {
         internal const string SetName = "SETNAME";
     }
+
+    internal static class PubSubCommands
+    {
+        internal const string Publish = "PUBLISH";
+        
+        internal const string Subscribe = "SUBSCRIBE";
+        
+        internal const string Unsubscribe = "UNSUBSCRIBE";
+
+        internal const string PatternSubscribe = "PSUBSCRIBE";
+
+        internal const string PatternUnsubscribe = "PUNSUBSCRIBE";
+    }
 }

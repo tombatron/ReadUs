@@ -30,11 +30,13 @@ public class RedisSingleInstanceFixture : IAsyncLifetime
     private static RedisBuilder CreateNode(string name)
     {
         if (Ports.TryPop(out var port))
+        {
             return new RedisBuilder()
                 .WithName(name)
                 .WithImage("redis:7.0")
                 .WithPortBinding(port, 6379)
                 .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"));
+        }
 
         throw new Exception("No more ports available");
     }

@@ -6,13 +6,16 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-// TODO: Change this to a static factory method.
-// TODO: In order to support multiple channels, we need to change the signature of the messageHandler to accept the channel name.
-public class RedisSubscription(IRedisConnectionPool pool, Action<string, string> messageHandler) : IDisposable
+public class RedisSubscription(IRedisConnectionPool pool, Action<string, string, string> messageHandler) : IDisposable
 {
     private IRedisConnection? _connection;
     private Task _subscriptionTask = Task.CompletedTask;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
+
+    public RedisSubscription(IRedisConnectionPool pool, Action<string, string> messageHandler) :
+        this(pool, (_, channel, message) => messageHandler(channel, message))
+    {
+    }
 
     internal async Task Initialize(RedisCommandEnvelope command, CancellationToken cancellationToken)
     {
@@ -36,7 +39,16 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string>
                             var channelValue = values[1].ToString();
                             var messageValue = values[2].ToString();
 
-                            messageHandler(channelValue, messageValue);
+                            messageHandler(string.Empty, channelValue, messageValue);
+                        }
+
+                        if (messageType == "pmessage")
+                        {
+                            var patternValue = values[1].ToString();
+                            var channelValue = values[2].ToString();
+                            var messageValue = values[3].ToString();
+
+                            messageHandler(patternValue, channelValue, messageValue);
                         }
                     }
                 }
@@ -49,9 +61,9 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string>
             cancelToken);
     }
 
-    public async Task<Result> Unsubscribe(params string[] channels) // TODO...
+    public async Task<Result> Unsubscribe(params string[] channels)
     {
-        var command = new RedisCommandEnvelope("UNSUBSCRIBE", channels, null, null, false);
+        var command = RedisCommandEnvelope.CreateUnsubscribeCommand(channels);
 
         var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
 
@@ -65,10 +77,26 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string>
         return result;
     }
 
+    public async Task<Result> UnsubscribeWithPattern(params string[] channelPatterns)
+    {
+        var command = RedisCommandEnvelope.CreatePatternUnsubscribeCommand(channelPatterns);
+
+        var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
+
+        var result = response switch
+        {
+            Ok<byte[]> _ => Result.Ok,
+            Error<byte[]> err => Result.Error(err.Message),
+            _ => Result.Error("An unexpected error occurred while attempting to unsubscribe with a pattern.")
+        };
+
+        return result;
+    }
+
     public void Dispose()
     {
         _cancellationTokenSource.Cancel();
-        
+
         pool.ReturnConnection(_connection!);
     }
 }
