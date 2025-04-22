@@ -63,7 +63,7 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string,
 
     public async Task<Result> Unsubscribe(params string[] channels)
     {
-        var command = new RedisCommandEnvelope("UNSUBSCRIBE", channels, null, null, false);
+        var command = RedisCommandEnvelope.CreateUnsubscribeCommand(channels);
 
         var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
 
@@ -79,7 +79,7 @@ public class RedisSubscription(IRedisConnectionPool pool, Action<string, string,
 
     public async Task<Result> UnsubscribeWithPattern(params string[] channelPatterns)
     {
-        var command = new RedisCommandEnvelope("PUNSUBSCRIBE", channelPatterns, null, null, false);
+        var command = RedisCommandEnvelope.CreatePatternUnsubscribeCommand(channelPatterns);
 
         var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
 

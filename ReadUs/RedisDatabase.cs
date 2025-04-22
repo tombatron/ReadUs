@@ -51,7 +51,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
 
     public virtual async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("PUBLISH", channel, null, null, message);
+        var command = RedisCommandEnvelope.CreatePublishCommand(channel, message);
 
         var result = await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
 
@@ -70,10 +70,8 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
     /// <param name="messageHandler">`T` is the message.</param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default)
-    {
-        return await Subscribe([channel], (c,m) => messageHandler(m), cancellationToken);
-    }
+    public async Task<RedisSubscription> Subscribe(string channel, Action<string> messageHandler, CancellationToken cancellationToken = default) =>
+        await Subscribe([channel], (c,m) => messageHandler(m), cancellationToken);
     
     /// <summary>
     /// Subscribe to one or more Redis Pub/Sub channels.
@@ -84,7 +82,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
     /// <returns></returns>
     public async Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("SUBSCRIBE", channels, null, null, false);
+        var command = RedisCommandEnvelope.CreateSubscribeCommand(channels);
 
         var subscription = new RedisSubscription(pool, messageHandler);
 
@@ -101,10 +99,8 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
     /// <exception cref="NotImplementedException"></exception>
-    public async Task<RedisSubscription> SubscribeWithPattern(string channelPattern, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default)
-    {
-        return await SubscribeWithPattern([channelPattern], messageHandler, cancellationToken);
-    }
+    public async Task<RedisSubscription> SubscribeWithPattern(string channelPattern, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default) =>
+        await SubscribeWithPattern([channelPattern], messageHandler, cancellationToken);
     
     /// <summary>
     /// Subscribe to a series of patterns of Redis Pub/Sub channels using multiple patterns instead of specific channel names.
@@ -115,7 +111,7 @@ public abstract class RedisDatabase(IRedisConnection connection, IRedisConnectio
     /// <returns></returns>
     public async Task<RedisSubscription> SubscribeWithPattern(string[] channelPatterns, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default)
     {
-        var command = new RedisCommandEnvelope("PSUBSCRIBE", channelPatterns, null, null, false);
+        var command = RedisCommandEnvelope.CreatePatternSubscribeCommand(channelPatterns);
         
         var subscription = new RedisSubscription(pool, messageHandler);
         
