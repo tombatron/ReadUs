@@ -4,7 +4,8 @@ using Xunit;
 
 namespace ReadUs.Tests;
 
-public class RedisClusterConnectionTests : IClassFixture<RedisClusterFixture>
+[Collection(nameof(RedisClusterFixtureCollection))]
+public class RedisClusterConnectionTests
 {
     private readonly RedisClusterFixture _redisClusterFixture;
 

@@ -74,7 +74,6 @@ public class RedisClusterFixture : IAsyncLifetime
         Assert.Empty(err);
         Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
 
-
         await Task.Delay(1_000); // Wait a second for Redis to settle down and have properly assigned node roles.
 
         var connectionString = new Uri($"redis://localhost:{_containers[0].port}");
@@ -87,32 +86,25 @@ public class RedisClusterFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        try
-        {
-            await Node6.StopAsync();
-            await Node5.StopAsync();
-            await Node4.StopAsync();
-            await Node3.StopAsync();
-            await Node2.StopAsync();
-            await Node1.StopAsync();
+        await Node6.StopAsync();
+        await Node5.StopAsync();
+        await Node4.StopAsync();
+        await Node3.StopAsync();
+        await Node2.StopAsync();
+        await Node1.StopAsync();
 
-            await ClusterNetwork.DeleteAsync();
+        await ClusterNetwork.DeleteAsync();
 
-            await Node6.DisposeAsync();
-            await Node5.DisposeAsync();
-            await Node4.DisposeAsync();
-            await Node3.DisposeAsync();
-            await Node2.DisposeAsync();
-            await Node1.DisposeAsync();
+        await Node6.DisposeAsync();
+        await Node5.DisposeAsync();
+        await Node4.DisposeAsync();
+        await Node3.DisposeAsync();
+        await Node2.DisposeAsync();
+        await Node1.DisposeAsync();
 
-            await ClusterNetwork.DisposeAsync();
+        await ClusterNetwork.DisposeAsync();
 
-            StopTesting();
-        }
-        catch
-        {
-            // ¯\_(ツ)_/¯
-        }
+        StopTesting();
     }
 
     private RedisBuilder CreateNode(string baseName)
