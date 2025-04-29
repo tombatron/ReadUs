@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Configurations;
@@ -16,9 +15,6 @@ namespace ReadUs.Tests;
 // ReSharper disable once ClassNeverInstantiated.Global
 public class RedisClusterFixture : IAsyncLifetime
 {
-    private static readonly ConcurrentStack<int> Ports = new(Enumerable.Range(7_000, 5_000));
-
-
     public static readonly INetwork ClusterNetwork = new NetworkBuilder()
         .WithName($"cluster-network-{Guid.NewGuid()}")
         .WithDriver(NetworkDriver.Bridge)
@@ -86,14 +82,17 @@ public class RedisClusterFixture : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        await Node6.StopAsync();
-        await Node5.StopAsync();
-        await Node4.StopAsync();
-        await Node3.StopAsync();
-        await Node2.StopAsync();
-        await Node1.StopAsync();
+        var ct = new CancellationTokenSource();
+        ct.CancelAfter(TimeSpan.FromSeconds(10));
 
-        await ClusterNetwork.DeleteAsync();
+        await Node6.StopAsync(ct.Token);
+        await Node5.StopAsync(ct.Token);
+        await Node4.StopAsync(ct.Token);
+        await Node3.StopAsync(ct.Token);
+        await Node2.StopAsync(ct.Token);
+        await Node1.StopAsync(ct.Token);
+
+        await ClusterNetwork.DeleteAsync(ct.Token);
 
         await Node6.DisposeAsync();
         await Node5.DisposeAsync();
@@ -104,12 +103,14 @@ public class RedisClusterFixture : IAsyncLifetime
 
         await ClusterNetwork.DisposeAsync();
 
-        StopTesting();
+        StopTesting(); // Uh...
     }
+
+    private int _port = 30_000;
 
     private RedisBuilder CreateNode(string baseName)
     {
-        Ports.TryPop(out var port);
+        var port = _port++;
 
         var uniqueId = Guid.NewGuid().ToString("N");
         var containerName = $"{baseName}-{uniqueId}";
