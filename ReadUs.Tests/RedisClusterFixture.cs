@@ -106,7 +106,7 @@ public class RedisClusterFixture : IAsyncLifetime
         StopTesting(); // Uh...
     }
 
-    private int _port = 40_000;
+    private int _port = 50_000;
 
     private RedisBuilder CreateNode(string baseName)
     {
@@ -115,7 +115,7 @@ public class RedisClusterFixture : IAsyncLifetime
         var uniqueId = Guid.NewGuid().ToString("N");
         var containerName = $"{baseName}-{uniqueId}";
         var serverPort = port.ToString();
-        var clusterBusPort = (port + 10000).ToString();
+        var clusterBusPort = (port + 10_000).ToString();
 
         _containers.Add((containerName, port));
 
