@@ -58,6 +58,8 @@ public class RedisClusterFixture : IAsyncLifetime
         await Node6.StartAsync();
 
         var clusterCreationResult = await Node1.ExecAsync(GetClusterCreationCommand(1));
+        
+        await Task.Delay(TimeSpan.FromSeconds(10));
 
         var output = clusterCreationResult.Stdout;
 
@@ -70,7 +72,7 @@ public class RedisClusterFixture : IAsyncLifetime
         Assert.Empty(err);
         Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
 
-        await Task.Delay(1_000); // Wait a second for Redis to settle down and have properly assigned node roles.
+         // Wait a second for Redis to settle down and have properly assigned node roles.
 
         var connectionString = new Uri($"redis://localhost:{_containers[0].port}");
 
