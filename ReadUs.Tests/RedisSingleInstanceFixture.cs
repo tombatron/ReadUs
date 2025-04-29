@@ -23,6 +23,6 @@ public class RedisSingleInstanceFixture : IAsyncLifetime
     private static RedisBuilder CreateNode(string name) => new RedisBuilder()
         .WithName(name)
         .WithImage("redis:7.0")
-        .WithPortBinding(60_379, 6379)
+        .WithPortBinding(61_379, 6379)
         .WithWaitStrategy(Wait.ForUnixContainer().UntilCommandIsCompleted("redis-cli", "PING"));
 }
