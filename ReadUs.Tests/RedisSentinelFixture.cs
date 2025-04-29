@@ -2,5 +2,5 @@
 
 public class RedisSentinelFixture
 {
-    // TODO: Implement a Sentinel fixture f
+    // TODO: Implement a Sentinel fixture.
 }

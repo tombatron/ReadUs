@@ -4,7 +4,8 @@ using Xunit;
 
 namespace ReadUs.Tests;
 
-public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture) : IClassFixture<RedisSingleInstanceFixture>
+[Collection(nameof(RedisSingleInstanceFixtureCollection))]
+public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture)
 {
     [Fact]
     public async Task ItCanSubscribeAndReceiveMessages()

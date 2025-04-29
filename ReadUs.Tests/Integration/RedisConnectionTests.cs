@@ -8,8 +8,8 @@ namespace ReadUs.Tests.Integration;
 
 public sealed class RedisConnectionTests
 {
+    [Collection(nameof(RedisSingleInstanceFixtureCollection))]
     public sealed class RoleCommandOnSingleInstance(RedisSingleInstanceFixture fixture)
-        : IClassFixture<RedisSingleInstanceFixture>
     {
         [Fact]
         public void CanExecute()
@@ -36,7 +36,8 @@ public sealed class RedisConnectionTests
         }
     }
 
-    public sealed class RoleCommandOnCluster : IClassFixture<RedisClusterFixture>
+    [Collection(nameof(RedisClusterFixtureCollection))]
+    public sealed class RoleCommandOnCluster
     {
         private readonly RedisClusterConnection _connection;
 

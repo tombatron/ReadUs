@@ -1,11 +1,11 @@
 ﻿using System;
-using System.Reflection;
 using System.Threading.Tasks;
 using Xunit;
 
 namespace ReadUs.Tests;
 
-public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture) : IClassFixture<RedisSingleInstanceFixture>
+[Collection(nameof(RedisSingleInstanceFixtureCollection))]
+public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture)
 {
     [Fact]
     public async Task ItCanPatternSubscribeAndReceiveMessages()

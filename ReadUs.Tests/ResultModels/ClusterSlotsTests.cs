@@ -26,23 +26,19 @@ public class ClusterSlotsTests
 
     public class ConstainsSlotWill
     {
-        public static IEnumerable<object[]> PositiveCases = new[]
-        {
-            new object[] { new ClusterSlots(SlotRange.Create(0, 1000)), 500 },
-            new object[] { new ClusterSlots(SlotRange.Create(1001, 1001)), 1001 },
-            new object[]
-            {
-                new ClusterSlots(SlotRange.Create(100, 200), SlotRange.Create(500, 500), SlotRange.Create(1000, 2000)),
-                500
-            }
-        };
+        public static IEnumerable<object[]> PositiveCases =
+        [
+            [new ClusterSlots(SlotRange.Create(0, 1000)), 500],
+            [new ClusterSlots(SlotRange.Create(1001, 1001)), 1001],
+            [new ClusterSlots(SlotRange.Create(100, 200), SlotRange.Create(500, 500), SlotRange.Create(1000, 2000)), 500]
+        ];
 
-        public static IEnumerable<object[]> NegativeCases = new[]
-        {
-            new object[] { new ClusterSlots(SlotRange.Create(0, 1000)), 1001 },
-            new object[] { new ClusterSlots(SlotRange.Create(0, 1000), SlotRange.Create(1001, 1001)), 1002 },
-            new object[] { new ClusterSlots(SlotRange.Create(0, 1000), SlotRange.Create(1002, 1010)), 1001 }
-        };
+        public static IEnumerable<object[]> NegativeCases =
+        [
+            [new ClusterSlots(SlotRange.Create(0, 1000)), 1001],
+            [new ClusterSlots(SlotRange.Create(0, 1000), SlotRange.Create(1001, 1001)), 1002],
+            [new ClusterSlots(SlotRange.Create(0, 1000), SlotRange.Create(1002, 1010)), 1001]
+        ];
 
         [Theory]
         [MemberData(nameof(PositiveCases))]
@@ -61,38 +57,34 @@ public class ClusterSlotsTests
 
     public class ImplicitConversionFrom
     {
-        public static IEnumerable<object[]> SlotTestData = new[]
-        {
-            new object[]
-            {
+        public static IEnumerable<object[]> SlotTestData =
+        [
+            [
                 "7002",
 
                 new ClusterSlots(
                     SlotRange.Create(7002, 7002)
                 )
-            },
+            ],
 
-            new object[]
-            {
+            [
                 "7002-7003",
 
                 new ClusterSlots(
                     SlotRange.Create(7002, 7003)
                 )
-            },
+            ],
 
-            new object[]
-            {
+            [
                 "7000 7001",
 
                 new ClusterSlots(
                     SlotRange.Create(7000, 7000),
                     SlotRange.Create(7001, 7001)
                 )
-            },
+            ],
 
-            new object[]
-            {
+            [
                 "7000 7001 7002-7003",
 
                 new ClusterSlots(
@@ -100,10 +92,9 @@ public class ClusterSlotsTests
                     SlotRange.Create(7001, 7001),
                     SlotRange.Create(7002, 7003)
                 )
-            },
+            ],
 
-            new object[]
-            {
+            [
                 "7000 7001 7002-7003 7004",
 
                 new ClusterSlots(
@@ -112,10 +103,9 @@ public class ClusterSlotsTests
                     SlotRange.Create(7002, 7003),
                     SlotRange.Create(7004, 7004)
                 )
-            },
+            ],
 
-            new object[]
-            {
+            [
                 "7000 7001 7002-7003 7004 7005-10000",
 
                 new ClusterSlots(
@@ -125,8 +115,8 @@ public class ClusterSlotsTests
                     SlotRange.Create(7004, 7004),
                     SlotRange.Create(7005, 10_000)
                 )
-            }
-        };
+            ]
+        ];
 
         [Theory]
         [MemberData(nameof(SlotTestData))]

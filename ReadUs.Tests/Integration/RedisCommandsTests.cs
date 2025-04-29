@@ -7,7 +7,8 @@ using Xunit;
 
 namespace ReadUs.Tests.Integration;
 
-public sealed class RedisCommandsTests : IClassFixture<RedisSingleInstanceFixture>, IDisposable
+[Collection(nameof(RedisSingleInstanceFixtureCollection))]
+public sealed class RedisCommandsTests : IDisposable
 {
     private readonly RedisConnectionPool _pool;
 
