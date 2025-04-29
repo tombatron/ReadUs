@@ -106,7 +106,7 @@ public class RedisClusterFixture : IAsyncLifetime
         StopTesting(); // Uh...
     }
 
-    private int _port = 30_000;
+    private int _port = 40_000;
 
     private RedisBuilder CreateNode(string baseName)
     {
