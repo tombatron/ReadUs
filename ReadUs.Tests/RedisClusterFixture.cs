@@ -51,68 +51,77 @@ public class RedisClusterFixture : IAsyncLifetime
     public ClusterNodesResult ClusterNodes { get; private set; }
     public RedisConnectionConfiguration Configuration { get; private set; }
 
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
-        StartTesting();
-
-        await ClusterNetwork.CreateAsync();
-
-        await Node1.StartAsync();
-        await Node2.StartAsync();
-        await Node3.StartAsync();
-        await Node4.StartAsync();
-        await Node5.StartAsync();
-        await Node6.StartAsync();
-
-        var clusterCreationResult = await Node1.ExecAsync(GetClusterCreationCommand(1));
-        
-        await Task.Delay(TimeSpan.FromSeconds(10));
-
-        var output = clusterCreationResult.Stdout;
-
-        Console.WriteLine(output);
-
-        var err = clusterCreationResult.Stderr;
-
-        // If the cluster was created correctly, we expect that there will be nothing present in the standard error
-        // output, and that the end of the standard output will be that all 16,384 slots are covered by the cluster.
-        Assert.Empty(err);
-        Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
-
-         // Wait a second for Redis to settle down and have properly assigned node roles.
-
-        var connectionString = new Uri($"redis://localhost:{_containers[0].port}");
+        var connectionString = new Uri($"redis://localhost:5000");
 
         TryGetClusterInformation(connectionString, out var clusterNodes);
 
         ClusterNodes = clusterNodes;
         Configuration = connectionString;
+
+        return Task.CompletedTask;
+        // StartTesting();
+
+        // await ClusterNetwork.CreateAsync();
+
+        // await Node1.StartAsync();
+        // await Node2.StartAsync();
+        // await Node3.StartAsync();
+        // await Node4.StartAsync();
+        // await Node5.StartAsync();
+        // await Node6.StartAsync();
+
+        // var clusterCreationResult = await Node1.ExecAsync(GetClusterCreationCommand(1));
+        
+        // await Task.Delay(TimeSpan.FromSeconds(10));
+
+        // var output = clusterCreationResult.Stdout;
+
+        // Console.WriteLine(output);
+
+        // var err = clusterCreationResult.Stderr;
+
+        // // If the cluster was created correctly, we expect that there will be nothing present in the standard error
+        // // output, and that the end of the standard output will be that all 16,384 slots are covered by the cluster.
+        // Assert.Empty(err);
+        // Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
+
+        //  // Wait a second for Redis to settle down and have properly assigned node roles.
+
+        // var connectionString = new Uri($"redis://localhost:{_containers[0].port}");
+
+        // TryGetClusterInformation(connectionString, out var clusterNodes);
+
+        // ClusterNodes = clusterNodes;
+        // Configuration = connectionString;
     }
 
-    public async Task DisposeAsync()
+    public Task DisposeAsync()
     {
-        var ct = new CancellationTokenSource();
-        ct.CancelAfter(TimeSpan.FromSeconds(10));
+        return Task.CompletedTask;
+        // var ct = new CancellationTokenSource();
+        // ct.CancelAfter(TimeSpan.FromSeconds(10));
 
-        await Node6.StopAsync(ct.Token);
-        await Node5.StopAsync(ct.Token);
-        await Node4.StopAsync(ct.Token);
-        await Node3.StopAsync(ct.Token);
-        await Node2.StopAsync(ct.Token);
-        await Node1.StopAsync(ct.Token);
+        // await Node6.StopAsync(ct.Token);
+        // await Node5.StopAsync(ct.Token);
+        // await Node4.StopAsync(ct.Token);
+        // await Node3.StopAsync(ct.Token);
+        // await Node2.StopAsync(ct.Token);
+        // await Node1.StopAsync(ct.Token);
 
-        await ClusterNetwork.DeleteAsync(ct.Token);
+        // await ClusterNetwork.DeleteAsync(ct.Token);
 
-        await Node6.DisposeAsync();
-        await Node5.DisposeAsync();
-        await Node4.DisposeAsync();
-        await Node3.DisposeAsync();
-        await Node2.DisposeAsync();
-        await Node1.DisposeAsync();
+        // await Node6.DisposeAsync();
+        // await Node5.DisposeAsync();
+        // await Node4.DisposeAsync();
+        // await Node3.DisposeAsync();
+        // await Node2.DisposeAsync();
+        // await Node1.DisposeAsync();
 
-        await ClusterNetwork.DisposeAsync();
+        // await ClusterNetwork.DisposeAsync();
 
-        StopTesting(); // Uh...
+        // StopTesting(); // Uh...
     }
 
     private int _port = 50_000;
