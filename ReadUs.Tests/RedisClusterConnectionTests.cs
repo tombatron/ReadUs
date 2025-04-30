@@ -19,12 +19,6 @@ public class RedisClusterConnectionTests
     }
 
     [Fact]
-    public void WeAreInGitHubActions()
-    {
-        _output.WriteLine($"We are currently in GitHub Actions: {Environment.GetEnvironmentVariable("is_ci_build")}");
-    }
-
-    [Fact]
     public void ItInitializesAllNodes()
     {
         using var clusterConnection = new RedisClusterConnection(_redisClusterFixture.ClusterNodes);
