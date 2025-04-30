@@ -15,6 +15,8 @@ namespace ReadUs.Tests;
 // ReSharper disable once ClassNeverInstantiated.Global
 public class RedisClusterFixture : IAsyncLifetime
 {
+    private static readonly bool _isCiBuild = Environment.GetEnvironmentVariable("is_ci_build") == "true";
+
     public static readonly INetwork ClusterNetwork = new NetworkBuilder()
         .WithName($"cluster-network-{Guid.NewGuid()}")
         .WithDriver(NetworkDriver.Bridge)
@@ -31,6 +33,11 @@ public class RedisClusterFixture : IAsyncLifetime
 
     public RedisClusterFixture()
     {
+        if (_isCiBuild)
+        {
+            Console.WriteLine("Hi GitHub Actions!!");
+        }
+
         Console.WriteLine("Creating Redis Cluster Fixture");
 
         Node1 = CreateNode("node-1").Build();
