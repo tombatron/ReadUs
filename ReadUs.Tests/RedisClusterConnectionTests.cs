@@ -1,6 +1,8 @@
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace ReadUs.Tests;
 
@@ -8,10 +10,18 @@ namespace ReadUs.Tests;
 public class RedisClusterConnectionTests
 {
     private readonly RedisClusterFixture _redisClusterFixture;
+    private readonly ITestOutputHelper _output;
 
-    public RedisClusterConnectionTests(RedisClusterFixture redisClusterFixture)
+    public RedisClusterConnectionTests(RedisClusterFixture redisClusterFixture, ITestOutputHelper output)
     {
         _redisClusterFixture = redisClusterFixture;
+        _output = output;
+    }
+
+    [Fact]
+    public void WeAreInGitHubActions()
+    {
+        _output.WriteLine($"We are currently in GitHub Actions: {Environment.GetEnvironmentVariable("is_ci_build")}");
     }
 
     [Fact]
