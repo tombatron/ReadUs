@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -26,6 +27,10 @@ public partial class RedisConnection
             _backgroundTask = Task.Run(() => ConnectionWorker(_channel, _socket, this, cancellationToken), _backgroundTaskCancellationTokenSource.Token);
 
             await SetConnectionClientNameAsync(cancellationToken);
+        }
+        catch (SocketException sockEx)
+        {
+            throw new Exception($"Could not connect to endpoint: {_endPoint.Address}:{_endPoint.Port}", sockEx);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
