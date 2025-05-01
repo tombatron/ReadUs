@@ -1,4 +1,5 @@
-﻿using ReadUs.ResultModels;
+﻿using System;
+using ReadUs.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.ResultModels;
@@ -21,18 +22,20 @@ public class ClusterNodeFlagsTests
     public class ImplicitConversionTo
     {
         [Theory]
-        [InlineData("myself,master", ClusterNodeRole.Primary)]
-        [InlineData("master", ClusterNodeRole.Primary)]
-        [InlineData("slave", ClusterNodeRole.Secondary)]
-        [InlineData("myself,slave", ClusterNodeRole.Secondary)]
-        [InlineData("whatever", ClusterNodeRole.Undefined)]
-        public void ClusterNodeRoleSucceeds(string rawValue, ClusterNodeRole expectedNodeRole)
+        [InlineData("myself,master", typeof(PrimaryRoleResult))]
+        [InlineData("master", typeof(PrimaryRoleResult))]
+        [InlineData("slave", typeof(ReplicaRoleResult))]
+        [InlineData("myself,slave", typeof(ReplicaRoleResult))]
+        //[InlineData("whatever", ClusterNodeRole.Undefined)]
+        public void ClusterNodeRoleSucceeds(string rawValue, Type objectType)
         {
             ClusterNodeFlags flags = rawValue.ToCharArray();
 
-            ClusterNodeRole role = flags;
+            RoleResult role = flags;
 
-            Assert.Equal(expectedNodeRole, role);
+            Assert.IsType(objectType, role);
+
+            // Assert.Equal(expectedNodeRole, role);
         }
     }
 }

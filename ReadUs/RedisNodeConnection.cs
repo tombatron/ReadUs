@@ -14,7 +14,16 @@ public sealed class RedisNodeConnection : RedisConnection, IRedisNodeConnection
         // TODO: For now we're just going to assume that the data returned by the cluster nodes command
         //       is valid. Though we are going to want to throw in some logic to account for shifting
         //       roles, additional nodes, changing slot assignments etc.
-        Role = nodeDescription.Flags ?? throw new Exception("Didn't get any flags for the node connection.");
+        if (nodeDescription.Flags is null)
+        {
+            // TODO: New custom exception needed here.
+            throw new Exception("Didn't get any flag for the node connection.");
+        }
+        else
+        {
+            SetRole(nodeDescription.Flags);
+        }
+
         Slots = nodeDescription.Slots;
     }
 

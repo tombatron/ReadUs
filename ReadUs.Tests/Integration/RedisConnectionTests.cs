@@ -56,7 +56,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public void CanExecuteOnPrimaryNode()
         {
-            var primaryNode = _connection.First(x => x.Role == Roles.Primary);
+            var primaryNode = _connection.First(x => x.Role().Unwrap() is PrimaryRoleResult);
 
             var roleResult = primaryNode.Role().Unwrap();
 
@@ -66,7 +66,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public async Task CanExecuteOnPrimaryNodeAsync()
         {
-            var primaryNode = _connection.First(x => x.Role == Roles.Primary);
+            var primaryNode = _connection.First(x => x.Role().Unwrap() is PrimaryRoleResult);
 
             var roleResult = (await primaryNode.RoleAsync()).Unwrap();
 
@@ -76,7 +76,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public void CanExecuteOnSecondaryNode()
         {
-            var secondaryNode = _connection.First(x => x.Role == Roles.Replica);
+            var secondaryNode = _connection.First(x => x.Role().Unwrap() is ReplicaRoleResult);
 
             var roleResult = secondaryNode.Role().Unwrap();
 
@@ -86,8 +86,8 @@ public sealed class RedisConnectionTests
         [Fact]
         public async Task CanExecuteOnSecondaryNodeAsync()
         {
-            var secondaryNode = _connection.First(x => x.Role == Roles.Replica);
-
+            var secondaryNode = _connection.First(x => x.Role().Unwrap() is ReplicaRoleResult);
+            
             var roleResult = (await secondaryNode.RoleAsync()).Unwrap();
 
             Assert.IsType<ReplicaRoleResult>(roleResult);
