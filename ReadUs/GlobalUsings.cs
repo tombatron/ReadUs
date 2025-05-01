@@ -1,2 +1,1 @@
-﻿global using static ReadUs.Extras.EnvironmentTools;
-global using Tombatron.Results;
+﻿global using Tombatron.Results;

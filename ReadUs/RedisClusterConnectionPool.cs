@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.ResultModels;
@@ -172,17 +171,6 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // Handle the result of the `cluster nodes` command by populating a data structure with the 
         // addresses, role, and slots assigned to each node. 
         var nodes = new ClusterNodesResult(rawResult.Unwrap());
-
-        // if (IsTesting())
-        //     // We're in a unit test. The containers that are set up by Testcontainers are in a bridge network and the `CLUSTER NODES`
-        //     // command is going to report back an IP address that we won't be able to connect to, so here we're going to swap
-        //     // out the IP addresses for loopback.
-        // {
-        //     foreach (var node in nodes)
-        //     {
-        //         node.Address = new ClusterNodeAddress(IPAddress.Loopback, node.Address!.RedisPort, node.Address!.ClusterPort);
-        //     }
-        // }
 
         if (nodes.HasError)
         {

@@ -43,7 +43,7 @@ public sealed class RedisConnectionTests
 
         public RoleCommandOnCluster(RedisClusterFixture fixture)
         {
-            var connectionString = new Uri($"redis://{fixture.GetConnectionString()}?connectionsPerNode=5");
+            var connectionString = new Uri($"redis://{fixture.ConnectionString}?connectionsPerNode=5");
 
             var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
 
