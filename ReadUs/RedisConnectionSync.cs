@@ -18,4 +18,8 @@ public partial class RedisConnection
 
     internal virtual void SetRole(RoleResult role) =>
         _role = Result<RoleResult>.Ok(role);
+
+    internal virtual void SetRole(ClusterNodesResultItem nodesResultItem) =>
+        _role = Result<RoleResult>.Ok(nodesResultItem);
+
 }

@@ -31,4 +31,20 @@ public abstract class RoleResult
         // TODO: Throw a custom exception here. 
         throw new Exception("We expected a result that was a multi-bulk here."); // Or something.
     }
+
+    public static implicit operator RoleResult(ClusterNodesResultItem nodesResultItem)
+    {
+        if (nodesResultItem.Flags?.Contains(Roles.Primary) ?? false)
+        {
+
+        }
+        else if (nodesResultItem.Flags?.Contains(Roles.Replica) ?? false)
+        {
+
+        }
+        else
+        {
+            throw new Exception("Not sure what the role is but uh... here we are..."); // TODO: Probably this better.
+        }
+    }
 }

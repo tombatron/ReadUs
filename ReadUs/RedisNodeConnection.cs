@@ -21,7 +21,7 @@ public sealed class RedisNodeConnection : RedisConnection, IRedisNodeConnection
         }
         else
         {
-            SetRole(nodeDescription.Flags);
+            SetRole(nodeDescription);
         }
 
         Slots = nodeDescription.Slots;
