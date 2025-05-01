@@ -56,7 +56,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public void CanExecuteOnPrimaryNode()
         {
-            var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
+            var primaryNode = _connection.First(x => x.Role == Roles.Primary);
 
             var roleResult = primaryNode.Role().Unwrap();
 
@@ -66,7 +66,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public async Task CanExecuteOnPrimaryNodeAsync()
         {
-            var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
+            var primaryNode = _connection.First(x => x.Role == Roles.Primary);
 
             var roleResult = (await primaryNode.RoleAsync()).Unwrap();
 
@@ -76,7 +76,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public void CanExecuteOnSecondaryNode()
         {
-            var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
+            var secondaryNode = _connection.First(x => x.Role == Roles.Replica);
 
             var roleResult = secondaryNode.Role().Unwrap();
 
@@ -86,7 +86,7 @@ public sealed class RedisConnectionTests
         [Fact]
         public async Task CanExecuteOnSecondaryNodeAsync()
         {
-            var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
+            var secondaryNode = _connection.First(x => x.Role == Roles.Replica);
 
             var roleResult = (await secondaryNode.RoleAsync()).Unwrap();
 
