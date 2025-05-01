@@ -23,5 +23,4 @@ jobs:
 
     - name: Test
       run: dotnet test --no-build
-      env:
-        is_ci_build: true
+    

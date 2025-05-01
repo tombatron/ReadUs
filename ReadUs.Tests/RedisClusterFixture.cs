@@ -43,7 +43,7 @@ public class RedisClusterFixture : IAsyncLifetime
     public ClusterNodesResult ClusterNodes { get; private set; }
     public RedisConnectionConfiguration Configuration { get; private set; }
 
-    public string ConnectionString => $"localhost:{_containers[0].port}";
+    public string ConnectionString => $"127.0.0.1:{_containers[0].port}";
 
     public async Task InitializeAsync()
     {
