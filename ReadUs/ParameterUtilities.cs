@@ -16,6 +16,7 @@ internal static class ParameterUtilities
     internal static IEnumerable<object?> UnwindObjectArray(object[] objects)
     {
         foreach (var obj in objects)
+        {
             if (obj.GetType().IsArray)
             {
                 if (obj is KeyValuePair<RedisKey, string>[] kvps)
@@ -47,5 +48,6 @@ internal static class ParameterUtilities
             {
                 yield return obj;
             }
+        }
     }
 }
