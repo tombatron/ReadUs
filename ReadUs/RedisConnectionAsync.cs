@@ -12,6 +12,10 @@ namespace ReadUs;
 
 public partial class RedisConnection
 {
+    // TODO: Going to rename this at some point. 
+    private Task _connectionWork = Task.CompletedTask;
+    private readonly CancellationTokenSource _backgroundTaskCancellationTokenSource = new();
+
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
         using var cancellationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -24,7 +28,7 @@ public partial class RedisConnection
 
             Trace.WriteLine($"Connected {ConnectionName} to {_endPoint.Address}:{_endPoint.Port}.");
 
-            _backgroundTask = Task.Run(() => ConnectionWorker(_channel, _socket, this, cancellationToken), _backgroundTaskCancellationTokenSource.Token);
+            _connectionWork = Task.Run(() => ConnectionWorker(_channel, _socket, this, cancellationToken), _backgroundTaskCancellationTokenSource.Token);
 
             await SetConnectionClientNameAsync(cancellationToken);
         }

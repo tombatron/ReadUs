@@ -22,9 +22,6 @@ public partial class RedisConnection : IRedisConnection
     private readonly Socket _socket;
     private readonly TimeSpan _commandTimeout;
 
-    // TODO: Going to rename this at some point. 
-    private Task _backgroundTask;
-    private readonly CancellationTokenSource _backgroundTaskCancellationTokenSource = new();
     private readonly Channel<byte[]> _channel = Channel.CreateBounded<byte[]>(1);
 
     public IPEndPoint EndPoint => _endPoint;
