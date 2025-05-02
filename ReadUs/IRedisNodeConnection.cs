@@ -4,7 +4,7 @@ namespace ReadUs;
 
 public interface IRedisNodeConnection : IRedisConnection
 {
-    ClusterNodeRole Role { get; }
+    new ClusterNodeRole Role { get; }
 
     ClusterSlots? Slots { get; }
 }

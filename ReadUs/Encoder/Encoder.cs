@@ -9,7 +9,7 @@ public static class Encoder
     private const string NullBulkString = "$-1\r\n\r\n";
     private static readonly byte[] NullBulkStringBytes = Encoding.ASCII.GetBytes(NullBulkString);
 
-    public static byte[] Encode(params object[]? items)
+    public static byte[] Encode(params object?[] items)
     {
         if (items == null || items.Length == 0)
         {
