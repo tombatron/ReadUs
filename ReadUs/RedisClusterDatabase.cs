@@ -11,26 +11,14 @@ namespace ReadUs;
 
 public class RedisClusterDatabase(RedisClusterConnectionPool pool) : RedisDatabase(pool)
 {
-    public override async Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
-    {
-        var connection = await pool.GetAsync();
-
-        try
-        {
-
-        }
-        finally
-        {
-            pool.ReturnConnection(connection);
-        }
-        return base.Execute(command, cancellationToken);
-    }
+    public override async Task<Result<BlockingPopResult>> BlockingLeftPopAsync(params RedisKey[] keys) =>
+        await BlockingLeftPopAsync(TimeSpan.MaxValue, keys).ConfigureAwait(false);
 
     public override async Task<Result<BlockingPopResult>> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
         var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
-        var rawResult = await Connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await Execute(command).ConfigureAwait(false);
 
         var result = Parse(rawResult) switch
         {
@@ -47,14 +35,9 @@ public class RedisClusterDatabase(RedisClusterConnectionPool pool) : RedisDataba
 
     public override async Task<Result<BlockingPopResult>> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        if(IsDisposed(out var error))
-        {
-            return Result<BlockingPopResult>.Error(error!);
-        }
-        
         var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
 
-        var rawResult = await Connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await Execute(command).ConfigureAwait(false);
 
         var result = Parse(rawResult) switch
         {
@@ -68,11 +51,6 @@ public class RedisClusterDatabase(RedisClusterConnectionPool pool) : RedisDataba
 
     public override Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default)
     {
-        if (IsDisposed(out var error))
-        {
-            return Task.FromResult(Result.Error(error!));
-        }
-
         // No-Op, this command doesn't really do anything on clusters. 
 
         return Task.FromResult(Result.Ok);
