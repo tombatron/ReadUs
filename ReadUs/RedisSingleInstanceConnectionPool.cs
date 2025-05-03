@@ -17,46 +17,40 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
 
     public override async Task<IRedisDatabase> GetAsync()
     {
-        var connection = GetReadUsConnection();
+        var connection = await GetConnection();
 
         if (!connection.IsConnected)
         {
             await connection.ConnectAsync();
         }
 
-        return new RedisSingleInstanceDatabase(connection, this);
+        return new RedisSingleInstanceDatabase(this);
     }
 
-    public override async Task<IRedisConnection> GetConnection()
+    internal override Task<IRedisConnection> GetConnection() // TODO: Not sure that this needs to be async...
     {
-        var connection = GetReadUsConnection();
-
-        if (!connection.IsConnected)
+        IRedisConnection connection;
+        
+        if (_backingPool.TryDequeue(out var conn))
         {
-            await connection.ConnectAsync();
+            connection = conn;
+        }
+        else
+        {
+            // Create a new connection using the existing configuration object.
+            var newConnection = new RedisConnection(_configuration);
+            
+            // Add a reference to the new connection to the existing collection
+            // of existing connections.
+            _allConnections.Add(newConnection);
+
+            connection = newConnection;
         }
 
-        return connection;
+        return Task.FromResult(connection);
     }
 
-    private IRedisConnection GetReadUsConnection()
-    {
-        if (_backingPool.TryDequeue(out var connection))
-        {
-            return connection;
-        }
-
-        var newConnection = new RedisConnection(_configuration);
-
-        _allConnections.Add(newConnection);
-
-        return newConnection;
-    }
-
-    public override void ReturnConnection(IRedisConnection connection)
-    {
-        _backingPool.Enqueue(connection);
-    }
+    internal override void ReturnConnection(IRedisConnection connection) => _backingPool.Enqueue(connection);
 
     public override void Dispose()
     {
