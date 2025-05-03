@@ -10,7 +10,7 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-public abstract class RedisDatabase(IRedisConnectionPool pool) : IRedisDatabase
+public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
 {
     public virtual async Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
