@@ -6,6 +6,7 @@ using Xunit;
 
 namespace ReadUs.Tests.Integration;
 
+// ReSharper disable once ClassNeverInstantiated.Global
 public sealed class RedisConnectionTests
 {
     [Collection(nameof(RedisSingleInstanceFixtureCollection))]
@@ -47,10 +48,7 @@ public sealed class RedisConnectionTests
 
             var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
 
-            var database =
-                connectionPool.GetAsync().GetAwaiter().GetResult() as RedisClusterDatabase; // Yeah yeah, I know...
-
-            _connection = database!.Connection as RedisClusterConnection;
+            _connection = connectionPool.GetConnection().GetAwaiter().GetResult() as RedisClusterConnection;
         }
 
         [Fact]
