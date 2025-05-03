@@ -49,7 +49,6 @@ public sealed class RedisConnectionTests
             var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
 
             _connection = connectionPool.GetConnection().GetAwaiter().GetResult() as RedisClusterConnection;
-            _connection!.Connect();
         }
 
         [Fact]
