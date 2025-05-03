@@ -11,14 +11,9 @@ public class RedisSingleInstanceDatabase(RedisConnectionPool pool) : RedisDataba
 {
     public override async Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default)
     {
-        if (IsDisposed(out var error))
-        {
-            return Result.Error(error!);
-        }
-
         var command = RedisCommandEnvelope.CreateSelectCommand(databaseId);
 
-        var rawResult = await Connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
+        var rawResult = await Execute(command, cancellationToken).ConfigureAwait(false);
 
         var result = Parse(rawResult) switch
         {
@@ -35,14 +30,9 @@ public class RedisSingleInstanceDatabase(RedisConnectionPool pool) : RedisDataba
     
     public override async Task<Result<BlockingPopResult>> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        if (IsDisposed(out var error))
-        {
-            return Result<BlockingPopResult>.Error(error!);
-        }
-
         var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
-        var rawResult = await Connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await Execute(command).ConfigureAwait(false);
 
         var result = Parse(rawResult) switch
         {
@@ -54,21 +44,14 @@ public class RedisSingleInstanceDatabase(RedisConnectionPool pool) : RedisDataba
         return result;
     }
 
-    public override Task<Result<BlockingPopResult>> BlockingRightPopAsync(params RedisKey[] keys)
-    {
-        return BlockingRightPopAsync(TimeSpan.MaxValue, keys);
-    }
-
+    public override async Task<Result<BlockingPopResult>> BlockingRightPopAsync(params RedisKey[] keys) =>
+        await BlockingRightPopAsync(TimeSpan.MaxValue, keys).ConfigureAwait(false);
+    
     public override async Task<Result<BlockingPopResult>> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        if (IsDisposed(out var error))
-        {
-            return Result<BlockingPopResult>.Error(error!);
-        }
-
         var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
 
-        var rawResult = await Connection.SendCommandAsync(command).ConfigureAwait(false);
+        var rawResult = await Execute(command).ConfigureAwait(false);
 
         var result = Parse(rawResult) switch
         {
