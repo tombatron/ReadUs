@@ -29,7 +29,7 @@ public sealed class RedisCommandsTests : IDisposable
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        using var commands = await _pool.GetAsync();
+        var commands = await _pool.GetAsync();
 
         await commands.SelectAsync(10);
 
@@ -56,7 +56,7 @@ public sealed class RedisCommandsTests : IDisposable
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        using var commands = await _pool.GetAsync();
+        var commands = await _pool.GetAsync();
 
         await commands.SetAsync(testKey, "The quick brown fox jumped over the lazy moon.");
 
@@ -70,7 +70,7 @@ public sealed class RedisCommandsTests : IDisposable
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        using var commands = await _pool.GetAsync();
+        var commands = await _pool.GetAsync();
 
         await commands.SetAsync(testKey, "Never eat soggy waffles.");
 
@@ -84,7 +84,7 @@ public sealed class RedisCommandsTests : IDisposable
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        using var commands = await _pool.GetAsync();
+        var commands = await _pool.GetAsync();
 
         var initialLength = (await commands.ListLengthAsync(testKey)).Unwrap();
 
@@ -104,8 +104,7 @@ public sealed class RedisCommandsTests : IDisposable
         var firstKey = $"{baseTestKey}1";
         var secondKey = $"{baseTestKey}2";
 
-        using var commands = await _pool.GetAsync();
-
+        var commands = await _pool.GetAsync();
 
         var keysAndValues = new[]
         {
