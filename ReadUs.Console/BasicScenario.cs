@@ -28,7 +28,7 @@ public static class BasicScenario
 
                 while (!success)
                 {
-                    using var db = await pool.GetAsync();
+                    var db = await pool.GetAsync();
 
                     var setResult = await db.SetAsync(key, value);
 
