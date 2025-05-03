@@ -5,9 +5,9 @@ namespace ReadUs;
 
 public interface IRedisConnectionPool : IDisposable
 {
-    Task<IRedisDatabase> GetAsync();
+    Task<IRedisDatabase> GetAsync(); // TODO: Rename this to `GetDatabase`.
 
-    Task<IRedisConnection> GetConnection();
-
-    void ReturnConnection(IRedisConnection connection);
+    // Task<IRedisConnection> GetConnection();
+    //
+    // void ReturnConnection(IRedisConnection connection);
 }

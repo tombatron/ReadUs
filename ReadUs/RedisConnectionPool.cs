@@ -7,9 +7,9 @@ public abstract class RedisConnectionPool : IRedisConnectionPool
 {
     public abstract Task<IRedisDatabase> GetAsync();
     
-    public abstract Task<IRedisConnection> GetConnection();
+    internal abstract Task<IRedisConnection> GetConnection();
 
-    public abstract void ReturnConnection(IRedisConnection connection);
+    internal abstract void ReturnConnection(IRedisConnection connection);
 
     public abstract void Dispose();
 

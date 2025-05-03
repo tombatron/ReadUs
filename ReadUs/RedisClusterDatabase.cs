@@ -9,24 +9,25 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-public class RedisClusterDatabase : RedisDatabase
+public class RedisClusterDatabase(RedisClusterConnectionPool pool) : RedisDatabase(pool)
 {
-    public RedisClusterDatabase(IRedisConnection connection, RedisClusterConnectionPool pool) : base(connection, pool)
+    public override async Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
-    }
+        var connection = await pool.GetAsync();
 
-    public override Task<Result<BlockingPopResult>> BlockingLeftPopAsync(params RedisKey[] keys)
-    {
-        return BlockingLeftPopAsync(TimeSpan.MaxValue, keys);
+        try
+        {
+
+        }
+        finally
+        {
+            pool.ReturnConnection(connection);
+        }
+        return base.Execute(command, cancellationToken);
     }
 
     public override async Task<Result<BlockingPopResult>> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys)
     {
-        if(IsDisposed(out var error))
-        {
-            return Result<BlockingPopResult>.Error(error!);
-        }
-
         var command = RedisCommandEnvelope.CreateBlockingLeftPopCommand(keys, timeout);
 
         var rawResult = await Connection.SendCommandAsync(command).ConfigureAwait(false);

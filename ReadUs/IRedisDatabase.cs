@@ -6,8 +6,10 @@ using ReadUs.ResultModels;
 
 namespace ReadUs;
 
-public interface IRedisDatabase : IDisposable
+public interface IRedisDatabase
 {
+    Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
+    
     Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default);
 
     Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default);

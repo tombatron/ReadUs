@@ -36,48 +36,37 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // to the caller. 
         await WaitWhileAsync(() => _isReinitializing, CancellationToken.None);
 
-        var connection = GetReadUsConnection();
+        var connection = await GetConnection();
 
         if (!connection.IsConnected)
         {
             await connection.ConnectAsync();
         }
 
-        var database = new RedisClusterDatabase(connection, this);
+        var database = new RedisClusterDatabase(this);
 
         database.RedisServerExceptionEvent += OnRedisServerException;
 
         return database;
     }
 
-    public override Task<IRedisConnection> GetConnection()
-    {
-        throw new NotImplementedException();
-    }
-
-    private IRedisConnection GetReadUsConnection()
+    internal override Task<IRedisConnection> GetConnection()
     {
         if (_backingPool.TryDequeue(out var connection))
         {
-            return connection;
+            return Task.FromResult(connection);
         }
-
+        
         var newConnection = new RedisClusterConnection(_existingClusterNodes, _configuration.ConnectionsPerNode);
 
         _allConnections.Add(newConnection);
 
-        return newConnection;
+        return Task.FromResult(newConnection as IRedisConnection);
     }
 
-    public override void ReturnConnection(IRedisConnection connection)
-    {
-        _backingPool.Enqueue(connection);
-    }
+    internal override void ReturnConnection(IRedisConnection connection) => _backingPool.Enqueue(connection);
 
-    public override void Dispose()
-    {
-        DisposeAllConnections();
-    }
+    public override void Dispose() => DisposeAllConnections();
 
     private void DisposeAllConnections()
     {
@@ -135,7 +124,10 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         var exception = args.Exception;
 
         // If the `RedisError` is null, then there's nothing for us to evaluate now is there?
-        if (exception.RedisError is null) return;
+        if (exception.RedisError is null)
+        {
+            return;
+        }
 
         var redisErrorMessage = exception.RedisError;
 
@@ -146,6 +138,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         if (redisErrorMessage.StartsWith("MOVED"))
         {
             Console.WriteLine("Detected an error reinitializing.");
+            
             Reinitialize();
         }
     }
