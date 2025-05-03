@@ -6,13 +6,13 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-public class RedisSubscription(IRedisConnectionPool pool, Action<string, string, string> messageHandler) : IDisposable
+public class RedisSubscription(RedisConnectionPool pool, Action<string, string, string> messageHandler) : IDisposable
 {
     private IRedisConnection? _connection;
     private Task _subscriptionTask = Task.CompletedTask;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    public RedisSubscription(IRedisConnectionPool pool, Action<string, string> messageHandler) :
+    public RedisSubscription(RedisConnectionPool pool, Action<string, string> messageHandler) :
         this(pool, (_, channel, message) => messageHandler(channel, message))
     {
     }
