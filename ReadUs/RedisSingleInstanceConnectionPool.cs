@@ -15,19 +15,10 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
         _configuration = configuration;
     }
 
-    public override async Task<IRedisDatabase> GetAsync()
-    {
-        var connection = await GetConnection();
+    public override Task<IRedisDatabase> GetAsync() => 
+        Task.FromResult(new RedisSingleInstanceDatabase(this) as IRedisDatabase);
 
-        if (!connection.IsConnected)
-        {
-            await connection.ConnectAsync();
-        }
-
-        return new RedisSingleInstanceDatabase(this);
-    }
-
-    internal override Task<IRedisConnection> GetConnection() // TODO: Not sure that this needs to be async...
+    internal override async Task<IRedisConnection> GetConnection() // TODO: Not sure that this needs to be async...
     {
         IRedisConnection connection;
         
@@ -44,10 +35,15 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
             // of existing connections.
             _allConnections.Add(newConnection);
 
+            if (!newConnection.IsConnected)
+            {
+                await newConnection.ConnectAsync();
+            }
+
             connection = newConnection;
         }
 
-        return Task.FromResult(connection);
+        return connection;
     }
 
     internal override void ReturnConnection(IRedisConnection connection) => _backingPool.Enqueue(connection);

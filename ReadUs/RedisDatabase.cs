@@ -16,11 +16,6 @@ public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
     {
         var connection = await pool.GetConnection();
 
-        if (!connection.IsConnected)
-        {
-            await connection.ConnectAsync(cancellationToken);
-        }
-
         try
         {
             return await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);

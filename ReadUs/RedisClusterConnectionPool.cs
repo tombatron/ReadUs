@@ -36,13 +36,6 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // to the caller. 
         await WaitWhileAsync(() => _isReinitializing, CancellationToken.None);
 
-        var connection = await GetConnection();
-
-        if (!connection.IsConnected)
-        {
-            await connection.ConnectAsync();
-        }
-
         var database = new RedisClusterDatabase(this);
 
         database.RedisServerExceptionEvent += OnRedisServerException;
@@ -50,18 +43,23 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         return database;
     }
 
-    internal override Task<IRedisConnection> GetConnection()
+    internal override async Task<IRedisConnection> GetConnection()
     {
         if (_backingPool.TryDequeue(out var connection))
         {
-            return Task.FromResult(connection);
+            return connection;
         }
         
         var newConnection = new RedisClusterConnection(_existingClusterNodes, _configuration.ConnectionsPerNode);
 
         _allConnections.Add(newConnection);
 
-        return Task.FromResult(newConnection as IRedisConnection);
+        if (!newConnection.IsConnected)
+        {
+            await newConnection.ConnectAsync();
+        }
+
+        return newConnection;
     }
 
     internal override void ReturnConnection(IRedisConnection connection) => _backingPool.Enqueue(connection);
