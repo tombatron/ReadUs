@@ -83,7 +83,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
 
         var initialLength = (await commands.ListLengthAsync(testKey)).Unwrap();
 
-        await commands.LeftPushAsync(testKey, "Yo");
+        await commands.LeftPush(testKey, ["Yo"]);
 
         var finalLength = (await commands.ListLengthAsync(testKey)).Unwrap();
 

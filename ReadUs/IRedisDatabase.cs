@@ -8,8 +8,6 @@ public interface IRedisDatabase
 {
     Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
     
-    Task<Result<int>> LeftPushAsync(RedisKey key, params string[] element);
-
     Task<Result<int>> RightPushAsync(RedisKey key, params string[] element);
 
     Task<Result<int>> ListLengthAsync(RedisKey key);

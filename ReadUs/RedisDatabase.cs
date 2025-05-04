@@ -96,22 +96,6 @@ public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
         return subscription;
     }
     
-    public virtual async Task<Result<int>> LeftPushAsync(RedisKey key, params string[] element)
-    {
-        var command = RedisCommandEnvelope.CreateLeftPushCommand(key, element);
-
-        var rawResult = await Execute(command).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult<int>(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the LPUSH command.")
-        };
-
-        return result;
-    }
-
     public virtual async Task<Result<int>> ListLengthAsync(RedisKey key)
     {
         var command = RedisCommandEnvelope.CreateListLengthCommand(key);
@@ -173,15 +157,7 @@ public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
         };
     }    
 
-    protected static Result<int> ParseAndReturnInt(ParseResult result)
-    {
-        if (result.Type == ResultType.Integer)
-        {
-            return Result<int>.Ok(int.Parse(result.ToString()));
-        }
 
-        return Result<int>.Error($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
-    }
 
     internal delegate void RedisServerExceptionEventHandler(object sender, RedisServerExceptionEventArgs args);
 }

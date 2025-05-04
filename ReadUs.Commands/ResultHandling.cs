@@ -35,4 +35,14 @@ public static partial class Commands
 
         return Result.Ok;
     } 
+    
+    private static Result<int> ParseAndReturnInt(ParseResult result)
+    {
+        if (result.Type == ResultType.Integer)
+        {
+            return Result<int>.Ok(int.Parse(result.ToString()));
+        }
+
+        return Result<int>.Error($"We expected an integer type in the reply but got {result.Type.ToString()} instead.");
+    }
 }
