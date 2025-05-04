@@ -24,7 +24,7 @@ public static class Commands
 
     public static async Task<Result<string>> Get(this IRedisDatabase @this, RedisKey key, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("GET", null, [key], null, null);
+        RedisCommandEnvelope command = new("GET", null, [key], null, key);
         
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
