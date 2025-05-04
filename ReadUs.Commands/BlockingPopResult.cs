@@ -1,8 +1,7 @@
-﻿using System;
 using ReadUs.Exceptions;
 using ReadUs.Parser;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands;
 
 public class BlockingPopResult(string listKey, string value)
 {
@@ -10,7 +9,7 @@ public class BlockingPopResult(string listKey, string value)
 
     public string Value { get; } = value;
 
-    public static explicit operator BlockingPopResult(ParseResult result)
+    public static implicit operator BlockingPopResult(ParseResult result)
     {
         if (result.TryToArray(out var resultArray))
         {

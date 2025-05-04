@@ -1,11 +1,10 @@
-using System.Runtime.CompilerServices;
 using ReadUs.Parser;
 using Tombatron.Results;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs.Commands;
 
-public static class Commands
+public static partial class Commands
 {
     // ReSharper disable once UnusedMethodReturnValue.Global
     public static async Task<Result> Select(this IRedisDatabase @this, int databaseId, CancellationToken cancellationToken = default)
@@ -50,30 +49,17 @@ public static class Commands
         };
     }
 
-    private static Result<string> ConvertToResultString(ParseResult result) =>
-        Result<string>.Ok(result.ToString());
-    
-    private static Result<T> EvaluateResult<T>(ParseResult result, Func<ParseResult, Result<T>> converter, [CallerMemberName] string callingMember = "") where T : notnull
+    public static async Task<Result<BlockingPopResult>> BlockingLeftPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
     {
-        var evalResult = EvaluateResult(result, callingMember);
+        RedisCommandEnvelope command = new("BLPOP", null, keys, timeout, keys);
         
-        return evalResult switch
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
         {
-            Ok => converter(result),
-            Error err => Result<T>.Error(err.Message),
-            _ => Result<T>.Error("Ran into an unexpected (and I'll be honest, I thought it was impossible) error while evaluating the result of a Redis command.")
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToBlockingPopResult),
+            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
+            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
         };
-    }
-    
-    private static Result EvaluateResult(ParseResult result, [CallerMemberName] string callingMember = "")
-    {
-        if (result.Type == ResultType.Error)
-        {
-            var errorMessage = $"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}";
-
-            return Result.Error(errorMessage);
-        }
-
-        return Result.Ok;
     }
 }

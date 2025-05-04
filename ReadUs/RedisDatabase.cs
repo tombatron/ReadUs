@@ -25,10 +25,6 @@ public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
             pool.ReturnConnection(connection);
         }
     }
-    
-    public abstract Task<Result<BlockingPopResult>> BlockingLeftPopAsync(params RedisKey[] keys);
-
-    public abstract Task<Result<BlockingPopResult>> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys);
 
     public abstract Task<Result<BlockingPopResult>> BlockingRightPopAsync(params RedisKey[] keys);
 
