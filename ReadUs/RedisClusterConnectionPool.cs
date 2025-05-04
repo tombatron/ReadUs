@@ -37,8 +37,6 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
         var database = new RedisDatabase(this);
 
-        database.RedisServerExceptionEvent += OnRedisServerException;
-
         return database;
     }
 

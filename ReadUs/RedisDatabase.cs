@@ -1,11 +1,6 @@
 using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
-using ReadUs.Exceptions;
-using ReadUs.Parser;
-using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
@@ -25,20 +20,6 @@ public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
         }
     }
     
-    public virtual async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreatePublishCommand(channel, message);
-
-        var result = await Execute(command, cancellationToken).ConfigureAwait(false);
-
-        return Parse(result) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the PUBLISH command.")
-        };
-    }
-
     /// <summary>
     /// Subscribe to a Redis Pub/Sub channel.
     /// </summary>
@@ -95,69 +76,4 @@ public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
 
         return subscription;
     }
-    
-    public virtual async Task<Result<int>> ListLengthAsync(RedisKey key)
-    {
-        var command = RedisCommandEnvelope.CreateListLengthCommand(key);
-
-        var rawResult = await Execute(command).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the LLEN command.")
-        };
-
-        return result;
-    }
-
-    public virtual async Task<Result<int>> RightPushAsync(RedisKey key, params string[] element)
-    {
-        var command = RedisCommandEnvelope.CreateRightPushCommand(key, element);
-
-        var rawResult = await Execute(command).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the RPUSH command.")
-        };
-
-        return result;
-    }
-    
-    internal event RedisServerExceptionEventHandler? RedisServerExceptionEvent;
-
-    protected Result EvaluateResult(ParseResult result, [CallerMemberName] string callingMember = "")
-    {
-        if (result.Type == ResultType.Error)
-        {
-            var errorMessage = $"Redis returned an error while we were invoking `{callingMember}`. The error was: {result.ToString()}";
-
-            // TODO: Probably need to address this one too...   
-            RedisServerExceptionEvent?.Invoke(this, new RedisServerExceptionEventArgs(new RedisServerException(errorMessage, string.Empty)));
-
-            return Result.Error(errorMessage);
-        }
-
-        return Result.Ok;
-    }
-    
-    protected Result<T> EvaluateResult<T>(ParseResult result, Func<ParseResult, Result<T>> converter, [CallerMemberName] string callingMember = "") where T : notnull
-    {
-        var evalResult = EvaluateResult(result, callingMember);
-        
-        return evalResult switch
-        {
-            Ok => converter(result),
-            Error err => Result<T>.Error(err.Message),
-            _ => Result<T>.Error("Ran into an unexpected (and I'll be honest, I thought it was impossible) error while evaluating the result of a Redis command.")
-        };
-    }    
-
-
-
-    internal delegate void RedisServerExceptionEventHandler(object sender, RedisServerExceptionEventArgs args);
 }
