@@ -168,23 +168,7 @@ public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
 
         return result;
     }
-
-    public virtual async Task<Result> SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreateSetCommand(key, value);
-
-        var rawResult = await Execute(command, cancellationToken).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> => Result.Ok,
-            Error<ParseResult> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
-        };
-
-        return result;
-    }
-
+    
     internal event RedisServerExceptionEventHandler? RedisServerExceptionEvent;
 
     protected Result EvaluateResult(ParseResult result, [CallerMemberName] string callingMember = "")

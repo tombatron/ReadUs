@@ -10,8 +10,6 @@ public interface IRedisDatabase
 {
     Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
 
-    Task<Result> SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default);
-
     Task<Result<BlockingPopResult>> BlockingLeftPopAsync(params RedisKey[] keys);
 
     Task<Result<BlockingPopResult>> BlockingLeftPopAsync(TimeSpan timeout, params RedisKey[] keys);

@@ -28,11 +28,11 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
 
         await commands.Select(10);
 
-        await commands.SetAsync(testKey, "Hello World");
+        await commands.Set(testKey, "Hello World");
 
         await commands.Select(0);
 
-        await commands.SetAsync(testKey, "Goodnight Moon");
+        await commands.Set(testKey, "Goodnight Moon");
 
         await commands.Select(10);
 
@@ -53,7 +53,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
 
         var commands = await _pool.GetAsync();
 
-        await commands.SetAsync(testKey, "The quick brown fox jumped over the lazy moon.");
+        await commands.Set(testKey, "The quick brown fox jumped over the lazy moon.");
 
         var retrievedValue = (await commands.Get(testKey)).Unwrap();
 
@@ -67,7 +67,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
 
         var commands = await _pool.GetAsync();
 
-        await commands.SetAsync(testKey, "Never eat soggy waffles.");
+        await commands.Set(testKey, "Never eat soggy waffles.");
 
         var retrievedValue = (await commands.Get(testKey)).Unwrap();
 

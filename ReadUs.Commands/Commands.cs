@@ -36,6 +36,20 @@ public static class Commands
         };
     }
 
+    public static async Task<Result> Set(this IRedisDatabase @this, RedisKey key, string value, CancellationToken cancellationToken = default)
+    {
+        RedisCommandEnvelope command = new("SET", null, [key], null, key, value);
+
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> => Result.Ok,
+            Error<ParseResult> err => Result.Error(err.Message),
+            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
+        };
+    }
+
     private static Result<string> ConvertToResultString(ParseResult result) =>
         Result<string>.Ok(result.ToString());
     
