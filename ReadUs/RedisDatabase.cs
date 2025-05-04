@@ -34,8 +34,6 @@ public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
 
     public abstract Task<Result<BlockingPopResult>> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys);
     
-    public abstract Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default);
-
     public virtual async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default)
     {
         var command = RedisCommandEnvelope.CreateSetMultipleCommand(keysAndValues);

@@ -9,22 +9,6 @@ namespace ReadUs;
 
 public class RedisSingleInstanceDatabase(RedisConnectionPool pool) : RedisDatabase(pool)
 {
-    public override async Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreateSelectCommand(databaseId);
-
-        var rawResult = await Execute(command, cancellationToken).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> => Result.Ok,
-            Error<ParseResult> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SELECT command.")
-        };
-
-        return result;
-    }
-
     public override Task<Result<BlockingPopResult>> BlockingLeftPopAsync(params RedisKey[] keys) =>
         BlockingLeftPopAsync(TimeSpan.MaxValue, keys);
     

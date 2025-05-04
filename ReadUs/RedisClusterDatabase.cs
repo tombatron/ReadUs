@@ -49,13 +49,6 @@ public class RedisClusterDatabase(RedisClusterConnectionPool pool) : RedisDataba
         return result;
     }
 
-    public override Task<Result> SelectAsync(int databaseId, CancellationToken cancellationToken = default)
-    {
-        // No-Op, this command doesn't really do anything on clusters. 
-
-        return Task.FromResult(Result.Ok);
-    }
-
     public override async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
         CancellationToken cancellationToken = default)
     {

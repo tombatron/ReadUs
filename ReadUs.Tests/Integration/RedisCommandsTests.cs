@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using ReadUs.Commands;
 
 namespace ReadUs.Tests.Integration;
 
@@ -31,19 +32,19 @@ public sealed class RedisCommandsTests : IDisposable
 
         var commands = await _pool.GetAsync();
 
-        await commands.SelectAsync(10);
+        await commands.Select(10);
 
         await commands.SetAsync(testKey, "Hello World");
 
-        await commands.SelectAsync(0);
+        await commands.Select(0);
 
         await commands.SetAsync(testKey, "Goodnight Moon");
 
-        await commands.SelectAsync(10);
+        await commands.Select(10);
 
         var databaseTenValue = (await commands.GetAsync(testKey)).Unwrap();
 
-        await commands.SelectAsync(0);
+        await commands.Select(0);
 
         var databaseZeroValue = (await commands.GetAsync(testKey)).Unwrap();
 
