@@ -10,7 +10,7 @@ using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
-public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
+public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
 {
     public virtual async Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
@@ -25,10 +25,6 @@ public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
             pool.ReturnConnection(connection);
         }
     }
-
-    public abstract Task<Result<BlockingPopResult>> BlockingRightPopAsync(params RedisKey[] keys);
-
-    public abstract Task<Result<BlockingPopResult>> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys);
     
     public virtual async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default)
     {

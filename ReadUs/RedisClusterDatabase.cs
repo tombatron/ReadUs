@@ -1,35 +1,12 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using ReadUs.Parser;
-using ReadUs.ResultModels;
-using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
 
 public class RedisClusterDatabase(RedisClusterConnectionPool pool) : RedisDatabase(pool)
 {
-    public override Task<Result<BlockingPopResult>> BlockingRightPopAsync(params RedisKey[] keys) => 
-        BlockingRightPopAsync(TimeSpan.MaxValue, keys);
-
-    public override async Task<Result<BlockingPopResult>> BlockingRightPopAsync(TimeSpan timeout, params RedisKey[] keys)
-    {
-        var command = RedisCommandEnvelope.CreateBlockingRightPopCommand(keys, timeout);
-
-        var rawResult = await Execute(command).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult<BlockingPopResult>(ok.Value, (pr) => Result<BlockingPopResult>.Ok((BlockingPopResult)pr)),
-            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
-            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BRPOP command.")
-        };
-
-        return result;
-    }
-
     public override async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
         CancellationToken cancellationToken = default)
     {

@@ -102,10 +102,6 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
     public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
         new(RightPush, null, [key], null, key, elements);
 
-
-    public static RedisCommandEnvelope CreateBlockingRightPopCommand(RedisKey[] keys, TimeSpan timeout) =>
-        new(BlockingRightPop, null, keys, timeout, keys);
-
     public static RedisCommandEnvelope CreateRoleCommand() =>
         new(Role, null, null, null, simpleCommand: true);
 

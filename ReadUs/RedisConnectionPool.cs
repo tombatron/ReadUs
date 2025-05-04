@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ReadUs;
 
 public abstract class RedisConnectionPool : IRedisConnectionPool
 {
-    public abstract Task<IRedisDatabase> GetAsync();
+    public abstract Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default);
     
     internal abstract Task<IRedisConnection> GetConnection();
 

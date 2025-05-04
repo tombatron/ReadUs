@@ -28,13 +28,12 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         _configuration = configuration;
     }
 
-    // TODO: CancellationTokens...
-    public override async Task<IRedisDatabase> GetAsync()
+    public override async Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default)
     {
         // Need to check if we are reinitializing. That shouldn't happen too often, but
         // if it does we'll want to wait until that is complete before returning anything
         // to the caller. 
-        await WaitWhileAsync(() => _isReinitializing, CancellationToken.None);
+        await WaitWhileAsync(() => _isReinitializing, cancellationToken);
 
         var database = new RedisClusterDatabase(this);
 

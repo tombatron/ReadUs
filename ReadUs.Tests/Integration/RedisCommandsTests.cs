@@ -24,7 +24,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await _pool.GetAsync();
+        var commands = await _pool.GetDatabase();
 
         await commands.Select(10);
 
@@ -51,7 +51,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await _pool.GetAsync();
+        var commands = await _pool.GetDatabase();
 
         await commands.Set(testKey, "The quick brown fox jumped over the lazy moon.");
 
@@ -65,7 +65,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await _pool.GetAsync();
+        var commands = await _pool.GetDatabase();
 
         await commands.Set(testKey, "Never eat soggy waffles.");
 
@@ -79,7 +79,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await _pool.GetAsync();
+        var commands = await _pool.GetDatabase();
 
         var initialLength = (await commands.ListLengthAsync(testKey)).Unwrap();
 
@@ -99,7 +99,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
         var firstKey = $"{baseTestKey}1";
         var secondKey = $"{baseTestKey}2";
 
-        var commands = await _pool.GetAsync();
+        var commands = await _pool.GetDatabase();
 
         var keysAndValues = new[]
         {

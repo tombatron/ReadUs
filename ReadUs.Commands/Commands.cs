@@ -62,4 +62,18 @@ public static partial class Commands
             _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
         };
     }
+    
+    public static async Task<Result<BlockingPopResult>> BlockingRightPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
+    {
+        RedisCommandEnvelope command = new("BRPOP", null, keys, timeout, keys);
+        
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToBlockingPopResult),
+            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
+            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
+        };
+    }    
 }

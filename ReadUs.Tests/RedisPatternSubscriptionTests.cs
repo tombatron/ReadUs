@@ -12,7 +12,7 @@ public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture)
     {
         var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
                 
-        var db = await pool.GetAsync();
+        var db = await pool.GetDatabase();
 
         var firstChannelMessage = "got nothing";
         var secondChannelMessage = "got nothing";
@@ -46,7 +46,7 @@ public class RedisPatternSubscriptionTests(RedisSingleInstanceFixture fixture)
     {
         var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
 
-        var db = await pool.GetAsync();
+        var db = await pool.GetDatabase();
 
         string firstPattern = "got nothing";
         string otherPattern = "got nothing";

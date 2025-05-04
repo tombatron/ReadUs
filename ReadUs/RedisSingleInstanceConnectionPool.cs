@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ReadUs;
@@ -15,8 +16,8 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
         _configuration = configuration;
     }
 
-    public override Task<IRedisDatabase> GetAsync() => 
-        Task.FromResult(new RedisSingleInstanceDatabase(this) as IRedisDatabase);
+    public override Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default) => 
+        Task.FromResult<IRedisDatabase>(new RedisDatabase(this)); 
 
     internal override async Task<IRedisConnection> GetConnection() // TODO: Not sure that this needs to be async...
     {
