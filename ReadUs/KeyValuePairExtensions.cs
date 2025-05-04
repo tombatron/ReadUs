@@ -3,11 +3,11 @@ using System.Linq;
 
 namespace ReadUs;
 
-internal static class KeyValuePairExtensions
+public static class KeyValuePairExtensions // TODO: Move this to the extras namespace.
 {
     private static readonly RedisKey[] EmptyRedisKeyArray = [];
 
-    internal static RedisKey[]? Keys(this KeyValuePair<RedisKey, string>[]? @this)
+    public static RedisKey[]? Keys(this KeyValuePair<RedisKey, string>[]? @this)
     {
         if (@this is null)
         {

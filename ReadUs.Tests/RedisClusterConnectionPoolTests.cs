@@ -13,7 +13,7 @@ public class RedisClusterConnectionPoolTests(RedisClusterFixture redisClusterFix
             redisClusterFixture.ClusterNodes, redisClusterFixture.Configuration);
 
         var redisDatabase = await clusterConnectionPool.GetDatabase();
-
-        Assert.IsType<RedisClusterDatabase>(redisDatabase);
+        
+        Assert.IsAssignableFrom<IRedisDatabase>(redisDatabase);
     }
 }

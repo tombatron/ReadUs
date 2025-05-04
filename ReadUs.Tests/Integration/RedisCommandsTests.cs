@@ -107,7 +107,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
             new KeyValuePair<RedisKey, string>(secondKey, "testing")
         };
 
-        await commands.SetMultipleAsync(keysAndValues);
+        await commands.SetMultiple(keysAndValues);
     }
 
     [Fact]

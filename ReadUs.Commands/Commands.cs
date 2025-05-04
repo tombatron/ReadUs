@@ -49,6 +49,20 @@ public static partial class Commands
         };
     }
 
+    public static async Task<Result> SetMultiple(this IRedisDatabase @this, KeyValuePair<RedisKey, string>[]? keysAndValues, CancellationToken cancellationToken = default)
+    {
+        RedisCommandEnvelope command = new("MSET", null, keysAndValues.Keys(), null, keysAndValues!);
+        
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value),
+            Error<ParseResult> err => Result.Error(err.Message),
+            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the MSET command.")
+        };
+    }
+
     public static async Task<Result<BlockingPopResult>> BlockingLeftPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
     {
         RedisCommandEnvelope command = new("BLPOP", null, keys, timeout, keys);

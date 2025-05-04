@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using ReadUs.Commands;
 using Tombatron.Results;
 using Cons = System.Console;
 
@@ -28,9 +29,9 @@ public static class BasicScenario
 
                 while (!success)
                 {
-                    var db = await pool.GetAsync();
+                    var db = await pool.GetDatabase();
 
-                    var setResult = await db.SetAsync(key, value);
+                    var setResult = await db.Set(key, value);
 
                     if (setResult is Error err)
                     {
@@ -41,7 +42,7 @@ public static class BasicScenario
 
                     if (setResult is Ok)
                     {
-                        var result = await db.GetAsync(key);
+                        var result = await db.Get(key);
 
                         if (result is Ok<string> ok)
                         {

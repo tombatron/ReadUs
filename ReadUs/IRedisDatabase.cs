@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,9 +13,6 @@ public interface IRedisDatabase
     Task<Result<int>> RightPushAsync(RedisKey key, params string[] element);
 
     Task<Result<int>> ListLengthAsync(RedisKey key);
-
-    Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues,
-        CancellationToken cancellationToken = default);
     
     Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default);
     

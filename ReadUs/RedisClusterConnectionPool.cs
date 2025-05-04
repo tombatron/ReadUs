@@ -35,7 +35,7 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         // to the caller. 
         await WaitWhileAsync(() => _isReinitializing, cancellationToken);
 
-        var database = new RedisClusterDatabase(this);
+        var database = new RedisDatabase(this);
 
         database.RedisServerExceptionEvent += OnRedisServerException;
 

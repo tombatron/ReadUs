@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.Exceptions;
 using ReadUs.Parser;
-using ReadUs.ResultModels;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
@@ -26,22 +25,6 @@ public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
         }
     }
     
-    public virtual async Task<Result> SetMultipleAsync(KeyValuePair<RedisKey, string>[] keysAndValues, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreateSetMultipleCommand(keysAndValues);
-
-        var rawResult = await Execute(command, cancellationToken).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult(ok.Value),
-            Error<ParseResult> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
-        };
-
-        return result;
-    }
-
     public virtual async Task<Result<int>> Publish(string channel, string message, CancellationToken cancellationToken = default)
     {
         var command = RedisCommandEnvelope.CreatePublishCommand(channel, message);
