@@ -19,7 +19,7 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
     public override Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default) => 
         Task.FromResult<IRedisDatabase>(new RedisDatabase(this)); 
 
-    internal override async Task<IRedisConnection> GetConnection() // TODO: Not sure that this needs to be async...
+    internal override async Task<IRedisConnection> GetConnection()
     {
         IRedisConnection connection;
         
