@@ -9,16 +9,10 @@ using ReadUs.Commands;
 namespace ReadUs.Tests.Integration;
 
 [Collection(nameof(RedisSingleInstanceFixtureCollection))]
-public sealed class RedisCommandsTests : IDisposable
+public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDisposable
 {
-    private readonly RedisConnectionPool _pool;
-
-    public RedisCommandsTests(RedisSingleInstanceFixture fixture)
-    {
-        var connstring = fixture.SingleNode.GetConnectionString();
-
-        _pool = new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
-    }
+    private readonly RedisConnectionPool _pool = 
+        new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
 
     public void Dispose()
     {
@@ -42,11 +36,11 @@ public sealed class RedisCommandsTests : IDisposable
 
         await commands.Select(10);
 
-        var databaseTenValue = (await commands.GetAsync(testKey)).Unwrap();
+        var databaseTenValue = (await commands.Get(testKey)).Unwrap();
 
         await commands.Select(0);
 
-        var databaseZeroValue = (await commands.GetAsync(testKey)).Unwrap();
+        var databaseZeroValue = (await commands.Get(testKey)).Unwrap();
 
         Assert.Equal("Hello World", databaseTenValue);
         Assert.Equal("Goodnight Moon", databaseZeroValue);
@@ -61,7 +55,7 @@ public sealed class RedisCommandsTests : IDisposable
 
         await commands.SetAsync(testKey, "The quick brown fox jumped over the lazy moon.");
 
-        var retrievedValue = (await commands.GetAsync(testKey)).Unwrap();
+        var retrievedValue = (await commands.Get(testKey)).Unwrap();
 
         Assert.Equal("The quick brown fox jumped over the lazy moon.", retrievedValue);
     }
@@ -75,7 +69,7 @@ public sealed class RedisCommandsTests : IDisposable
 
         await commands.SetAsync(testKey, "Never eat soggy waffles.");
 
-        var retrievedValue = (await commands.GetAsync(testKey)).Unwrap();
+        var retrievedValue = (await commands.Get(testKey)).Unwrap();
 
         Assert.Equal("Never eat soggy waffles.", retrievedValue);
     }

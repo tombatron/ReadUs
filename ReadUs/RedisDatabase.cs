@@ -120,23 +120,7 @@ public abstract class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
 
         return subscription;
     }
-
-    public virtual async Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreateGetCommand(key);
-
-        var rawResult = await Execute(command, cancellationToken).ConfigureAwait(false);
-
-        var result = Parse(rawResult) switch
-        {
-            Ok<ParseResult> ok => EvaluateResult<string>(ok.Value, (pr) => Result<string>.Ok(pr.ToString())),
-            Error<ParseResult> err => Result<string>.Error(err.Message),
-            _ => Result<string>.Error("An unexpected error occurred while attempting to parse the result of the GET command.")
-        };
-
-        return result;
-    }
-
+    
     public virtual async Task<Result<int>> LeftPushAsync(RedisKey key, params string[] element)
     {
         var command = RedisCommandEnvelope.CreateLeftPushCommand(key, element);

@@ -9,8 +9,6 @@ namespace ReadUs;
 public interface IRedisDatabase
 {
     Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default);
-    
-    Task<Result<string>> GetAsync(RedisKey key, CancellationToken cancellationToken = default);
 
     Task<Result> SetAsync(RedisKey key, string value, CancellationToken cancellationToken = default);
 

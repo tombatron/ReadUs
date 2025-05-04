@@ -94,10 +94,7 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
         new(SetMultiple, null, keysAndValues.Keys(), null, keysAndValues);
-
-    public static RedisCommandEnvelope CreateGetCommand(RedisKey key) =>
-        new(Get, null, [key], null, key);
-
+    
     public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
         new(LeftPush, null, [key], null, key, elements);
 
