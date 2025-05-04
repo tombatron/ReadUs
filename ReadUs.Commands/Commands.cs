@@ -6,6 +6,7 @@ namespace ReadUs.Commands;
 
 public static class Commands
 {
+    // ReSharper disable once UnusedMethodReturnValue.Global
     public static async Task<Result> Select(this IRedisDatabase @this, int databaseId, CancellationToken cancellationToken = default)
     {
         RedisCommandEnvelope command = new("SELECT", null, null, TimeSpan.FromSeconds(5), databaseId);

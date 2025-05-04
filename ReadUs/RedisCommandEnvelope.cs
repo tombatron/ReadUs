@@ -86,9 +86,6 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
 
-    public static RedisCommandEnvelope CreateSelectCommand(int databaseId) =>
-        new(Select, null, null, TimeSpan.FromSeconds(5), databaseId);
-
     public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
         new(Client, ClientSubcommands.SetName, null, TimeSpan.FromSeconds(5), clientConnectionName);
 
