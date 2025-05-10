@@ -2,18 +2,11 @@ using static ReadUs.RedisKeyUtilities;
 
 namespace ReadUs;
 
-public readonly struct RedisKey
+public readonly struct RedisKey(string name)
 {
-    public string Name { get; }
+    public string Name { get; } = name;
 
-    public uint Slot { get; }
-
-    public RedisKey(string name)
-    {
-        Name = name;
-
-        Slot = ComputeHashSlot(name);
-    }
+    public uint Slot { get; } = ComputeHashSlot(name);
 
     public static implicit operator RedisKey(string keyName)
     {
@@ -22,6 +15,6 @@ public readonly struct RedisKey
 
     internal RedisKey[] ToArray()
     {
-        return new[] { this };
+        return [this];
     }
 }
