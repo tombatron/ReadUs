@@ -6,5 +6,5 @@ namespace ReadUs;
 
 public interface IRedisConnectionPool : IDisposable
 {
-    Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default);
+    Task<IRedisDatabase> GetDatabase(int databaseId, CancellationToken cancellationToken = default);
 }

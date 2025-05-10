@@ -6,7 +6,7 @@ namespace ReadUs;
 
 public abstract class RedisConnectionPool : IRedisConnectionPool
 {
-    public abstract Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default);
+    public abstract Task<IRedisDatabase> GetDatabase(int databaseId = 0, CancellationToken cancellationToken = default);
     
     internal abstract Task<IRedisConnection> GetConnection();
 

@@ -28,14 +28,23 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         _configuration = configuration;
     }
 
-    public override async Task<IRedisDatabase> GetDatabase(CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Get an instance of the `RedisDatabase` which is a lightweight class that facilitates access to the underlying
+    /// persistent connection to Redis. 
+    /// </summary>
+    /// <param name="databaseId">Will always be 0 since clusters do not support logical databases. Setting this parameter will have no effect.</param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
+    public override async Task<IRedisDatabase> GetDatabase(int databaseId = 0, CancellationToken cancellationToken = default)
     {
+        // TODO: Should I add a trace warning here or something if the database ID isn't 0?        
+        
         // Need to check if we are reinitializing. That shouldn't happen too often, but
         // if it does we'll want to wait until that is complete before returning anything
         // to the caller. 
         await WaitWhileAsync(() => _isReinitializing, cancellationToken);
 
-        var database = new RedisDatabase(this);
+        var database = new RedisDatabase(this, 0);
 
         return database;
     }

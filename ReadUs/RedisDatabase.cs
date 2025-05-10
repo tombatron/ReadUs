@@ -4,14 +4,17 @@ using System.Threading.Tasks;
 
 namespace ReadUs;
 
-public class RedisDatabase(RedisConnectionPool pool) : IRedisDatabase
+public class RedisDatabase(RedisConnectionPool pool, int databaseId = 0) : IRedisDatabase
 {
-    public virtual async Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
+    public async Task<Result<byte[]>> Execute(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
         var connection = await pool.GetConnection();
 
+        RedisCommandEnvelope selectCommand = new("SELECT", null, null, TimeSpan.FromSeconds(5), databaseId);
+        
         try
         {
+            await connection.SendCommandAsync(selectCommand, cancellationToken).ConfigureAwait(false);
             return await connection.SendCommandAsync(command, cancellationToken).ConfigureAwait(false);
         }
         finally
