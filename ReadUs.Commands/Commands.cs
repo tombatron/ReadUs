@@ -6,21 +6,6 @@ namespace ReadUs.Commands;
 
 public static partial class Commands
 {
-    // ReSharper disable once UnusedMethodReturnValue.Global
-    public static async Task<Result> Select(this IRedisDatabase @this, int databaseId, CancellationToken cancellationToken = default)
-    {
-        RedisCommandEnvelope command = new("SELECT", null, null, null, databaseId);
-        
-        var result = await @this.Execute(command, cancellationToken);
-        
-        return Parse(result) switch
-        {
-            Ok<ParseResult> => Result.Ok,
-            Error<ParseResult> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SELECT command.")
-        };
-    }
-
     public static async Task<Result<string>> Get(this IRedisDatabase @this, RedisKey key, CancellationToken cancellationToken = default)
     {
         RedisCommandEnvelope command = new("GET", null, [key], null, key);
