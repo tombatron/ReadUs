@@ -14,10 +14,7 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
     private readonly RedisConnectionPool _pool = 
         new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
 
-    public void Dispose()
-    {
-        _pool.Dispose();
-    }
+    public void Dispose() => _pool.Dispose();
 
     [Fact]
     public async Task Get_Retrieves_Value()
