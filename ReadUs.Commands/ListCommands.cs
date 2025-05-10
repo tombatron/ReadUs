@@ -21,6 +21,20 @@ public static partial class Commands
 
         return result;
     }
+    
+    public static async Task<Result<int>> LeftPush(this IRedisDatabase @this, RedisKey key, string[] elements, CancellationToken cancellationToken = default)
+    {
+        RedisCommandEnvelope command = new("LPUSH", null, [key], null, key, elements);
+        
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
+            Error<ParseResult> err => Result<int>.Error(err.Message),
+            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the rresult of the LPUSH command.")
+        };
+    }
 
     public static async Task<Result<int>> RightPushAsync(this IRedisDatabase @this, RedisKey key, string[] element, CancellationToken cancellationToken = default)
     {
@@ -37,4 +51,32 @@ public static partial class Commands
 
         return result;
     }
+    
+    public static async Task<Result<BlockingPopResult>> BlockingLeftPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
+    {
+        RedisCommandEnvelope command = new("BLPOP", null, keys, timeout, keys);
+        
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToBlockingPopResult),
+            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
+            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
+        };
+    }
+    
+    public static async Task<Result<BlockingPopResult>> BlockingRightPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
+    {
+        RedisCommandEnvelope command = new("BRPOP", null, keys, timeout, keys);
+        
+        var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
+
+        return Parse(result) switch
+        {
+            Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToBlockingPopResult),
+            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
+            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
+        };
+    }    
 }

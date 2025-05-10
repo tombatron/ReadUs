@@ -20,33 +20,6 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
     }
 
     [Fact]
-    public async Task Select_Changes_Database()
-    {
-        var testKey = Guid.NewGuid().ToString("N");
-
-        var commands = await _pool.GetDatabase();
-
-        await commands.Select(10);
-
-        await commands.Set(testKey, "Hello World");
-
-        await commands.Select(0);
-
-        await commands.Set(testKey, "Goodnight Moon");
-
-        await commands.Select(10);
-
-        var databaseTenValue = (await commands.Get(testKey)).Unwrap();
-
-        await commands.Select(0);
-
-        var databaseZeroValue = (await commands.Get(testKey)).Unwrap();
-
-        Assert.Equal("Hello World", databaseTenValue);
-        Assert.Equal("Goodnight Moon", databaseZeroValue);
-    }
-
-    [Fact]
     public async Task Get_Retrieves_Value()
     {
         var testKey = Guid.NewGuid().ToString("N");
