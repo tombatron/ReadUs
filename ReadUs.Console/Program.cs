@@ -4,8 +4,8 @@ namespace ReadUs.Console;
 
 internal class Program
 {
-    private static async Task Main(string[] args)
+    private static Task Main(string[] args)
     {
-
+        return Task.CompletedTask;
     }
 }
