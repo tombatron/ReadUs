@@ -1,23 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading.Tasks;
 using Xunit;
-using ReadUs.Commands;
 
-namespace ReadUs.Tests.Integration;
+namespace ReadUs.Commands.Tests;
 
 [Collection(nameof(RedisSingleInstanceFixtureCollection))]
-public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDisposable
+public class StringCommandTests(RedisSingleInstanceFixture fixture) : IDisposable
 {
-    private readonly RedisConnectionPool _pool = 
+    private readonly RedisConnectionPool _pool =
         new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
-
+    
     public void Dispose() => _pool.Dispose();
 
     [Fact]
-    public async Task Get_Retrieves_Value()
+    public async Task GetCommandRetrievesValues()
     {
         var testKey = Guid.NewGuid().ToString("N");
 
@@ -29,9 +23,9 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
 
         Assert.Equal("The quick brown fox jumped over the lazy moon.", retrievedValue);
     }
-
+        
     [Fact]
-    public async Task Set_Assigns_Value()
+    public async Task SetCommandAssignsValue()
     {
         var testKey = Guid.NewGuid().ToString("N");
 
@@ -42,27 +36,10 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
         var retrievedValue = (await commands.Get(testKey)).Unwrap();
 
         Assert.Equal("Never eat soggy waffles.", retrievedValue);
-    }
-
+    }    
+    
     [Fact]
-    public async Task Llen_Gets_List_Length()
-    {
-        var testKey = Guid.NewGuid().ToString("N");
-
-        var commands = await _pool.GetDatabase();
-
-        var initialLength = (await commands.ListLength(testKey)).Unwrap();
-
-        await commands.LeftPush(testKey, ["Yo"]);
-
-        var finalLength = (await commands.ListLength(testKey)).Unwrap();
-
-        Assert.Equal(0, initialLength);
-        Assert.Equal(1, finalLength);
-    }
-
-    [Fact]
-    public async Task CanSetMultiple()
+    public async Task SetCommandCanSetMultiple()
     {
         var baseTestKey = $"{Guid.NewGuid():N}:";
 
@@ -78,16 +55,5 @@ public sealed class RedisCommandsTests(RedisSingleInstanceFixture fixture) : IDi
         };
 
         await commands.SetMultiple(keysAndValues);
-    }
-
-    [Fact]
-    public void Scratch()
-    {
-        var keys = Enumerable.Range(1, 16000)
-            .Select(x => new KeyValuePair<RedisKey, string>(Guid.NewGuid().ToString("N"), "")).ToArray();
-
-        var groups = keys.GroupBy(x => x.Key.Slot);
-
-        foreach (var g in groups) Debug.WriteLine(g);
     }
 }

@@ -23,6 +23,9 @@ jobs:
 
     - name: Restore Dependencies (ReadUs.Tests)
       run: dotnet restore ./ReadUs.Tests/ReadUs.Tests.csproj
+      
+    - name: Restore Dependencies (ReadUs.Commands.Tests)
+      run: dotnet restore ./ReadUs.Commands.Tests/ReadUs.Commands.Tests.csproj
 
     - name: Build ReadUs
       run: dotnet build ./ReadUs/ReadUs.csproj --no-restore
@@ -32,6 +35,9 @@ jobs:
 
     - name: Build ReadUs.Tests
       run: dotnet build ./ReadUs.Tests/ReadUs.Tests.csproj --no-restore
+      
+    - name: Build ReadUs.Commands.Tests
+      run: dotnet build ./ReadUs.Commands.Tests/ReadUs.Commands.Tests.csproj --no-restore
 
     - name: Test
       run: dotnet test --no-build
