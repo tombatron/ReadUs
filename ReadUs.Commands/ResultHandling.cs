@@ -19,8 +19,7 @@ public static partial class Commands
         return evalResult switch
         {
             Ok => converter(result),
-            Error err => Result<T>.Error(err.Message),
-            _ => Result<T>.Error("Ran into an unexpected (and I'll be honest, I thought it was impossible) error while evaluating the result of a Redis command.")
+            Error err => Result<T>.Error(err.Message)
         };
     }
     

@@ -15,8 +15,7 @@ public static partial class Commands
         var result = Parse(rawResult) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the LLEN command.")
+            Error<ParseResult> err => Result<int>.Error(err.Message)
         };
 
         return result;
@@ -31,8 +30,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the rresult of the LPUSH command.")
+            Error<ParseResult> err => Result<int>.Error(err.Message)
         };
     }
 
@@ -45,8 +43,7 @@ public static partial class Commands
         var result = Parse(rawResult) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the RPUSH command.")
+            Error<ParseResult> err => Result<int>.Error(err.Message)
         };
 
         return result;
@@ -61,8 +58,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToBlockingPopResult),
-            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
-            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
+            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message)
         };
     }
     
@@ -75,8 +71,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToBlockingPopResult),
-            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message),
-            _ => Result<BlockingPopResult>.Error("An unexpected error occurred while attempting to parse the result of the BLPOP command.")
+            Error<ParseResult> err => Result<BlockingPopResult>.Error(err.Message)
         };
     }    
 }

@@ -15,8 +15,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ConvertToResultString),
-            Error<ParseResult> err => Result<string>.Error(err.Message),
-            _ => Result<string>.Error("An unexpected error occurred while attempting to parse the result of the GET command.")
+            Error<ParseResult> err => Result<string>.Error(err.Message)
         };
     }
 
@@ -29,8 +28,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> => Result.Ok,
-            Error<ParseResult> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the SET command.")
+            Error<ParseResult> err => Result.Error(err.Message)
         };
     }
     
@@ -43,8 +41,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value),
-            Error<ParseResult> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to parse the result of the MSET command.")
+            Error<ParseResult> err => Result.Error(err.Message)
         };
     }    
 }
