@@ -70,8 +70,7 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
         var result = response switch
         {
             Ok<byte[]> _ => Result.Ok,
-            Error<byte[]> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occured while attempting to unsubscribe.")
+            Error<byte[]> err => Result.Error(err.Message)
         };
 
         return result;
@@ -86,8 +85,7 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
         var result = response switch
         {
             Ok<byte[]> _ => Result.Ok,
-            Error<byte[]> err => Result.Error(err.Message),
-            _ => Result.Error("An unexpected error occurred while attempting to unsubscribe with a pattern.")
+            Error<byte[]> err => Result.Error(err.Message)
         };
 
         return result;

@@ -15,8 +15,7 @@ public static partial class Commands
         return Parse(result) switch
         {
             Ok<ParseResult> ok => EvaluateResult(ok.Value, ParseAndReturnInt),
-            Error<ParseResult> err => Result<int>.Error(err.Message),
-            _ => Result<int>.Error("An unexpected error occurred while attempting to parse the result of the PUBLISH command.")
+            Error<ParseResult> err => Result<int>.Error(err.Message)
         };
     }
 }

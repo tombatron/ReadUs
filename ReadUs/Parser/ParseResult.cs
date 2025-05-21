@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ReadUs.Parser;
+﻿namespace ReadUs.Parser;
 
 public readonly struct ParseResult
 {
