@@ -27,7 +27,10 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
     {
         get
         {
-            if (Keys is null || Keys.Length == 0) return false;
+            if (Keys is null || Keys.Length == 0)
+            {
+                return false;
+            }
 
             var firstKeySlot = Keys[0].Slot;
 

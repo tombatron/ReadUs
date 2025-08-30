@@ -18,19 +18,18 @@ public partial class RedisConnection
 
     public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
-        using var cancellationTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var cancellationWithTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
-        cancellationTimeout.CancelAfter(_commandTimeout);
+        cancellationWithTimeout.CancelAfter(_commandTimeout);
 
         try
         {
-            await _socket.ConnectAsync(_endPoint, cancellationTimeout.Token).ConfigureAwait(false);
+            await _socket.ConnectAsync(_endPoint, cancellationWithTimeout.Token).ConfigureAwait(false);
 
             Trace.WriteLine($"Connected {ConnectionName} to {_endPoint.Address}:{_endPoint.Port}.");
 
-            _connectionWork = Task.Run(() => ConnectionWorker(_channel, _socket, this, cancellationToken), _backgroundTaskCancellationTokenSource.Token);
-
-            await SetConnectionClientNameAsync(cancellationToken);
+            _connectionWork = Task.Run(() => ConnectionWorker(_channel, _socket, this, _backgroundTaskCancellationTokenSource.Token), _backgroundTaskCancellationTokenSource.Token);
+            
         }
         catch (SocketException sockEx)
         {
@@ -47,7 +46,6 @@ public partial class RedisConnection
     
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
-        var stringCommand = Encoding.ASCII.GetString(command.ToByteArray());
         // Write command.
         await _socket.SendAsync(command, cancellationToken);
 

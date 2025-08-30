@@ -10,7 +10,6 @@ public abstract class ClusterNodeLinkState
         return rawValue[0] switch
         {
             'c' => Connected,
-            'd' => Disconnected,
             _ => Disconnected
         };
     }
