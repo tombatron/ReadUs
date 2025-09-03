@@ -1,9 +1,11 @@
 ﻿using System.Collections.Generic;
+using JetBrains.Annotations;
 using Xunit;
 using static ReadUs.ParameterUtilities;
 
 namespace ReadUs.Tests;
 
+[UsedImplicitly]
 public class ParameterUtilitiesTests
 {
     public class CombineParametersCan

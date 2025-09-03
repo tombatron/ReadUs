@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using JetBrains.Annotations;
 using Xunit;
 
 namespace ReadUs.Tests;
 
+[UsedImplicitly]
 public class KeyValuePairExtensionsTests
 {
     [Fact]

@@ -1,9 +1,11 @@
 ﻿using System.Text;
+using JetBrains.Annotations;
 using ReadUs.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.ResultModels;
 
+[UsedImplicitly]
 public class ClusterNodesResultTests
 {
     private const string SampleRawClusterNodesResult =
@@ -14,8 +16,6 @@ public class ClusterNodesResultTests
     {
         var rawBytes = Encoding.UTF8.GetBytes(SampleRawClusterNodesResult);
 
-        // var parsedResult = Parse(rawBytes);
-
         var clusterNodeData = new ClusterNodesResult(rawBytes);
 
         Assert.Equal(6, clusterNodeData.ToArray().Length);
@@ -25,8 +25,6 @@ public class ClusterNodesResultTests
     public void ItCanCreateASignature()
     {
         var rawBytes = Encoding.UTF8.GetBytes(SampleRawClusterNodesResult);
-
-        // var parsedResult = Parse(rawBytes);
 
         var clusterNodeData = new ClusterNodesResult(rawBytes);
 
@@ -39,8 +37,6 @@ public class ClusterNodesResultTests
         public void YieldsExpectedResult()
         {
             var rawBytes = Encoding.UTF8.GetBytes(SampleRawClusterNodesResult);
-
-            //var parsedResult = Parse(rawBytes);
 
             var clusterNodeData = new ClusterNodesResult(rawBytes);
 

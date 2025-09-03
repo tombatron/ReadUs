@@ -1,9 +1,11 @@
 using System;
+using JetBrains.Annotations;
 using Xunit;
 using static ReadUs.Encoder.Encoder;
 
 namespace ReadUs.Tests;
 
+[UsedImplicitly]
 public class RedisCommandEnvelopeTests
 {
     public class AllKeysInSingleSlotWillReturn

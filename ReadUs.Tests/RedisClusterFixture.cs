@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Networks;
+using JetBrains.Annotations;
 using ReadUs.ResultModels;
 using Testcontainers.Redis;
 using Xunit;
@@ -11,7 +12,7 @@ using static ReadUs.RedisClusterConnectionPool;
 
 namespace ReadUs.Tests;
 
-// ReSharper disable once ClassNeverInstantiated.Global
+[UsedImplicitly]
 public class RedisClusterFixture : IAsyncLifetime
 {
     public static readonly INetwork ClusterNetwork = new NetworkBuilder()

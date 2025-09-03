@@ -1,7 +1,9 @@
+using JetBrains.Annotations;
 using Xunit;
 
 namespace ReadUs.Tests;
 
+[UsedImplicitly]
 public class RedisKeyUtilitiesTests
 {
     [Theory]

@@ -1,9 +1,11 @@
 ﻿using System;
+using JetBrains.Annotations;
 using ReadUs.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.ResultModels;
 
+[UsedImplicitly]
 public class ClusterNodeLinkStateTests
 {
     public class ImplicitConversionFrom

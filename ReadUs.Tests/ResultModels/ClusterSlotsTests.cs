@@ -1,11 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using JetBrains.Annotations;
 using ReadUs.ResultModels;
 using Xunit;
 using static ReadUs.ResultModels.ClusterSlots;
 
 namespace ReadUs.Tests.ResultModels;
 
+[UsedImplicitly]
 public class ClusterSlotsTests
 {
     public class OwnedSlotsContains
@@ -24,7 +26,7 @@ public class ClusterSlotsTests
         }
     }
 
-    public class ConstainsSlotWill
+    public class ContainsSlotWill
     {
         public static IEnumerable<object[]> PositiveCases =
         [

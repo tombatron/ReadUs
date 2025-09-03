@@ -1,8 +1,10 @@
-﻿using ReadUs.ResultModels;
+﻿using JetBrains.Annotations;
+using ReadUs.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.ResultModels;
 
+[UsedImplicitly]
 public class ClusterNodesResultItemTests
 {
     public class ItWillCorrectlyParse

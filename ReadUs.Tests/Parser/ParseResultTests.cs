@@ -1,8 +1,10 @@
+using JetBrains.Annotations;
 using ReadUs.Parser;
 using Xunit;
 
 namespace ReadUs.Tests.Parser;
 
+[UsedImplicitly]
 public class ParseResultTests
 {
     public class TryToArrayWill

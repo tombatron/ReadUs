@@ -1,8 +1,10 @@
-﻿using ReadUs.Parser;
+﻿using JetBrains.Annotations;
+using ReadUs.Parser;
 using Xunit;
 
 namespace ReadUs.Tests.Parser;
 
+[UsedImplicitly]
 public class ParserTests
 {
     public class SimpleStrings

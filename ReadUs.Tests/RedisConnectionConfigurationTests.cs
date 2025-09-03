@@ -1,9 +1,11 @@
 using System;
+using JetBrains.Annotations;
 using ReadUs.Exceptions;
 using Xunit;
 
 namespace ReadUs.Tests;
 
+[UsedImplicitly]
 public class RedisConnectionConfigurationTests
 {
     [Fact]

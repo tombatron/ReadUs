@@ -1,9 +1,11 @@
 using DotNet.Testcontainers.Builders;
+using JetBrains.Annotations;
 using Testcontainers.Redis;
 using Xunit;
 
 namespace ReadUs.Commands.Tests;
 
+[UsedImplicitly]
 public class RedisSingleInstanceFixture : IAsyncLifetime
 {
     public readonly RedisContainer SingleNode = CreateNode($"single-node-{Guid.NewGuid()}").Build();

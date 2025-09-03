@@ -1,12 +1,13 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using JetBrains.Annotations;
 using ReadUs.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.Integration;
 
-// ReSharper disable once ClassNeverInstantiated.Global
+[UsedImplicitly]
 public sealed class RedisConnectionTests
 {
     [Collection(nameof(RedisSingleInstanceFixtureCollection))]

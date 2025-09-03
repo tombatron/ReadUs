@@ -1,9 +1,11 @@
+using JetBrains.Annotations;
 using ReadUs.Commands;
 using ReadUs.Parser;
 using Xunit;
 
 namespace ReadUs.Tests.ResultModels;
 
+[UsedImplicitly]
 public class BlockingPopResultTests
 {
     [Fact]
