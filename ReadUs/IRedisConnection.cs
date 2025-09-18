@@ -10,13 +10,19 @@ public interface IRedisConnection : IDisposable
     string ConnectionName { get; }
     bool IsConnected { get; }
 
-    void Connect();
+    bool IsFaulted { get; }
 
-    Task ConnectAsync(CancellationToken cancellationToken = default);
+    Result Connect();
+
+    Task<Result> ConnectAsync(CancellationToken cancellationToken = default);
 
     Result<RoleResult> Role();
-
+    
     Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default);
+    
+    Result<ClusterSlots> Slots();
+    
+    Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default);
 
     Result<byte[]> SendCommand(RedisCommandEnvelope command);
 

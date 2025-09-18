@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.Parser;
@@ -16,7 +15,9 @@ public partial class RedisConnection
     private Task _connectionWork = Task.CompletedTask;
     private readonly CancellationTokenSource _backgroundTaskCancellationTokenSource = new();
 
-    public async Task ConnectAsync(CancellationToken cancellationToken = default)
+    public bool IsFaulted { get; private set; }
+
+    public async Task<Result> ConnectAsync(CancellationToken cancellationToken = default)
     {
         using var cancellationWithTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
@@ -30,33 +31,51 @@ public partial class RedisConnection
 
             _connectionWork = Task.Run(() => ConnectionWorker(_channel, _socket, this, _backgroundTaskCancellationTokenSource.Token), _backgroundTaskCancellationTokenSource.Token);
             
+            return Result.Ok;
         }
         catch (SocketException sockEx)
         {
-            throw new Exception($"Could not connect to endpoint: {_endPoint.Address}:{_endPoint.Port}", sockEx);
+            IsFaulted = true;
+            
+            return Result.Error($"Could not connect to endpoint: {_endPoint.Address}:{_endPoint.Port}");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
+            IsFaulted = true;
             // We're in here now assuming that the cancellation is because the timeout has lapsed.
             Trace.WriteLine("Connection attempt timed out.");
 
-            throw;
+            return Result.Error("Connection attempt timed out.");
         }
     }
     
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
-        // Write command.
-        await _socket.SendAsync(command, cancellationToken);
+        using var timeoutCancellationSource = new CancellationTokenSource();
+        timeoutCancellationSource.CancelAfter(_commandTimeout);
+        
+        using var combinedCancellationTokenSource = 
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellationSource.Token);
 
-        // Wait for a response.
-        await _channel.Reader.WaitToReadAsync(cancellationToken);
-
-        if (_channel.Reader.TryRead(out var response))
+        try
         {
-            return Result<byte[]>.Ok(response);
-        }
+            // Write command.
+            await _socket.SendAsync(command, combinedCancellationTokenSource.Token);
 
+            // Wait for a response.
+            await _channel.Reader.WaitToReadAsync(combinedCancellationTokenSource.Token);
+
+            if (_channel.Reader.TryRead(out var response))
+            {
+                return Result<byte[]>.Ok(response);
+            }
+        }
+        catch (OperationCanceledException ex) when (timeoutCancellationSource.IsCancellationRequested)
+        {
+            // TODO: Assuming this works we'll make it a little more fancy. 
+            return Result<byte[]>.Error($"[TIMEOUT]: Redis command took longer than: {_commandTimeout}");
+        }
+        
         return Result<byte[]>.Error("Failed to read response.");
     }
     
@@ -108,5 +127,16 @@ public partial class RedisConnection
         }
 
         return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
-    }    
+    }
+
+    public async Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default)
+    {
+        if (IsConnected)
+        {
+            // When you pick this up you need to implement the cluster shards command to get the slot ranges. 
+            //var result = await SendCommandAsync(RedisCommandEn)
+        }
+        
+        return Result<ClusterSlots>.Error("Socket isn't ready, can't execute command.");
+    }
 }

@@ -10,7 +10,7 @@ public static class BasicScenario
 {
     public static async Task Run()
     {
-        var connectionString = new Uri("redis://192.168.86.40:6379?connectionsPerNode=5");
+        var connectionString = new Uri("redis://localhost:6379?connectionsPerNode=5");
 
         using var pool = RedisConnectionPool.Create(connectionString);
 
@@ -48,7 +48,7 @@ public static class BasicScenario
                         {
                             success = true;
                             
-                            Cons.WriteLine($"Read back {result}");
+                            Cons.WriteLine($"Read back key `{key}`: {ok.Value}");
 
                             continue;
                         }
@@ -62,7 +62,7 @@ public static class BasicScenario
 
                 Cons.WriteLine("Waiting 250ms...");
 
-                await Task.Delay(250);
+                await Task.Delay(2500);
             }
         } while (Cons.ReadKey(true).Key != ConsoleKey.Escape);
     }

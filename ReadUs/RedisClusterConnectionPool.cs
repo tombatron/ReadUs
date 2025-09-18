@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -38,10 +39,6 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     public override async Task<IRedisDatabase> GetDatabase(int databaseId = 0, CancellationToken cancellationToken = default)
     {
         // TODO: Should I add a trace warning here or something if the database ID isn't 0?        
-        
-        // Need to check if we are reinitializing. That shouldn't happen too often, but
-        // if it does we'll want to wait until that is complete before returning anything
-        // to the caller. 
         await WaitWhileAsync(() => _isReinitializing, cancellationToken);
 
         var database = new RedisDatabase(this, 0);
@@ -68,7 +65,18 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         return newConnection;
     }
 
-    internal override void ReturnConnection(IRedisConnection connection) => _backingPool.Enqueue(connection);
+    internal override void ReturnConnection(IRedisConnection connection)
+    {
+        if (connection.IsFaulted)
+        {
+            Trace.WriteLine("!!![CONNECTION FAULTED]: REINITIALIZING THE CLUSTER POOL!!!");
+            Reinitialize();
+        }
+        else
+        {
+            _backingPool.Enqueue(connection);    
+        }
+    }
 
     public override void Dispose() => DisposeAllConnections();
 

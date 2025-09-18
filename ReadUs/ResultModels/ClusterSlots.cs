@@ -11,6 +11,8 @@ public class ClusterSlots
     public ClusterSlots(params SlotRange[] slots) => _slots = slots;
 
     public ClusterSlots(IEnumerable<SlotRange> slots) => _slots = slots.ToArray();
+    
+    public SlotRange[] SlotRanges => _slots;
 
     public IEnumerable<int> OwnedSlots
     {

@@ -88,6 +88,93 @@ services:
     networks:
       - redis-cluster
 
+  redis-node-4:
+    image: redis:latest
+    container_name: redis-node-4
+    command:
+      - redis-server
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - /data/nodes-4.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --appendonly
+      - "yes"
+      - --port
+      - "6379"
+      - --cluster-announce-ip
+      - "172.17.0.1"
+      - --cluster-announce-port
+      - "6382"
+      - --cluster-announce-bus-port
+      - "16382"
+    ports:
+      - "6382:6379"
+      - "16382:16379"
+    volumes:
+      - ./data-node-4:/data
+    networks:
+      - redis-cluster
+
+  redis-node-5:
+    image: redis:latest
+    container_name: redis-node-5
+    command:
+      - redis-server
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - /data/nodes-5.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --appendonly
+      - "yes"
+      - --port
+      - "6379"
+      - --cluster-announce-ip
+      - "172.17.0.1"
+      - --cluster-announce-port
+      - "6383"
+      - --cluster-announce-bus-port
+      - "16383"
+    ports:
+      - "6383:6379"
+      - "16383:16379"
+    volumes:
+      - ./data-node-5:/data
+    networks:
+      - redis-cluster
+
+  redis-node-6:
+    image: redis:latest
+    container_name: redis-node-6
+    command:
+      - redis-server
+      - --cluster-enabled
+      - "yes"
+      - --cluster-config-file
+      - /data/nodes-6.conf
+      - --cluster-node-timeout
+      - "5000"
+      - --appendonly
+      - "yes"
+      - --port
+      - "6379"
+      - --cluster-announce-ip
+      - "172.17.0.1"
+      - --cluster-announce-port
+      - "6384"
+      - --cluster-announce-bus-port
+      - "16384"
+    ports:
+      - "6384:6379"
+      - "16384:16379"
+    volumes:
+      - ./data-node-6:/data
+    networks:
+      - redis-cluster
+
   redis-cluster-init:
     image: redis:latest
     container_name: redis-cluster-init
@@ -95,6 +182,9 @@ services:
       - redis-node-1
       - redis-node-2
       - redis-node-3
+      - redis-node-4
+      - redis-node-5
+      - redis-node-6
     entrypoint:
       - /bin/sh
       - -c
@@ -104,8 +194,11 @@ services:
         until redis-cli -h redis-node-1 -p 6379 ping >/dev/null 2>&1; do sleep 1; done
         until redis-cli -h redis-node-2 -p 6379 ping >/dev/null 2>&1; do sleep 1; done  
         until redis-cli -h redis-node-3 -p 6379 ping >/dev/null 2>&1; do sleep 1; done
+        until redis-cli -h redis-node-4 -p 6379 ping >/dev/null 2>&1; do sleep 1; done
+        until redis-cli -h redis-node-5 -p 6379 ping >/dev/null 2>&1; do sleep 1; done
+        until redis-cli -h redis-node-6 -p 6379 ping >/dev/null 2>&1; do sleep 1; done
         echo 'All nodes ready. Creating cluster...'
-        redis-cli --cluster create 172.17.0.1:6379 172.17.0.1:6380 172.17.0.1:6381 --cluster-yes
+        redis-cli --cluster create 172.17.0.1:6379 172.17.0.1:6380 172.17.0.1:6381 172.17.0.1:6382 172.17.0.1:6383 172.17.0.1:6384 --cluster-replicas 1 --cluster-yes
         echo 'Cluster creation completed'
     networks:
       - redis-cluster
