@@ -82,6 +82,10 @@ public partial class RedisConnection
             // TODO: Assuming this works we'll make it a little more fancy. 
             return Result<byte[]>.Error($"[TIMEOUT]: Redis command took longer than: {_commandTimeout}");
         }
+        catch (SocketException sockEx)
+        {
+            return Result<byte[]>.Error($"[SOCKET_EXCEPTION]: {sockEx.Message}");
+        }
 
         return Result<byte[]>.Error("Failed to read response.");
     }
