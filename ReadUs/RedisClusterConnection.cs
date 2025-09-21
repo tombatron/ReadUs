@@ -74,7 +74,8 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
     private bool IsResponseFaulted(Result<byte[]> response)
     {
-        if (response is Error<byte[]> error && error.Message.StartsWith(""))
+        // TODO: I'm going to make this more robust, but right now I'm just trying to see if I can get it to work. 
+        if (response is Error<byte[]> error && error.Message.StartsWith("[TIMEOUT]"))
         {
             return true;
         }

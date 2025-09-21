@@ -107,6 +107,9 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public static RedisCommandEnvelope CreateRoleCommand() =>
         new(Role, null, null, null, simpleCommand: true);
+    
+    public static RedisCommandEnvelope CreateClusterShardsCommand() =>
+        new(Cluster, ClusterSubcommands.Shards, null, TimeSpan.FromMilliseconds(5));
 
     public static RedisCommandEnvelope CreatePublishCommand(string channel, string message) =>
         new(PubSubCommands.Publish, channel, null, null, message);
