@@ -120,16 +120,13 @@ public partial class RedisConnection
             if (result is Ok<byte[]> ok)
             {
                 var parseResult = Parse(ok.Value);
-
-                if (parseResult is Ok<ParseResult> parseOk)
-                {
-                    return Result<RoleResult>.Ok((RoleResult)parseOk.Value);
-                }
-
+                
                 if (parseResult is Error<ParseResult> parseErr)
                 {
                     return Result<RoleResult>.Error(parseErr.Message);
                 }
+
+                return Result<RoleResult>.Ok((RoleResult)parseResult.Unwrap());
             }
 
             if (result is Error<byte[]> err)
@@ -146,27 +143,26 @@ public partial class RedisConnection
         if (IsConnected)
         {
             var result = await SendCommandAsync(RedisCommandEnvelope.CreateClusterShardsCommand(), cancellationToken);
-            
-            if (result is Ok<byte[]> ok)
-            {
-                var parsedResult = Parse(ok.Value);
 
-                if (parsedResult is Ok<ParseResult> parseOk)
-                {
-                    var clusterShards = new ClusterShardsResult(parseOk.Value);
-                    var currentShard = clusterShards.First(x => x.Nodes!.Any(y => y.Port == EndPoint.Port));
-
-                    return Result<ClusterSlots>.Ok(new (currentShard!.Slots!));
-                }
-                
-                if (parsedResult is Error<ParseResult> parseError)
-                {
-                    return Result<ClusterSlots>.Error(parseError.Message);
-                }
-            }else if (result is Error<byte[]> err)
+            if (result is Error<byte[]> err)
             {
-                return Result<ClusterSlots>.Error(err.Message);
+                return Result<ClusterSlots>.Error("Error getting slots for connection.", err);
             }
+            
+            var commandResult = result.Unwrap();
+            var parsedResult = Parse(commandResult);
+
+            if (parsedResult is Error<ParseResult> parseErr)
+            {
+                return Result<ClusterSlots>.Error("Error parsing the command result.", parseErr);
+            }
+            
+            var okResult = parsedResult.Unwrap();
+            
+            var clusterShards = new ClusterShardsResult(okResult);
+            var currentShard = clusterShards.First(x => x.Nodes!.Any(y => y.Port == EndPoint.Port));
+
+            return Result<ClusterSlots>.Ok(new(currentShard!.Slots!));
         }
 
         return Result<ClusterSlots>.Error("Socket isn't ready, can't execute command.");

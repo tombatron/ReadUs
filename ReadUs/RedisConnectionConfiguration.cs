@@ -41,6 +41,5 @@ public readonly struct RedisConnectionConfiguration(
     }
 
     public static implicit operator RedisConnectionConfiguration(ClusterNodesResultItem clusterNodesResultItem) =>
-        new RedisConnectionConfiguration(clusterNodesResultItem.Address!.IpAddress.ToString(),
-            clusterNodesResultItem.Address.RedisPort, 1);
+        new(clusterNodesResultItem.Address!.IpAddress.ToString(), clusterNodesResultItem.Address.RedisPort, 1);
 }

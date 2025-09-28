@@ -72,36 +72,23 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
         if (nodeResult is Error<IRedisConnection> nodeError)
         {
-            return Result<byte[]>.Error(nodeError.Message);
+            return Result<byte[]>.Error("Error getting the correct connection for the request.", nodeError);
         }
 
-        if (nodeResult is Ok<IRedisConnection> nodeOk)
-        {
-            var redisNode = nodeOk.Value;
+        var connection = nodeResult.Unwrap();
 
-            var response = await redisNode.SendCommandAsync(command, cancellationToken);
+        var response = await connection.SendCommandAsync(command, cancellationToken);
 
-            if (response is Error<byte[]> err)
-            {
-                IsFaulted = IsResponseFaulted(response);
-            }
+        IsFaulted = IsResponseFaulted(response);
 
-            if (response is Ok<byte[]> ok)
-            {
-                // TODO: Get rid of this after updating Tombatron.Results.
-            }
-
-            return response;
-        }
-
-        return Result<byte[]>.Error(
-            "I need to think how to avoid needing to put this here because of a required return.");
+        return response;
     }
 
     private bool IsResponseFaulted(Result<byte[]> response)
     {
         // TODO: I'm going to make this more robust, but right now I'm just trying to see if I can get it to work. 
-        if (response is Error<byte[]> error && (error.Message.StartsWith("[TIMEOUT]") || error.Message.StartsWith("[SOCKET_EXCEPTION]")))
+        if (response is Error<byte[]> error &&
+            (error.Message.StartsWith("[TIMEOUT]") || error.Message.StartsWith("[SOCKET_EXCEPTION]")))
         {
             return true;
         }
@@ -152,7 +139,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         {
             var slotsResult = connection.Slots();
             var ownedSlots = slotsResult.UnwrapOr(ClusterSlots.Default).OwnedSlots;
-            
+
             slots.UnionWith(ownedSlots);
         }
 
@@ -192,32 +179,19 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
                 return Result<IRedisConnection>.Error(roleError.Message);
             }
 
-            // TODO: Fix Tombatron.Results
-            // We should be able to do this: if (roleResult is Ok<RoleResult> { Value: PrimaryRoleResult })
-            //                      or this: if (roleResult is Ok<RoleResult> roleOk && roleOk.Value is PrimaryRoleResult)
-            // i guess....
-            if (roleResult is Ok<RoleResult> roleOk)
+            if (roleResult is Ok<RoleResult> { Value: PrimaryRoleResult } roleOk)
             {
-                if (roleOk.Value is PrimaryRoleResult)
-                {
-                    var slotsResult = connection.Slots();
+                var slotsResult = connection.Slots();
 
-                    if (slotsResult is Error<ClusterSlots> slotsError)
-                    {
-                        return Result<IRedisConnection>.Error(slotsError.Message);
-                    }
-                    
-                    // TODO: Fix Tombatron.Results
-                    // We should be able to do this: if (slotsResult is Ok<ClusterSlots> slotsOk && slotsOk.Value.ContainsSlot(key.Slot)) 
-                    if (slotsResult is Ok<ClusterSlots> slotsOk)
-                    {
-                        if (slotsOk.Value.ContainsSlot(key.Slot))
-                        {
-                            return Result<IRedisConnection>.Ok(connection);
-                        }
-                    }
+                if (slotsResult is Error<ClusterSlots> slotsError)
+                {
+                    return Result<IRedisConnection>.Error("Couldn't get slots for the connection.", slotsError);
                 }
-                
+
+                if (slotsResult is Ok<ClusterSlots> slotsOk && slotsOk.Value.ContainsSlot(key.Slot))
+                {
+                    return Result<IRedisConnection>.Ok(connection);
+                }
             }
         }
 

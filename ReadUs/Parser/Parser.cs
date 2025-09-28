@@ -11,19 +11,14 @@ public static class Parser
     
     public static Result<ParseResult> Parse(Result<byte[]> rawResult)
     {
-        if(rawResult is Ok<byte[]> ok)
-        {
-            var chars = Encoding.ASCII.GetString(ok.Value).ToCharArray();
-            
-            return Parse(chars);
-        }
-
         if (rawResult is Error<byte[]> err)
         {
-            return Result<ParseResult>.Error(err.Message);
+            return Result<ParseResult>.Error("Error parsing the raw result.", err);
         }
         
-        return Result<ParseResult>.Error("Something went way wrong parsing the Redis response.");
+        var ok = rawResult.Unwrap();
+
+        return Parse(Encoding.ASCII.GetString(ok).ToCharArray());
     }
 
     public static Result<ParseResult> Parse(Span<byte> rawResult)
