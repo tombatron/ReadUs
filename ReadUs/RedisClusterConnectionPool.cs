@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.ResultModels;
 using static ReadUs.Extras.AsyncTools;
+using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
 
@@ -36,7 +37,8 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     /// <param name="databaseId">Will always be 0 since clusters do not support logical databases. Setting this parameter will have no effect.</param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public override async Task<IRedisDatabase> GetDatabase(int databaseId = 0, CancellationToken cancellationToken = default)
+    public override async Task<IRedisDatabase> GetDatabase(int databaseId = 0,
+        CancellationToken cancellationToken = default)
     {
         // TODO: Should I add a trace warning here or something if the database ID isn't 0?        
         await WaitWhileAsync(() => _isReinitializing, cancellationToken);
@@ -52,7 +54,10 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         {
             return connection;
         }
-        
+
+        // TODO: Going to want to put something here so recheck the cluster configuration every now and then to make
+        //       sure that the topology hasn't changed.
+
         var newConnection = new RedisClusterConnection(_existingClusterNodes, _configuration.ConnectionsPerNode);
 
         _allConnections.Add(newConnection);
@@ -65,16 +70,32 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         return newConnection;
     }
 
+    private int failures = 0;
+
     internal override void ReturnConnection(IRedisConnection connection)
     {
         if (connection.IsFaulted)
         {
-            Trace.WriteLine("!!![CONNECTION FAULTED]: REINITIALIZING THE CLUSTER POOL!!!");
-            Reinitialize();
+            failures++;
+
+            if (failures < 5)
+            {
+                Trace.WriteLine("!!![CONNECTION FAULED]: Disposing...");
+
+                connection.Dispose();
+            }
+            else
+            {
+                Trace.WriteLine("!!![CONNECTION FAULTED]: REINITIALIZING THE CLUSTER POOL!!!");
+
+                Reinitialize();
+
+                failures = 0;
+            }
         }
         else
         {
-            _backingPool.Enqueue(connection);    
+            _backingPool.Enqueue(connection);
         }
     }
 
@@ -107,26 +128,35 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         Console.WriteLine("reinit - backing pool has been cleared.");
 
         // Now let's initialize the connection pool again. 
-
-        // Reusing the configuration information extracted from the connection string, lets
-        // reprobe the cluster and get a new configuration. 
-        if (TryGetClusterInformation(_configuration, out var clusterNodes))
+        
+        // Instead of using the original connection string which might point to a broken node, 
+        // we're going to try and reuse the cluster information that we have from the initial 
+        // connection. 
+        foreach (var node in _existingClusterNodes)
         {
-            Console.WriteLine($"reinit - cluster info acquired: {clusterNodes}");
-            // It looks like we were able to talk to the cluster to get a new configuration. Let's
-            // provide that collection to the existing `_existingClusterNodes` field...
-            _existingClusterNodes = clusterNodes;
+            if (IsSocketAvailable(node.Address.IpAddress, node.Address.RedisPort))
+            {
+                // Reusing the configuration information extracted from the connection string, lets
+                // reprobe the cluster and get a new configuration. 
+                if (TryGetClusterInformation(node, out var clusterNodes))
+                {
+                    Console.WriteLine($"reinit - cluster info acquired: {clusterNodes}");
+                    // It looks like we were able to talk to the cluster to get a new configuration. Let's
+                    // provide that collection to the existing `_existingClusterNodes` field...
+                    _existingClusterNodes = clusterNodes;
 
-            // I think we're all done here, let's set the `_isReinitializing` flag back to false
-            // so we can get on with our work.
-            _isReinitializing = false;
+                    // I think we're all done here, let's set the `_isReinitializing` flag back to false
+                    // so we can get on with our work.
+                    _isReinitializing = false;
 
-            Console.WriteLine("reinit - clustered pool reinitialized.");
+                    Console.WriteLine("reinit - clustered pool reinitialized.");
+
+                    return;
+                }
+            }
         }
-        else
-        {
-            throw new Exception("Could not initialize the connection pool.");
-        }
+
+        throw new Exception("Could not initialize the connection pool.");
     }
 
     private void OnRedisServerException(object sender, RedisServerExceptionEventArgs args)
@@ -150,12 +180,13 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         if (redisErrorMessage.StartsWith("MOVED"))
         {
             Console.WriteLine("Detected an error reinitializing.");
-            
+
             Reinitialize();
         }
     }
 
-    internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration, [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
+    internal static bool TryGetClusterInformation(RedisConnectionConfiguration configuration,
+        [NotNullWhen(true)] out ClusterNodesResult? clusterNodesResult)
     {
         // First, let's create a connection to whatever server that was provided.
         using var probingConnection = new RedisConnection(configuration);
@@ -165,8 +196,8 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
         // Next, execute the `cluster nodes` command to get an inventory of the cluster.
         var rawResult = probingConnection.SendCommand(RedisCommandEnvelope.CreateClusterNodesCommand());
-        
-        if(rawResult is Error<byte[]>)
+
+        if (rawResult is Error<byte[]>)
         {
             clusterNodesResult = null;
 

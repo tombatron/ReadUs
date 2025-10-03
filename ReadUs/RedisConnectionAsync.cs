@@ -140,6 +140,7 @@ public partial class RedisConnection
 
     public async Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default)
     {
+        // TODO: Let's consider caching this stuff somehow.
         if (IsConnected)
         {
             var result = await SendCommandAsync(RedisCommandEnvelope.CreateClusterShardsCommand(), cancellationToken);
@@ -160,7 +161,7 @@ public partial class RedisConnection
             var okResult = parsedResult.Unwrap();
             
             var clusterShards = new ClusterShardsResult(okResult);
-            var currentShard = clusterShards.First(x => x.Nodes!.Any(y => y.Port == EndPoint.Port));
+            var currentShard = clusterShards.First(x => x.Nodes!.Any(y => y.Port == EndPoint.Port && y.Ip.Equals(EndPoint.Address)));
 
             return Result<ClusterSlots>.Ok(new(currentShard!.Slots!));
         }

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.ResultModels;
+using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
 
@@ -24,7 +25,10 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         {
             for (var i = 0; i < connectionsPerNode; i++)
             {
-                Add(new RedisConnection(node));
+                if (node.Address is not null && IsSocketAvailable(node.Address.IpAddress, node.Address.RedisPort))
+                {
+                    Add(new RedisConnection(node));    
+                }
             }
         }
     }
@@ -53,11 +57,6 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
                 IsFaulted = IsResponseFaulted(response);
             }
 
-            if (response is Ok<byte[]> ok)
-            {
-                // TODO: Get rid of this after updating Tombatron.Results.
-            }
-
             return response;
         }
 
@@ -72,6 +71,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
         if (nodeResult is Error<IRedisConnection> nodeError)
         {
+            IsFaulted = true;
             return Result<byte[]>.Error("Error getting the correct connection for the request.", nodeError);
         }
 
@@ -190,6 +190,8 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
                 if (slotsResult is Ok<ClusterSlots> slotsOk && slotsOk.Value.ContainsSlot(key.Slot))
                 {
+                    Trace.WriteLine($"Key: {key.Name}, Slot: {key.Slot}, Connection: {connection.EndPoint}");
+                    
                     return Result<IRedisConnection>.Ok(connection);
                 }
             }
@@ -214,7 +216,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
             return Result<IRedisConnection>.Error("Multi-key operations against different slots isn't supported yet.");
         }
 
-        Trace.WriteLine($"Getting connection for `{command.Command}` for key `{command.Keys.First()}`.");
+        Trace.WriteLine($"Getting connection for `{command.Command}` for key `{command.Keys.First().Name}` @ slot: {command.Keys.First().Slot}.");
 
         // Everything is in the same slot so just go get a node. 
         return GetNodeForKey(command.Keys.First());
