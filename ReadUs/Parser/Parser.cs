@@ -23,7 +23,7 @@ public static class Parser
 
     public static Result<ParseResult> Parse(Span<byte> rawResult)
     {
-        var chars = Encoding.ASCII.GetString(rawResult).ToCharArray();
+        var chars = Encoding.UTF8.GetString(rawResult).ToCharArray();
 
         return Parse(chars);
     }
