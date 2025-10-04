@@ -7,7 +7,7 @@ namespace ReadUs;
 public abstract class RedisConnectionPool : IRedisConnectionPool
 {
     public abstract Task<IRedisDatabase> GetDatabase(int databaseId = 0, CancellationToken cancellationToken = default);
-    
+
     internal abstract Task<IRedisConnection> GetConnection();
 
     internal abstract void ReturnConnection(IRedisConnection connection);
@@ -16,14 +16,21 @@ public abstract class RedisConnectionPool : IRedisConnectionPool
 
     public static IRedisConnectionPool Create(Uri connectionString)
     {
+        IRedisConnectionPool newPool;
+
         RedisConnectionConfiguration configuration = connectionString;
 
-        // TODO: Sentinel connection pool
         if (RedisClusterConnectionPool.TryGetClusterInformation(configuration, out var clusterNodesResult))
         {
-            return new RedisClusterConnectionPool(clusterNodesResult, configuration);
+            newPool = new RedisClusterConnectionPool(clusterNodesResult, configuration);
+        }
+        else
+        {
+            newPool = new RedisSingleInstanceConnectionPool(configuration);
         }
         
-        return new RedisSingleInstanceConnectionPool(configuration);
+        
+
+        return newPool;
     }
 }

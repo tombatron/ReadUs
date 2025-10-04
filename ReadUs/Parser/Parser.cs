@@ -23,9 +23,11 @@ public static class Parser
 
     public static Result<ParseResult> Parse(Span<byte> rawResult)
     {
-        var chars = Encoding.UTF8.GetString(rawResult).ToCharArray();
+        // Converting to a string here on a separate line makes it easier to grab a sample raw response for
+        // testing purposes. 
+        var stringResult = Encoding.UTF8.GetString(rawResult);
 
-        return Parse(chars);
+        return Parse(stringResult.ToCharArray());
     }
 
     public static Result<ParseResult> Parse(Span<char> rawResult)

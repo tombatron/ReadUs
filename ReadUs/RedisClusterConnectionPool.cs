@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ReadUs.ResultModels;
@@ -23,8 +24,6 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     internal RedisClusterConnectionPool(ClusterNodesResult? clusterNodesResult,
         RedisConnectionConfiguration configuration)
     {
-        // TODO: Think about how to make this more robust. This won't survive any kind of change
-        //       to the cluster. 
         _existingClusterNodes = clusterNodesResult ?? throw new Exception("Cluster nodes were null. That's weird.");
 
         _configuration = configuration;
@@ -70,15 +69,15 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         return newConnection;
     }
 
-    private int failures = 0;
+    private int _failures = 0;
 
     internal override void ReturnConnection(IRedisConnection connection)
     {
         if (connection.IsFaulted)
         {
-            failures++;
+            _failures++;
 
-            if (failures < 5)
+            if (_failures < 5)
             {
                 Trace.WriteLine("!!![CONNECTION FAULED]: Disposing...");
 
@@ -90,13 +89,29 @@ public class RedisClusterConnectionPool : RedisConnectionPool
 
                 Reinitialize();
 
-                failures = 0;
+                _failures = 0;
             }
         }
         else
         {
             _backingPool.Enqueue(connection);
         }
+    }
+
+    public static Result<RedisConnectionPool> Create(ClusterNodesResult? clusterNodesResult, RedisConnectionConfiguration configuration)
+    {
+        // Create the pool instance. 
+        var pool = new RedisClusterConnectionPool(clusterNodesResult, configuration);
+        
+        // Let's get a connection. In this case, we're getting a cluster connection which is expected to have a connection to 
+        // each node. 
+        
+        // Let's check each node to make sure it's good to go by sending a ping command. 
+        
+        // If we don't get a response back from each node, then we're going to return an error. 
+        
+        // Looks like we're good to go, let's return OK. 
+        return Result<RedisConnectionPool>.Ok(pool);
     }
 
     public override void Dispose() => DisposeAllConnections();
@@ -112,29 +127,29 @@ public class RedisClusterConnectionPool : RedisConnectionPool
     private void Reinitialize()
     {
         _isReinitializing = true;
-        Console.WriteLine("reinit - reinit flag set.");
+        Trace.WriteLine("reinit - reinit flag set.");
 
         // Dispose of all connections.
         DisposeAllConnections();
-        Console.WriteLine("reinit - all connections disposed");
+        Trace.WriteLine("reinit - all connections disposed");
 
         // Clear out that collection. 
         _allConnections.Clear();
-        Console.WriteLine("reinit - all connections collection has been cleared");
+        Trace.WriteLine("reinit - all connections collection has been cleared");
 
         // All of the connections in the backing pool should be closed now,
         // we'll clear those out too.
         _backingPool.Clear();
-        Console.WriteLine("reinit - backing pool has been cleared.");
+        Trace.WriteLine("reinit - backing pool has been cleared.");
 
         // Now let's initialize the connection pool again. 
         
         // Instead of using the original connection string which might point to a broken node, 
         // we're going to try and reuse the cluster information that we have from the initial 
         // connection. 
-        foreach (var node in _existingClusterNodes)
+        foreach (var node in _existingClusterNodes.Where(x=> x.Address is not null))
         {
-            if (IsSocketAvailable(node.Address.IpAddress, node.Address.RedisPort))
+            if (IsSocketAvailable(node.Address!.IpAddress, node.Address.RedisPort))
             {
                 // Reusing the configuration information extracted from the connection string, lets
                 // reprobe the cluster and get a new configuration. 

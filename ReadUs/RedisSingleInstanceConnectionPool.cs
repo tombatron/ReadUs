@@ -49,6 +49,20 @@ public class RedisSingleInstanceConnectionPool : RedisConnectionPool
 
     internal override void ReturnConnection(IRedisConnection connection) => _backingPool.Enqueue(connection);
 
+    public static Result<RedisConnectionPool> Create(RedisConnectionConfiguration configuration)
+    {
+        // Create the pool instance. 
+        var pool = new RedisSingleInstanceConnectionPool(configuration);
+        
+        // Let's get a connection. In this case we're getting a singular connection to a single Redis backend. 
+        
+        // Let's check the connection to make sure it's good by sending a ping command. 
+        
+        // If we don't get a response back from the node, then we're going to return an error. 
+        
+        return Result<RedisConnectionPool>.Ok(pool);
+    }
+
     public override void Dispose()
     {
         foreach (var connection in _allConnections)

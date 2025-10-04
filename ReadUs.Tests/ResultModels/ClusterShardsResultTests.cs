@@ -24,7 +24,6 @@ public class ClusterShardsResultTests
         Assert.Equal(3, clusterSlotsResult.Count);
     }
 
-
     [Fact]
     public void ParsesSlotRangesCorrectly()
     {
