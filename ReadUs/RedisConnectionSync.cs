@@ -12,6 +12,8 @@ public partial class RedisConnection
     public Result<RoleResult> Role() => RoleAsync().GetAwaiter().GetResult();
 
     public Result<ClusterSlots> Slots() => SlotsAsync().GetAwaiter().GetResult();
+
+    public Result<PingResult> Ping(string? message = null) => PingAsync(message).GetAwaiter().GetResult();
     
     private void SetConnectionClientName() => 
         SendCommand(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName));

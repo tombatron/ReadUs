@@ -24,6 +24,10 @@ public interface IRedisConnection : IDisposable
     
     Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default);
 
+    Result<PingResult> Ping(string? message = null);
+    
+    Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default);
+
     Result<byte[]> SendCommand(RedisCommandEnvelope command);
 
     Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default);

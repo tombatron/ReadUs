@@ -165,6 +165,48 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
     public Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(Result<ClusterSlots>.Error("NO-OP for now..."));
+    
+    public Result<PingResult> Ping(string? message = null) => PingAsync(message).GetAwaiter().GetResult();
+
+    public async Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default)
+    {
+        // Since we're sending the same ping message to all connections, we can expect a single identical response
+        // from all nodes, hence why we're only storing a single result here. 
+        var responseMessage = default(string);
+        
+        var okResponses = new List<string>();
+        var errorResponses = new List<string>();
+
+        foreach (var connection in this)
+        {
+            var endPoint = connection.EndPoint;
+            
+            var pingResult = await connection.PingAsync(message, cancellationToken);
+
+            if (pingResult is Error<PingResult> err)
+            {
+                errorResponses.Add($"[Error] {endPoint.Address}:{endPoint.Port} error: {err.Message}");
+            }
+            else
+            {
+                var pingResponse = pingResult.Unwrap();
+
+                if (responseMessage is null)
+                {
+                    responseMessage = pingResponse.Response;
+                }
+                
+                okResponses.Add($"[OK] {endPoint.Address}:{endPoint.Port}: {pingResponse}");
+            }
+        }
+
+        if (errorResponses.Count == 0)
+        {
+            return Result<PingResult>.Ok(new(responseMessage!));
+        }
+
+        return Result<PingResult>.Error($"PING FAILED:\n{string.Join("\n", okResponses.Union(errorResponses))}");
+    }
 
     private Result<IRedisConnection> GetNodeForKey(RedisKey key)
     {

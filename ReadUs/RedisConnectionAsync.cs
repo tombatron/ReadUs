@@ -168,4 +168,32 @@ public partial class RedisConnection
 
         return Result<ClusterSlots>.Error("Socket isn't ready, can't execute command.");
     }
+
+    public async Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default)
+    {
+        if (IsConnected)
+        {
+            var result = await SendCommandAsync(RedisCommandEnvelope.CreatePingCommand(message), cancellationToken);
+
+            if (result is Error<byte[]> err)
+            {
+                return Result<PingResult>.Error("Error executing ping command.", err);
+            }
+
+            var commandResult = result.Unwrap();
+            var parsedResult = Parse(commandResult);
+
+            if (parsedResult is Error<ParseResult> parseErr)
+            {
+                return Result<PingResult>.Error("There was an error parsing the ping command result.", parseErr);
+            }
+            
+            var okResult = parsedResult.Unwrap();
+            var pingResult = new PingResult(new string(okResult.Value));
+            
+            return Result<PingResult>.Ok(pingResult);
+        }
+        
+        return Result<PingResult>.Error("Socket isn't ready, can't execute the `PING` command.");
+    }
 }
