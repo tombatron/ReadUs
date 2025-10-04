@@ -98,20 +98,26 @@ public class RedisClusterConnectionPool : RedisConnectionPool
         }
     }
 
-    public static Result<RedisConnectionPool> Create(ClusterNodesResult? clusterNodesResult, RedisConnectionConfiguration configuration)
+    public static Result<IRedisConnectionPool> Create(ClusterNodesResult? clusterNodesResult, RedisConnectionConfiguration configuration, CancellationToken cancellationToken = default)
     {
         // Create the pool instance. 
         var pool = new RedisClusterConnectionPool(clusterNodesResult, configuration);
         
         // Let's get a connection. In this case, we're getting a cluster connection which is expected to have a connection to 
         // each node. 
+        var connection = pool.GetConnection().GetAwaiter().GetResult();
         
-        // Let's check each node to make sure it's good to go by sending a ping command. 
+        // Let's check each node to make sure it's good to go by sending a ping command.
+        var pingResult = connection.Ping();
+
+        if (pingResult is Error<PingResult> err)
+        {
+            return Result<IRedisConnectionPool>.Error("There was an error creating the connection pool.", err);
+        }
+
+        _ = pingResult.Unwrap();
         
-        // If we don't get a response back from each node, then we're going to return an error. 
-        
-        // Looks like we're good to go, let's return OK. 
-        return Result<RedisConnectionPool>.Ok(pool);
+        return Result<IRedisConnectionPool>.Ok(pool);
     }
 
     public override void Dispose() => DisposeAllConnections();

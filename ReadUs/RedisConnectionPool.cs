@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.Exceptions;
 
 namespace ReadUs;
 
@@ -16,21 +17,24 @@ public abstract class RedisConnectionPool : IRedisConnectionPool
 
     public static IRedisConnectionPool Create(Uri connectionString)
     {
-        IRedisConnectionPool newPool;
+        Result<IRedisConnectionPool> newPool;
 
         RedisConnectionConfiguration configuration = connectionString;
 
         if (RedisClusterConnectionPool.TryGetClusterInformation(configuration, out var clusterNodesResult))
         {
-            newPool = new RedisClusterConnectionPool(clusterNodesResult, configuration);
+            newPool = RedisClusterConnectionPool.Create(clusterNodesResult, configuration);
         }
         else
         {
-            newPool = new RedisSingleInstanceConnectionPool(configuration);
+            newPool = RedisSingleInstanceConnectionPool.Create(configuration);
         }
-        
-        
 
-        return newPool;
+        if (newPool is Error<IRedisConnectionPool> errorPool)
+        {
+            throw new RedisConnectionException(errorPool.ToErrorString());
+        }
+
+        return newPool.Unwrap();
     }
 }
