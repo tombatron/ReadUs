@@ -19,6 +19,7 @@ public readonly struct RedisConnectionConfiguration(
 
     public int ServerPort { get; } = serverPort;
 
+    // TODO: I don't even remember what I was thinking about here. 
     public int ConnectionsPerNode { get; } = connectionsPerNode;
 
     public static implicit operator RedisConnectionConfiguration(Uri connectionString)

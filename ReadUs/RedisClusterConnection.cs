@@ -13,21 +13,19 @@ namespace ReadUs;
 // redis cluster nodes. 
 public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 {
-    private readonly int _connectionsPerNode;
-
     private readonly Random _rand = new();
 
-    public RedisClusterConnection(ClusterNodesResult nodes, int connectionsPerNode = 1)
+    public RedisClusterConnection(RedisConnectionConfiguration[] configurations)
     {
-        _connectionsPerNode = connectionsPerNode;
+        var connectionsPerNode = configurations.First().ConnectionsPerNode;
 
-        foreach (var node in nodes)
+        foreach (var configuration in configurations)
         {
             for (var i = 0; i < connectionsPerNode; i++)
             {
-                if (node.Address is not null && IsSocketAvailable(node.Address.IpAddress, node.Address.RedisPort))
+                if (IsSocketAvailable(configuration.ServerAddress, configuration.ServerPort))
                 {
-                    Add(new RedisConnection(node));    
+                    Add(new RedisConnection(configuration));
                 }
             }
         }
@@ -47,21 +45,15 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
             return Result<byte[]>.Error(nodeError.Message);
         }
 
-        if (nodeResult is Ok<IRedisConnection> nodeOk)
+        var redisNode = nodeResult.Unwrap();
+        var response = redisNode.SendCommand(command);
+
+        if (response is Error<byte[]>)
         {
-            var redisNode = nodeOk.Value;
-            var response = redisNode.SendCommand(command);
-
-            if (response is Error<byte[]> err)
-            {
-                IsFaulted = IsResponseFaulted(response);
-            }
-
-            return response;
+            IsFaulted = true;
         }
 
-        return Result<byte[]>.Error(
-            "I need to think how to avoid needing to put this here because of a required return.");
+        return Result<byte[]>.Ok(response.Unwrap());
     }
 
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command,

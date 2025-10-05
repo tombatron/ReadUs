@@ -6,6 +6,8 @@ namespace ReadUs.Extras;
 
 public static class SocketTools
 {
+    public static bool IsSocketAvailable(string address, int port, int timeoutMilliseconds = 50) =>
+        IsSocketAvailable(IPAddress.Parse(address), port, timeoutMilliseconds);
     public static bool IsSocketAvailable(IPAddress address, int port, int timeoutMilliseconds = 50)
     {
         try
