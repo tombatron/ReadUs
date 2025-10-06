@@ -2,27 +2,25 @@ using System;
 using System.Globalization;
 using System.Web;
 using ReadUs.Exceptions;
+using ReadUs.ResultModels;
 
 namespace ReadUs;
 
-public readonly struct RedisConnectionConfiguration
+public readonly struct RedisConnectionConfiguration(
+    string serverAddress,
+    int serverPort = RedisConnectionConfiguration.DefaultRedisPort,
+    int connectionsPerNode = 1)
 {
     private const string RedisScheme = "redis";
     private const int DefaultRedisPort = 6379;
     private const string ConnectionsPerNodeKey = "connectionsPerNode";
 
-    public string ServerAddress { get; }
+    public string ServerAddress { get; } = serverAddress;
 
-    public int ServerPort { get; }
+    public int ServerPort { get; } = serverPort;
 
-    public int ConnectionsPerNode { get; }
-
-    public RedisConnectionConfiguration(string serverAddress, int serverPort = DefaultRedisPort, int connectionsPerNode = 1)
-    {
-        ServerAddress = serverAddress;
-        ServerPort = serverPort;
-        ConnectionsPerNode = connectionsPerNode;
-    }
+    // TODO: I don't even remember what I was thinking about here. 
+    public int ConnectionsPerNode { get; } = connectionsPerNode;
 
     public static implicit operator RedisConnectionConfiguration(Uri connectionString)
     {
@@ -42,4 +40,7 @@ public readonly struct RedisConnectionConfiguration
 
         throw new RedisConnectionConfigurationException("`connectionsPerNode` must be a valid integer.");
     }
+
+    public static implicit operator RedisConnectionConfiguration(ClusterNodesResultItem clusterNodesResultItem) =>
+        new(clusterNodesResultItem.Address!.IpAddress.ToString(), clusterNodesResultItem.Address.RedisPort, 1);
 }

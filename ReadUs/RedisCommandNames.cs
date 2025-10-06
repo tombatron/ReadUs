@@ -26,9 +26,12 @@ internal static class RedisCommandNames
 
     internal const string Role = "ROLE";
 
+    internal const string Ping = "PING";
+
     internal static class ClusterSubcommands
     {
         internal const string Nodes = "NODES";
+        internal const string Shards = "SHARDS";
     }
 
     internal static class ClientSubcommands

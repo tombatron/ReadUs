@@ -141,4 +141,5 @@ public class ClusterNodesResultItem
     
     public override string ToString() =>
         $"{Id ?? NoId}:{Address ?? NoAddress}:{Flags ?? NoFlags}:{Slots ?? NoSlots}";
+
 }
