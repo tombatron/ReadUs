@@ -52,7 +52,9 @@ public static class RedisKeyUtilities
         uint crc = 0;
 
         for (counter = 0; counter < keyBytes.Length; counter++)
+        {
             crc = (crc << 8) ^ crc16tab[((crc >> 8) ^ keyBytes[position++]) & 0x00FF];
+        }
 
         return crc % 16_384;
     }
