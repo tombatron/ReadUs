@@ -122,7 +122,7 @@ public class RedisConnectionPool(
 
         if (IsCluster(configuration.First(), out var configurations))
         {
-            configuration = configurations;
+            configuration = configurations!;
             connectionFactory = ClusterConnectionFactory;
         }
         else
@@ -140,7 +140,7 @@ public class RedisConnectionPool(
         new RedisConnection(configurations.First());
 
     // TODO: Change this such that it behaves more like the helper method SocketTools.IsSocketAvailable
-    static bool IsCluster(RedisConnectionConfiguration configuration, out RedisConnectionConfiguration[]? nodeConfigurations)
+    internal static bool IsCluster(RedisConnectionConfiguration configuration, out RedisConnectionConfiguration[]? nodeConfigurations)
     {
         nodeConfigurations = null;
         

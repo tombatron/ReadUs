@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using ReadUs.ResultModels;
@@ -38,6 +37,7 @@ public sealed class RedisConnectionTests
         }
     }
 
+    [UsedImplicitly]
     [Collection(nameof(RedisClusterFixtureCollection))]
     public sealed class RoleCommandOnCluster
     {
@@ -45,9 +45,7 @@ public sealed class RedisConnectionTests
 
         public RoleCommandOnCluster(RedisClusterFixture fixture)
         {
-            var connectionString = new Uri($"redis://{fixture.ConnectionString}?connectionsPerNode=5");
-
-            var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
+            using var connectionPool = (RedisConnectionPool)RedisConnectionPool.Create(fixture.ConnectionString);
 
             _connection = connectionPool.GetConnection().GetAwaiter().GetResult() as RedisClusterConnection;
         }

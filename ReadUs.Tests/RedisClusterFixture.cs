@@ -8,7 +8,7 @@ using JetBrains.Annotations;
 using ReadUs.ResultModels;
 using Testcontainers.Redis;
 using Xunit;
-using static ReadUs.RedisClusterConnectionPool;
+using static ReadUs.RedisConnectionPool;
 
 namespace ReadUs.Tests;
 
@@ -41,10 +41,10 @@ public class RedisClusterFixture : IAsyncLifetime
         Node6 = CreateNode("node-6").Build();
     }
 
-    public ClusterNodesResult ClusterNodes { get; private set; }
+    [CanBeNull] public RedisConnectionConfiguration[] ClusterNodes { get; private set; }
     public RedisConnectionConfiguration Configuration { get; private set; }
 
-    public string ConnectionString => $"127.0.0.1:{_containers[0].port}";
+    public Uri ConnectionString => new($"redis://127.0.0.1:{_containers[0].port}");
 
     public async Task InitializeAsync()
     {
@@ -73,13 +73,10 @@ public class RedisClusterFixture : IAsyncLifetime
         Assert.EndsWith("[OK] All 16384 slots covered.\n", output);
 
         // Wait a second for Redis to settle down and have properly assigned node roles.
-
-        var connectionString = new Uri($"redis://{ConnectionString}");
-
-        TryGetClusterInformation(connectionString, out var clusterNodes);
+        IsCluster(ConnectionString, out var clusterNodes);
 
         ClusterNodes = clusterNodes;
-        Configuration = connectionString;
+        Configuration = ConnectionString;
     }
 
     public async Task DisposeAsync()
