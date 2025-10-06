@@ -141,7 +141,7 @@ public class ClusterSlots(params ClusterSlots.SlotRange[] slots)
         internal SlotRange(char[] rawValue) =>
             (Begin, End) = Initialize(rawValue);
 
-        private SlotRange(int begin, int end)
+        internal SlotRange(int begin, int end)
         {
             Begin = begin;
             End = end;

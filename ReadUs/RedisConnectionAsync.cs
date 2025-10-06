@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Net.Sockets;
@@ -138,32 +137,45 @@ public partial class RedisConnection
         return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
     }
 
+    private static readonly Result<ClusterSlots> DefaultSlots = Result<ClusterSlots>.Ok(new ClusterSlots(new SlotRange(0, 16_384)));
+    private Result<ClusterSlots>? _currentClusterSlots;
     public async Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default)
     {
-        // TODO: Let's consider caching this stuff somehow.
         if (IsConnected)
         {
-            var result = await SendCommandAsync(RedisCommandEnvelope.CreateClusterShardsCommand(), cancellationToken);
-
-            if (result is Error<byte[]> err)
+            if (_currentClusterSlots is null)
             {
-                return Result<ClusterSlots>.Error("Error getting slots for connection.", err);
-            }
-            
-            var commandResult = result.Unwrap();
-            var parsedResult = Parse(commandResult);
+                var result =
+                    await SendCommandAsync(RedisCommandEnvelope.CreateClusterShardsCommand(), cancellationToken);
 
-            if (parsedResult is Error<ParseResult> parseErr)
-            {
-                return Result<ClusterSlots>.Error("Error parsing the command result.", parseErr);
-            }
-            
-            var okResult = parsedResult.Unwrap();
-            
-            var clusterShards = new ClusterShardsResult(okResult);
-            var currentShard = clusterShards.First(x => x.Nodes!.Any(y => y.Port == EndPoint.Port && y.Ip.Equals(EndPoint.Address)));
+                if (result is Error<byte[]> err)
+                {
+                    return Result<ClusterSlots>.Error("Error getting slots for connection.", err);
+                }
 
-            return Result<ClusterSlots>.Ok(new(currentShard!.Slots!));
+                var commandResult = result.Unwrap();
+                var parsedResult = Parse(commandResult);
+
+                if (parsedResult is Error<ParseResult> parseErr)
+                {
+                    return Result<ClusterSlots>.Error("Error parsing the command result.", parseErr);
+                }
+
+                var okResult = parsedResult.Unwrap();
+
+                if (IsNotCluster(okResult))
+                {
+                    return DefaultSlots;
+                }
+
+                var clusterShards = new ClusterShardsResult(okResult);
+                var currentShard = clusterShards.First(x =>
+                    x.Nodes!.Any(y => y.Port == EndPoint.Port && y.Ip.Equals(EndPoint.Address)));
+                
+                _currentClusterSlots = Result<ClusterSlots>.Ok(new(currentShard!.Slots!));
+            }
+
+            return _currentClusterSlots;
         }
 
         return Result<ClusterSlots>.Error("Socket isn't ready, can't execute command.");
@@ -196,4 +208,9 @@ public partial class RedisConnection
         
         return Result<PingResult>.Error("Socket isn't ready, can't execute the `PING` command.");
     }
+
+    private const string NotAClusterError = "ERR This instance has cluster support disabled";
+    private static bool IsNotCluster(ParseResult result) => (
+         result.Type == ResultType.Error && 
+         string.Compare(new string(result.Value), NotAClusterError, StringComparison.InvariantCultureIgnoreCase) == 0);
 }
