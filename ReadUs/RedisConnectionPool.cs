@@ -24,7 +24,7 @@ public class RedisConnectionPool(
     {
     }
 
-    public virtual async Task<IRedisDatabase> GetDatabase(int databaseId = 0,
+    public async Task<IRedisDatabase> GetDatabase(int databaseId = 0,
         CancellationToken cancellationToken = default)
     {
         await WaitWhileAsync(() => _isReinitializing, cancellationToken);
@@ -32,7 +32,7 @@ public class RedisConnectionPool(
         return new RedisDatabase(this, databaseId);
     }
 
-    internal virtual async Task<IRedisConnection> GetConnection()
+    internal async Task<IRedisConnection> GetConnection()
     {
         IRedisConnection connection;
 
@@ -61,7 +61,7 @@ public class RedisConnectionPool(
 
     private int _failures = 0;
 
-    internal virtual void ReturnConnection(IRedisConnection connection)
+    internal void ReturnConnection(IRedisConnection connection)
     {
         if (connection.IsFaulted)
         {
