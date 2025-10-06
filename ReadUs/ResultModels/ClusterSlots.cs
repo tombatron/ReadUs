@@ -4,13 +4,15 @@ using System.Linq;
 
 namespace ReadUs.ResultModels;
 
-public class ClusterSlots
+public class ClusterSlots(params ClusterSlots.SlotRange[] slots)
 {
-    private readonly SlotRange[] _slots;
+    private readonly SlotRange[] _slots = slots;
 
-    public ClusterSlots(params SlotRange[] slots) => _slots = slots;
+    private ClusterSlots(IEnumerable<SlotRange> slots) : this(slots.ToArray())
+    {
+    }
 
-    public ClusterSlots(IEnumerable<SlotRange> slots) => _slots = slots.ToArray();
+    public SlotRange[] SlotRanges => _slots;
 
     public IEnumerable<int> OwnedSlots
     {
@@ -131,13 +133,15 @@ public class ClusterSlots
 
     public static implicit operator string(ClusterSlots slots) =>
         string.Join(",", string.Join<SlotRange>(",", slots._slots));
+    
+    public static readonly ClusterSlots Default = new ClusterSlots();
 
     public class SlotRange : IComparable<SlotRange>
     {
         internal SlotRange(char[] rawValue) =>
             (Begin, End) = Initialize(rawValue);
 
-        private SlotRange(int begin, int end)
+        internal SlotRange(int begin, int end)
         {
             Begin = begin;
             End = end;

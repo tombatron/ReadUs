@@ -5,8 +5,8 @@ namespace ReadUs.Commands.Tests;
 [Collection(nameof(RedisSingleInstanceFixtureCollection))]
 public class ListCommandTests(RedisSingleInstanceFixture fixture) : IDisposable
 {
-    private readonly RedisConnectionPool _pool =
-        new RedisSingleInstanceConnectionPool(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
+    private readonly IRedisConnectionPool _pool =
+        RedisConnectionPool.Create(new Uri($"redis://{fixture.SingleNode.GetConnectionString()}"));
     
     public void Dispose() => _pool.Dispose();
     

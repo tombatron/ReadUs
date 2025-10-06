@@ -33,8 +33,5 @@ public readonly struct ParseResult
         return false;
     }
 
-    public override string ToString()
-    {
-        return new string(Value);
-    }
+    public override string ToString() => new string(Value);
 }

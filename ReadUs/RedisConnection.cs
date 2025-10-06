@@ -37,7 +37,7 @@ public partial class RedisConnection : IRedisConnection
     }
 
     public RedisConnection(IPAddress ipAddress, int port) :
-        this(new IPEndPoint(ipAddress, port), TimeSpan.FromSeconds(30))
+        this(new IPEndPoint(ipAddress, port), TimeSpan.FromSeconds(5))
     {
     }
 
@@ -45,6 +45,8 @@ public partial class RedisConnection : IRedisConnection
     {
         _endPoint = endPoint;
         _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+        _socket.ReceiveTimeout = (int)commandTimeout.TotalSeconds;
         _commandTimeout = commandTimeout;
     }
 

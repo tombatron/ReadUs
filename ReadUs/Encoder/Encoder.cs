@@ -7,7 +7,7 @@ public static class Encoder
     private const string EncoderCarriageReturnLineFeed = "\r\n";
     private const int EncoderCarriageReturnLineFeedLength = 2;
     private const string NullBulkString = "$-1\r\n\r\n";
-    private static readonly byte[] NullBulkStringBytes = Encoding.ASCII.GetBytes(NullBulkString);
+    private static readonly byte[] NullBulkStringBytes = Encoding.UTF8.GetBytes(NullBulkString);
 
     public static byte[] Encode(params object?[] items)
     {
@@ -30,7 +30,7 @@ public static class Encoder
             result.Append(CreateBulkString(item));
         }
 
-        return Encoding.ASCII.GetBytes(result.ToString());
+        return Encoding.UTF8.GetBytes(result.ToString());
     }
 
     private static string CreateBulkString(object? item)

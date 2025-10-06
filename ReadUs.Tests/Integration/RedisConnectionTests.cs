@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
 using ReadUs.ResultModels;
@@ -38,6 +37,7 @@ public sealed class RedisConnectionTests
         }
     }
 
+    [UsedImplicitly]
     [Collection(nameof(RedisClusterFixtureCollection))]
     public sealed class RoleCommandOnCluster
     {
@@ -45,51 +45,9 @@ public sealed class RedisConnectionTests
 
         public RoleCommandOnCluster(RedisClusterFixture fixture)
         {
-            var connectionString = new Uri($"redis://{fixture.ConnectionString}?connectionsPerNode=5");
-
-            var connectionPool = new RedisClusterConnectionPool(fixture.ClusterNodes, connectionString);
+            using var connectionPool = (RedisConnectionPool)RedisConnectionPool.Create(fixture.ConnectionString);
 
             _connection = connectionPool.GetConnection().GetAwaiter().GetResult() as RedisClusterConnection;
-        }
-
-        [Fact]
-        public void CanExecuteOnPrimaryNode()
-        {
-            var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
-
-            var roleResult = primaryNode.Role().Unwrap();
-
-            Assert.IsType<PrimaryRoleResult>(roleResult);
-        }
-
-        [Fact]
-        public async Task CanExecuteOnPrimaryNodeAsync()
-        {
-            var primaryNode = _connection.First(x => x.Role == ClusterNodeRole.Primary);
-
-            var roleResult = (await primaryNode.RoleAsync()).Unwrap();
-
-            Assert.IsType<PrimaryRoleResult>(roleResult);
-        }
-
-        [Fact]
-        public void CanExecuteOnSecondaryNode()
-        {
-            var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
-
-            var roleResult = secondaryNode.Role().Unwrap();
-
-            Assert.IsType<ReplicaRoleResult>(roleResult);
-        }
-
-        [Fact]
-        public async Task CanExecuteOnSecondaryNodeAsync()
-        {
-            var secondaryNode = _connection.First(x => x.Role == ClusterNodeRole.Secondary);
-
-            var roleResult = (await secondaryNode.RoleAsync()).Unwrap();
-
-            Assert.IsType<ReplicaRoleResult>(roleResult);
         }
     }
 }

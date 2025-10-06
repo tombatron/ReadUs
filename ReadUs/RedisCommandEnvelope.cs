@@ -9,7 +9,7 @@ using static ReadUs.StandardValues;
 
 namespace ReadUs;
 
-public readonly struct RedisCommandEnvelope(string? command, string[]? subCommands, RedisKey[]? keys, TimeSpan? timeout, bool simpleCommand, params object[]? items)
+public readonly struct RedisCommandEnvelope(string? command, string[]? subCommands, RedisKey[]? keys, TimeSpan? timeout, bool simpleCommand, params object?[] items)
 {
     public string? Command { get; } = command;
 
@@ -17,7 +17,7 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public RedisKey[]? Keys { get; } = keys;
 
-    public object[]? Items { get; } = items;
+    public object?[] Items { get; } = items;
 
     public TimeSpan Timeout { get; } = timeout ?? TimeSpan.FromSeconds(5);
 
@@ -107,6 +107,9 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public static RedisCommandEnvelope CreateRoleCommand() =>
         new(Role, null, null, null, simpleCommand: true);
+    
+    public static RedisCommandEnvelope CreateClusterShardsCommand() =>
+        new(Cluster, ClusterSubcommands.Shards, null, TimeSpan.FromMilliseconds(5));
 
     public static RedisCommandEnvelope CreatePublishCommand(string channel, string message) =>
         new(PubSubCommands.Publish, channel, null, null, message);
@@ -122,4 +125,7 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public static RedisCommandEnvelope CreatePatternUnsubscribeCommand(string[] channelPatterns) =>
         new(PubSubCommands.PatternUnsubscribe, channelPatterns, null, null, false);    
+    
+    public static RedisCommandEnvelope CreatePingCommand(string? message) =>
+        new(Ping,null, null, null, true, message);
 }
