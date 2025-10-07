@@ -88,10 +88,13 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         return false;
     }
 
-    public Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse,
-        CancellationToken cancellationToken = default)
+    public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        // I guess this makes sense. 
+        foreach (var connection in this)
+        {
+            await connection.SendCommandWithMultipleResponses(command, onResponse, cancellationToken);
+        }
     }
 
     public Result Connect()
@@ -157,22 +160,23 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
     public Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default) =>
         Task.FromResult(Result<ClusterSlots>.Error("NO-OP for now..."));
-    
+
     public Result<PingResult> Ping(string? message = null) => PingAsync(message).GetAwaiter().GetResult();
 
-    public async Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default)
+    public async Task<Result<PingResult>> PingAsync(string? message = null,
+        CancellationToken cancellationToken = default)
     {
         // Since we're sending the same ping message to all connections, we can expect a single identical response
         // from all nodes, hence why we're only storing a single result here. 
         var responseMessage = default(string);
-        
+
         var okResponses = new List<string>();
         var errorResponses = new List<string>();
 
         foreach (var connection in this)
         {
             var endPoint = connection.EndPoint;
-            
+
             var pingResult = await connection.PingAsync(message, cancellationToken);
 
             if (pingResult is Error<PingResult> err)
@@ -187,7 +191,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
                 {
                     responseMessage = pingResponse.Response;
                 }
-                
+
                 okResponses.Add($"[OK] {endPoint.Address}:{endPoint.Port}: {pingResponse}");
             }
         }
@@ -225,7 +229,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
                 if (slotsResult is Ok<ClusterSlots> slotsOk && slotsOk.Value.ContainsSlot(key.Slot))
                 {
                     Trace.WriteLine($"Key: {key.Name}, Slot: {key.Slot}, Connection: {connection.EndPoint}");
-                    
+
                     return Result<IRedisConnection>.Ok(connection);
                 }
             }
@@ -250,7 +254,8 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
             return Result<IRedisConnection>.Error("Multi-key operations against different slots isn't supported yet.");
         }
 
-        Trace.WriteLine($"Getting connection for `{command.Command}` for key `{command.Keys.First().Name}` @ slot: {command.Keys.First().Slot}.");
+        Trace.WriteLine(
+            $"Getting connection for `{command.Command}` for key `{command.Keys.First().Name}` @ slot: {command.Keys.First().Slot}.");
 
         // Everything is in the same slot so just go get a node. 
         return GetNodeForKey(command.Keys.First());
