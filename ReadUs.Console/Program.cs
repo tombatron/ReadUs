@@ -9,6 +9,6 @@ internal class Program
     {
         Trace.Listeners.Add(new ConsoleTraceListener());
         
-        await BasicScenario.Run();
+        await PubSubScenario.Run();
     }
 }
