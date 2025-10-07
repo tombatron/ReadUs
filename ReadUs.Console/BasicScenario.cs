@@ -10,7 +10,7 @@ public static class BasicScenario
 {
     public static async Task Run()
     {
-        var connectionString = new Uri("redis://localhost:6379?connectionsPerNode=5");
+        var connectionString = new Uri("redis://localhost:6379");
 
         using var pool = RedisConnectionPool.Create(connectionString);
 
