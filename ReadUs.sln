@@ -17,6 +17,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReadUs.Commands", "ReadUs.C
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReadUs.Commands.Tests", "ReadUs.Commands.Tests\ReadUs.Commands.Tests.csproj", "{6011E3BB-4C10-4B81-848C-6DAB2A16C7F0}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub", "GitHub", "{4BF2FBE3-8AE2-446E-9FA3-ACE695EE7C78}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
