@@ -5,8 +5,10 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using ReadUs.Exceptions;
 using ReadUs.ResultModels;
 using static ReadUs.Extras.AsyncTools;
+using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
 
@@ -117,6 +119,11 @@ public class RedisConnectionPool(
     public static IRedisConnectionPool Create(Uri connectionString)
     {
         RedisConnectionConfiguration[] configuration = [connectionString];
+
+        if (!IsSocketAvailable(configuration[0].ServerAddress, configuration[0].ServerPort))
+        {
+            throw new RedisConnectionException($"Could not connect to this redis server: {connectionString}");
+        }
         
         Func<RedisConnectionConfiguration[], IRedisConnection> connectionFactory;
 
