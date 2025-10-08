@@ -102,6 +102,7 @@ public partial class RedisConnection
 
             if (_channel.Reader.TryRead(out var response))
             {
+                // I wonder if it would be helpful to pass the connection info as well?
                 onResponse(response);
             }
         }
