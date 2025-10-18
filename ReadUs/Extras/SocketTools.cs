@@ -22,7 +22,6 @@ public static class SocketTools
         
         return IsSocketAvailable(ip, port, timeoutMilliseconds);
     }
-        
     
     public static bool IsSocketAvailable(IPAddress address, int port, int timeoutMilliseconds = 50)
     {
