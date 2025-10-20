@@ -1,14 +1,6 @@
-﻿using System;
-using System.Diagnostics;
-using System.Linq;
+﻿using System.Diagnostics;
 using System.Net.Sockets;
-using System.Threading;
-using System.Threading.Tasks;
-using ReadUs.Parser;
-using ReadUs.ResultModels;
-using SlotRange = ReadUs.ResultModels.ClusterSlots.SlotRange;
-
-using static ReadUs.Parser.Parser;
+using ReadUs.Errors;
 
 namespace ReadUs;
 
@@ -54,8 +46,7 @@ public partial class RedisConnection
         }
     }
 
-    public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command,
-        CancellationToken cancellationToken = default)
+    public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
         using var timeoutCancellationSource = new CancellationTokenSource();
         timeoutCancellationSource.CancelAfter(_commandTimeout);
@@ -78,8 +69,7 @@ public partial class RedisConnection
         }
         catch (OperationCanceledException ex) when (timeoutCancellationSource.IsCancellationRequested)
         {
-            // TODO: Assuming this works we'll make it a little more fancy. 
-            return Result<byte[]>.Error($"[TIMEOUT]: Redis command took longer than: {_commandTimeout}");
+            return CommandTimeout.Create<byte[]>($"Redis command took longer than: {_commandTimeout}");
         }
         catch (SocketException sockEx)
         {
@@ -110,108 +100,4 @@ public partial class RedisConnection
 
     private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
         await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
-
-    public async Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default)
-    {
-        if (IsConnected)
-        {
-            var result = await SendCommandAsync(RedisCommandEnvelope.CreateRoleCommand(), cancellationToken);
-
-            if (result is Ok<byte[]> ok)
-            {
-                var parseResult = Parse(ok.Value);
-                
-                if (parseResult is Error<ParseResult> parseErr)
-                {
-                    return Result<RoleResult>.Error(parseErr.Message);
-                }
-
-                return Result<RoleResult>.Ok((RoleResult)parseResult.Unwrap());
-            }
-
-            if (result is Error<byte[]> err)
-            {
-                return Result<RoleResult>.Error(err.Message);
-            }
-        }
-
-        return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
-    }
-
-    private static readonly Result<ClusterSlots> DefaultSlots = Result<ClusterSlots>.Ok(new ClusterSlots(new SlotRange(0, 16_384)));
-    private Result<ClusterSlots>? _currentClusterSlots;
-    public async Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default)
-    {
-        if (IsConnected)
-        {
-            if (_currentClusterSlots is null)
-            {
-                var result =
-                    await SendCommandAsync(RedisCommandEnvelope.CreateClusterShardsCommand(), cancellationToken);
-
-                if (result is Error<byte[]> err)
-                {
-                    return Result<ClusterSlots>.Error("Error getting slots for connection.", err);
-                }
-
-                var commandResult = result.Unwrap();
-                var parsedResult = Parse(commandResult);
-
-                if (parsedResult is Error<ParseResult> parseErr)
-                {
-                    return Result<ClusterSlots>.Error("Error parsing the command result.", parseErr);
-                }
-
-                var okResult = parsedResult.Unwrap();
-
-                if (IsNotCluster(okResult))
-                {
-                    return DefaultSlots;
-                }
-
-                var clusterShards = new ClusterShardsResult(okResult);
-                var currentShard = clusterShards.First(x =>
-                    x.Nodes!.Any(y => y.Port == EndPoint.Port && y.Ip.Equals(EndPoint.Address)));
-                
-                _currentClusterSlots = Result<ClusterSlots>.Ok(new(currentShard!.Slots!));
-            }
-
-            return _currentClusterSlots;
-        }
-
-        return Result<ClusterSlots>.Error("Socket isn't ready, can't execute command.");
-    }
-
-    public async Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default)
-    {
-        if (IsConnected)
-        {
-            var result = await SendCommandAsync(RedisCommandEnvelope.CreatePingCommand(message), cancellationToken);
-
-            if (result is Error<byte[]> err)
-            {
-                return Result<PingResult>.Error("Error executing ping command.", err);
-            }
-
-            var commandResult = result.Unwrap();
-            var parsedResult = Parse(commandResult);
-
-            if (parsedResult is Error<ParseResult> parseErr)
-            {
-                return Result<PingResult>.Error("There was an error parsing the ping command result.", parseErr);
-            }
-            
-            var okResult = parsedResult.Unwrap();
-            var pingResult = new PingResult(new string(okResult.Value));
-            
-            return Result<PingResult>.Ok(pingResult);
-        }
-        
-        return Result<PingResult>.Error("Socket isn't ready, can't execute the `PING` command.");
-    }
-
-    private const string NotAClusterError = "ERR This instance has cluster support disabled";
-    private static bool IsNotCluster(ParseResult result) => (
-         result.Type == ResultType.Error && 
-         string.Compare(new string(result.Value), NotAClusterError, StringComparison.InvariantCultureIgnoreCase) == 0);
 }

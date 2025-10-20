@@ -31,7 +31,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\ReadUs\ReadUs.csproj" />
-        <ProjectReference Include="..\ReadUs.Commands\ReadUs.Commands.csproj" />
     </ItemGroup>
 
 </Project>

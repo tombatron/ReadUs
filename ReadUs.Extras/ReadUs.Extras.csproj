@@ -6,8 +6,4 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
-    <ItemGroup>
-      <PackageReference Include="Tombatron.Results.All" Version="3.1.0" />
-    </ItemGroup>
-
 </Project>

@@ -1,7 +1,6 @@
-using System;
 using ReadUs.Parser;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 internal static class Roles
 {

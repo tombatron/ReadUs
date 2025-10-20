@@ -1,9 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using ReadUs.ResultModels;
-
-namespace ReadUs;
+﻿namespace ReadUs;
 
 public interface IRedisConnection : IDisposable
 {
@@ -15,18 +10,6 @@ public interface IRedisConnection : IDisposable
     Result Connect();
 
     Task<Result> ConnectAsync(CancellationToken cancellationToken = default);
-
-    Result<RoleResult> Role();
-    
-    Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default);
-    
-    Result<ClusterSlots> Slots();
-    
-    Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default);
-
-    Result<PingResult> Ping(string? message = null);
-    
-    Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default);
 
     Result<byte[]> SendCommand(RedisCommandEnvelope command);
 

@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using ReadUs.ResultModels;
+using ReadUs.Commands.ResultModels;
+using ReadUs.Errors;
 using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
@@ -13,8 +9,6 @@ namespace ReadUs;
 // redis cluster nodes. 
 public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 {
-    private readonly Random _rand = new();
-
     public RedisClusterConnection(RedisConnectionConfiguration[] configurations)
     {
         var connectionsPerNode = configurations.First().ConnectionsPerNode;
@@ -31,8 +25,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         }
     }
 
-    // TODO: This is a bit of a hack. We need to figure out a better way to handle this.
-    public string ConnectionName => "Redis Cluster Connection";
+    public string ConnectionName => $"Redis Cluster Connection: {string.Join(";", this.Select(x => x.ConnectionName))}";
     public bool IsConnected => this.All(x => x.IsConnected);
     public bool IsFaulted { get; private set; }
 
@@ -76,19 +69,11 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         return response;
     }
 
-    private bool IsResponseFaulted(Result<byte[]> response)
-    {
-        // TODO: I'm going to make this more robust, but right now I'm just trying to see if I can get it to work. 
-        if (response is Error<byte[]> error &&
-            (error.Message.StartsWith("[TIMEOUT]") || error.Message.StartsWith("[SOCKET_EXCEPTION]")))
-        {
-            return true;
-        }
+    private static bool IsResponseFaulted(Result<byte[]> response) =>
+        response is Error<byte[]> { Details: CommandTimeout or SocketError };
 
-        return false;
-    }
-
-    public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
+    public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse,
+        CancellationToken cancellationToken = default)
     {
         // I guess this makes sense. 
         foreach (var connection in this)
@@ -132,7 +117,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
         foreach (var connection in this)
         {
-            var slotsResult = connection.Slots();
+            var slotsResult = default(Result<ClusterSlots>);//connection.Slots();
             var ownedSlots = slotsResult.UnwrapOr(ClusterSlots.Default).OwnedSlots;
 
             slots.UnionWith(ownedSlots);
@@ -163,8 +148,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
     public Result<PingResult> Ping(string? message = null) => PingAsync(message).GetAwaiter().GetResult();
 
-    public async Task<Result<PingResult>> PingAsync(string? message = null,
-        CancellationToken cancellationToken = default)
+    public async Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default)
     {
         // Since we're sending the same ping message to all connections, we can expect a single identical response
         // from all nodes, hence why we're only storing a single result here. 
@@ -210,7 +194,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         // connection, we need to be super deliberate about this. 
         foreach (var connection in this)
         {
-            var roleResult = connection.Role();
+            var roleResult = default(Result<RoleResult>);//connection.Role();
 
             if (roleResult is Error<RoleResult> roleError)
             {
@@ -219,7 +203,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
             if (roleResult is Ok<RoleResult> { Value: PrimaryRoleResult } roleOk)
             {
-                var slotsResult = connection.Slots();
+                var slotsResult = default(Result<ClusterSlots>);//connection.Slots();
 
                 if (slotsResult is Error<ClusterSlots> slotsError)
                 {

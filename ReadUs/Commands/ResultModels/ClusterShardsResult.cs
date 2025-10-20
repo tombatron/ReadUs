@@ -1,8 +1,7 @@
 using System.Collections;
-using System.Collections.Generic;
 using ReadUs.Parser;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 public sealed class ClusterShardsResult(ParseResult result) : IReadOnlyCollection<ClusterShard>
 {

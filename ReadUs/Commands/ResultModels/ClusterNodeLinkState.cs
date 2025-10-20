@@ -1,4 +1,4 @@
-﻿namespace ReadUs.ResultModels;
+﻿namespace ReadUs.Commands.ResultModels;
 
 public abstract class ClusterNodeLinkState
 {

@@ -1,8 +1,6 @@
-﻿using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
+﻿using System.Collections.ObjectModel;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 public class ClusterNodeFlags : ReadOnlyCollection<string>
 {
@@ -20,10 +18,7 @@ public class ClusterNodeFlags : ReadOnlyCollection<string>
         return new ClusterNodeFlags(flagEntries);
     }
 
-    public static implicit operator ClusterNodeFlags(char[] rawValue)
-    {
-        return FromCharArray(rawValue);
-    }
+    public static implicit operator ClusterNodeFlags(char[] rawValue) => FromCharArray(rawValue);
 
     public static implicit operator ClusterNodeRole(ClusterNodeFlags flags)
     {

@@ -1,8 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 public class ClusterSlots(params ClusterSlots.SlotRange[] slots)
 {

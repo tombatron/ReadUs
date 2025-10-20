@@ -1,10 +1,9 @@
-using System;
 using System.Security.Cryptography;
 using System.Text;
 
 namespace ReadUs.Extras;
 
-internal static class HashTools
+public static class HashTools
 {
     public static string CreateMd5Hash(string payload)
     {

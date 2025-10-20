@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using ReadUs.Parser;
+﻿using ReadUs.Parser;
+using Tombatron.Results;
 using static ReadUs.Parser.Parser;
 using static ReadUs.Extras.HashTools;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 public class ClusterNodesResult : List<ClusterNodesResultItem>
 {

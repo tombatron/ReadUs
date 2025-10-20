@@ -1,6 +1,9 @@
+using System;
+using System.Threading.Tasks;
+using ReadUs.Commands;
 using Xunit;
 
-namespace ReadUs.Commands.Tests;
+namespace ReadUs.Tests.Commands;
 
 [Collection(nameof(RedisSingleInstanceFixtureCollection))]
 public class ListCommandTests(RedisSingleInstanceFixture fixture) : IDisposable

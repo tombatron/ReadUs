@@ -1,7 +1,7 @@
 using ReadUs.Parser;
-using SlotRange = ReadUs.ResultModels.ClusterSlots.SlotRange;
+using SlotRange = ReadUs.Commands.ResultModels.ClusterSlots.SlotRange;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 public class ClusterShard
 {

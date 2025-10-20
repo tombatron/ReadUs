@@ -1,6 +1,6 @@
 using ReadUs.Parser;
 
-namespace ReadUs.ResultModels;
+namespace ReadUs.Commands.ResultModels;
 
 public sealed class PrimaryRoleResult : RoleResult
 {
