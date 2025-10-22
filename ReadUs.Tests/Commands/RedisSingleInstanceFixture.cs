@@ -5,7 +5,7 @@ using JetBrains.Annotations;
 using Testcontainers.Redis;
 using Xunit;
 
-namespace ReadUs.Commands.Tests;
+namespace ReadUs.Tests.Commands;
 
 [UsedImplicitly]
 public class RedisSingleInstanceFixture : IAsyncLifetime

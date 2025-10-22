@@ -1,5 +1,6 @@
 using System.Linq;
 using System.Threading.Tasks;
+using ReadUs.Commands;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -15,7 +16,7 @@ public class RedisConnectionTests(RedisSingleInstanceFixture redisSingleInstance
 
         await connection.ConnectAsync();
 
-        var slots = (await connection.SlotsAsync()).Unwrap();
+        var slots = (await connection.Slots()).Unwrap();
         
         Assert.Equal(0, slots.SlotRanges.First().Begin);
         Assert.Equal(16_384, slots.SlotRanges.First().End);

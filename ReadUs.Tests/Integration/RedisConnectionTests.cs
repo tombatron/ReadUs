@@ -1,7 +1,8 @@
 using System;
 using System.Threading.Tasks;
 using JetBrains.Annotations;
-using ReadUs.ResultModels;
+using ReadUs.Commands;
+using ReadUs.Commands.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.Integration;
@@ -19,7 +20,7 @@ public sealed class RedisConnectionTests
 
             connection.Connect();
 
-            var roleResult = connection.Role().Unwrap();
+            var roleResult = connection.RoleSync().Unwrap();
 
             Assert.IsType<PrimaryRoleResult>(roleResult);
         }
@@ -31,7 +32,7 @@ public sealed class RedisConnectionTests
 
             await connection.ConnectAsync();
 
-            var roleResult = (await connection.RoleAsync()).Unwrap();
+            var roleResult = (await connection.Role()).Unwrap();
 
             Assert.IsType<PrimaryRoleResult>(roleResult);
         }

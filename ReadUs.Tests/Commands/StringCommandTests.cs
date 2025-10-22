@@ -1,9 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using ReadUs.Commands;
 using Xunit;
 
-namespace ReadUs.Commands.Tests;
+namespace ReadUs.Tests.Commands;
 
 [Collection(nameof(RedisSingleInstanceFixtureCollection))]
 public class StringCommandTests(RedisSingleInstanceFixture fixture) : IDisposable

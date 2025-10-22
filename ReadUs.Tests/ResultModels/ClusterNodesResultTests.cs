@@ -1,6 +1,6 @@
 ﻿using System.Text;
 using JetBrains.Annotations;
-using ReadUs.ResultModels;
+using ReadUs.Commands.ResultModels;
 using Xunit;
 
 namespace ReadUs.Tests.ResultModels;

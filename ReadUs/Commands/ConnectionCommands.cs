@@ -34,6 +34,8 @@ public static partial class Commands
         return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
     }
 
+    public static Result<RoleResult> RoleSync(this RedisConnection @this) => @this.Role().GetAwaiter().GetResult();
+
     private static readonly Result<ClusterSlots> DefaultSlots = Result<ClusterSlots>.Ok(new ClusterSlots(new SlotRange(0, 16_384)));
 
     public static async Task<Result<ClusterSlots>> Slots(this RedisConnection @this, CancellationToken cancellationToken = default)

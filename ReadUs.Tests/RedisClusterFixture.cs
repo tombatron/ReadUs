@@ -5,7 +5,6 @@ using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Configurations;
 using DotNet.Testcontainers.Networks;
 using JetBrains.Annotations;
-using ReadUs.ResultModels;
 using Testcontainers.Redis;
 using Xunit;
 using static ReadUs.RedisConnectionPool;

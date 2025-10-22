@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
-using ReadUs.ResultModels;
+using ReadUs.Commands.ResultModels;
 using Xunit;
-using static ReadUs.ResultModels.ClusterSlots;
+using static ReadUs.Commands.ResultModels.ClusterSlots;
 
 namespace ReadUs.Tests.ResultModels;
 

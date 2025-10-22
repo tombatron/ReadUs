@@ -78,8 +78,7 @@ public partial class RedisConnection
 
         return Result<byte[]>.Error("Failed to read response.");
     }
-
-    // Initial stab at implementing pub/sub...
+    
     public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse,
         CancellationToken cancellationToken = default)
     {

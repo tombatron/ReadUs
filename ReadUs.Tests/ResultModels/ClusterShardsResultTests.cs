@@ -1,7 +1,7 @@
 using System.Linq;
 using System.Text;
 using JetBrains.Annotations;
-using ReadUs.ResultModels;
+using ReadUs.Commands.ResultModels;
 using Xunit;
 using static ReadUs.Parser.Parser;
 

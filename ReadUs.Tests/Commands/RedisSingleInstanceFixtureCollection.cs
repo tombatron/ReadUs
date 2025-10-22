@@ -1,6 +1,6 @@
 using Xunit;
 
-namespace ReadUs.Commands.Tests;
+namespace ReadUs.Tests.Commands;
 
 [CollectionDefinition(nameof(RedisSingleInstanceFixtureCollection))]
 public class RedisSingleInstanceFixtureCollection : ICollectionFixture<RedisSingleInstanceFixture>

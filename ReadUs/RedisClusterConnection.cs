@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using ReadUs.Commands;
 using ReadUs.Commands.ResultModels;
 using ReadUs.Errors;
 using static ReadUs.Extras.SocketTools;
@@ -31,7 +32,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
     public Result<byte[]> SendCommand(RedisCommandEnvelope command)
     {
-        var nodeResult = GetNodeForKeys(command);
+        var nodeResult = GetNodeForKeys(command).GetAwaiter().GetResult();
 
         if (nodeResult is Error<IRedisConnection> nodeError)
         {
@@ -49,10 +50,9 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         return Result<byte[]>.Ok(response.Unwrap());
     }
 
-    public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command,
-        CancellationToken cancellationToken = default)
+    public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
-        var nodeResult = GetNodeForKeys(command);
+        var nodeResult = await GetNodeForKeys(command, cancellationToken);
 
         if (nodeResult is Error<IRedisConnection> nodeError)
         {
@@ -103,7 +103,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
             Trace.WriteLine($"{connection.EndPoint.Address}:{connection.EndPoint.Port} connected.");
         }
 
-        if (CheckHealth())
+        if (await CheckHealth(cancellationToken))
         {
             return Result.Ok;
         }
@@ -111,13 +111,13 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         return Result.Error("Connection failed health check.");
     }
 
-    private bool CheckHealth()
+    private async Task<bool> CheckHealth(CancellationToken cancellationToken = default)
     {
         var slots = new HashSet<int>();
 
         foreach (var connection in this)
         {
-            var slotsResult = default(Result<ClusterSlots>);//connection.Slots();
+            var slotsResult = await connection.Slots(cancellationToken);
             var ownedSlots = slotsResult.UnwrapOr(ClusterSlots.Default).OwnedSlots;
 
             slots.UnionWith(ownedSlots);
@@ -134,76 +134,22 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         }
     }
 
-    // TODO: Let's find a way to get rid of these... This will require a redesign of some sort. 
-
-    public Result<RoleResult> Role() => Result<RoleResult>.Error("This command doesn't really make sense here...");
-
-    public Task<Result<RoleResult>> RoleAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(Result<RoleResult>.Error("This command doesn't really make sense here..."));
-
-    public Result<ClusterSlots> Slots() => Result<ClusterSlots>.Error("NO-OP for now...");
-
-    public Task<Result<ClusterSlots>> SlotsAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(Result<ClusterSlots>.Error("NO-OP for now..."));
-
-    public Result<PingResult> Ping(string? message = null) => PingAsync(message).GetAwaiter().GetResult();
-
-    public async Task<Result<PingResult>> PingAsync(string? message = null, CancellationToken cancellationToken = default)
-    {
-        // Since we're sending the same ping message to all connections, we can expect a single identical response
-        // from all nodes, hence why we're only storing a single result here. 
-        var responseMessage = default(string);
-
-        var okResponses = new List<string>();
-        var errorResponses = new List<string>();
-
-        foreach (var connection in this)
-        {
-            var endPoint = connection.EndPoint;
-
-            var pingResult = await connection.PingAsync(message, cancellationToken);
-
-            if (pingResult is Error<PingResult> err)
-            {
-                errorResponses.Add($"[Error] {endPoint.Address}:{endPoint.Port} error: {err.Message}");
-            }
-            else
-            {
-                var pingResponse = pingResult.Unwrap();
-
-                if (responseMessage is null)
-                {
-                    responseMessage = pingResponse.Response;
-                }
-
-                okResponses.Add($"[OK] {endPoint.Address}:{endPoint.Port}: {pingResponse}");
-            }
-        }
-
-        if (errorResponses.Count == 0)
-        {
-            return Result<PingResult>.Ok(new(responseMessage!));
-        }
-
-        return Result<PingResult>.Error($"PING FAILED:\n{string.Join("\n", okResponses.Union(errorResponses))}");
-    }
-
-    private Result<IRedisConnection> GetNodeForKey(RedisKey key)
+    private async Task<Result<IRedisConnection>> GetNodeForKey(RedisKey key, CancellationToken cancellationToken = default)
     {
         // We're not using a linq statement here because we're now executing commands against a (supposedly) open
         // connection, we need to be super deliberate about this. 
         foreach (var connection in this)
         {
-            var roleResult = default(Result<RoleResult>);//connection.Role();
+            var roleResult = await connection.Role(cancellationToken);
 
             if (roleResult is Error<RoleResult> roleError)
             {
                 return Result<IRedisConnection>.Error(roleError.Message);
             }
 
-            if (roleResult is Ok<RoleResult> { Value: PrimaryRoleResult } roleOk)
+            if (roleResult is Ok<RoleResult> { Value: PrimaryRoleResult })
             {
-                var slotsResult = default(Result<ClusterSlots>);//connection.Slots();
+                var slotsResult = await connection.Slots(cancellationToken);
 
                 if (slotsResult is Error<ClusterSlots> slotsError)
                 {
@@ -222,7 +168,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
         return Result<IRedisConnection>.Error("We couldn't find a connection for your command.");
     }
 
-    private Result<IRedisConnection> GetNodeForKeys(RedisCommandEnvelope command)
+    private async Task<Result<IRedisConnection>> GetNodeForKeys(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
         // If the command being executed doesn't have any keys, then we don't really 
         // have anything to decide which node to execute the command against. So for now,
@@ -238,10 +184,9 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
             return Result<IRedisConnection>.Error("Multi-key operations against different slots isn't supported yet.");
         }
 
-        Trace.WriteLine(
-            $"Getting connection for `{command.Command}` for key `{command.Keys.First().Name}` @ slot: {command.Keys.First().Slot}.");
+        Trace.WriteLine($"Getting connection for `{command.Command}` for key `{command.Keys.First().Name}` @ slot: {command.Keys.First().Slot}.");
 
         // Everything is in the same slot so just go get a node. 
-        return GetNodeForKey(command.Keys.First());
+        return await GetNodeForKey(command.Keys.First(), cancellationToken);
     }
 }
