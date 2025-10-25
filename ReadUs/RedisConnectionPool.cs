@@ -1,5 +1,6 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
+using ReadUs.Commands;
 using ReadUs.Commands.ResultModels;
 using ReadUs.Exceptions;
 using static ReadUs.Extras.AsyncTools;
@@ -146,23 +147,18 @@ public class RedisConnectionPool(
     {
         nodeConfigurations = null;
         
-        // First, let's create a connection to whatever server that was provided.
         using var probingConnection = new RedisConnection(configuration);
-
-        // Now let's... connect.
+        
         probingConnection.Connect();
 
-        // Next, execute the `cluster nodes` command to get an inventory of the cluster.
-        var rawResult = probingConnection.SendCommand(RedisCommandEnvelope.CreateClusterNodesCommand());
+        var nodesResult = probingConnection.Nodes().GetAwaiter().GetResult();
 
-        if (rawResult is Error<byte[]>)
+        if (nodesResult is Error<ClusterNodesResult>)
         {
             return false;
         }
-
-        // Handle the result of the `cluster nodes` command by populating a data structure with the 
-        // addresses, role, and slots assigned to each node. 
-        var nodes = new ClusterNodesResult(rawResult.Unwrap());
+        
+        var nodes = nodesResult.Unwrap();
 
         if (nodes.HasError)
         {

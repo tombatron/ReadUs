@@ -1,4 +1,5 @@
-﻿using ReadUs.Parser;
+﻿using ReadUs.Commands;
+using ReadUs.Parser;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
@@ -9,12 +10,12 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
     private Task _subscriptionTask = Task.CompletedTask;
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    public RedisSubscription(RedisConnectionPool pool, Action<string, string> messageHandler) :
+    private RedisSubscription(RedisConnectionPool pool, Action<string, string> messageHandler) :
         this(pool, (_, channel, message) => messageHandler(channel, message))
     {
     }
 
-    internal async Task Initialize(RedisCommandEnvelope command, CancellationToken cancellationToken)
+    private async Task Initialize(RedisCommandEnvelope command, CancellationToken cancellationToken)
     {
         var cancelToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellationTokenSource.Token).Token;
 
@@ -56,6 +57,36 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
                 }
             }, cancelToken),
             cancelToken);
+    }
+
+    public async Task Unsubscribe(string channel, CancellationToken cancellationToken = default) =>
+        await Unsubscribe([channel], cancellationToken).ConfigureAwait(false);
+
+    public async Task Unsubscribe(string[] channels, CancellationToken cancellationToken = default) =>
+        await _connection!.Unsubscribe(channels, cancellationToken).ConfigureAwait(false);
+    
+    public async Task UnsubscribeWithPattern(string pattern, CancellationToken cancellationToken = default) =>
+        await UnsubscribeWithPattern([pattern], cancellationToken).ConfigureAwait(false);
+    
+    public async Task UnsubscribeWithPattern(string[] patterns, CancellationToken cancellationToken = default) =>
+        await _connection!.UnsubscribeWithPattern(patterns, cancellationToken).ConfigureAwait(false);
+    
+    internal static async Task<RedisSubscription> Initialize(RedisConnectionPool pool, string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        var subscription = new RedisSubscription(pool, messageHandler);
+
+        await subscription.Initialize(Commands.Commands.CreateSubscribeCommand(channels), cancellationToken).ConfigureAwait(false);
+
+        return subscription;
+    }
+
+    internal static async Task<RedisSubscription> InitializeWithPattern(RedisConnectionPool pool, string[] channelPatterns, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default)
+    {
+        var subscription = new RedisSubscription(pool, messageHandler);
+
+        await subscription.Initialize(Commands.Commands.CreatePatternSubscribeCommand(channelPatterns), cancellationToken).ConfigureAwait(false);
+
+        return subscription;
     }
     
     public void Dispose()

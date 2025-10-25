@@ -124,4 +124,23 @@ public static partial class Commands
 
         return Result.Error("Socket isn't ready, can't execute the `PING` command.");
     }
+
+    public static async Task<Result<ClusterNodesResult>> Nodes(this IRedisConnection @this, CancellationToken cancellationToken = default)
+    {
+        if (@this.IsConnected)
+        {
+            var result = await @this.SendCommandAsync(CreateClusterNodesCommand(), cancellationToken).ConfigureAwait(false);
+
+            if (result is Error<byte[]> err)
+            {
+                return Result<ClusterNodesResult>.Error("Error executing cluster nodes command.", err);
+            }
+            
+            var nodes = new ClusterNodesResult(result.Unwrap());
+            
+            return Result<ClusterNodesResult>.Ok(nodes);
+        }
+
+        return Result<ClusterNodesResult>.Error("Socket isn't ready, can't execute the `CLUSTER NODES` command.");
+    }
 }

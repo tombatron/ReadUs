@@ -39,16 +39,8 @@ public class RedisDatabase(RedisConnectionPool pool, int databaseId = 0) : IRedi
     /// <param name="messageHandler">`T1` will be the channel the message came in from, `T2` will be the content of the message.</param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreateSubscribeCommand(channels);
-
-        var subscription = new RedisSubscription(pool, messageHandler);
-
-        await subscription.Initialize(command, cancellationToken);
-
-        return subscription;
-    }
+    public async Task<RedisSubscription> Subscribe(string[] channels, Action<string, string> messageHandler, CancellationToken cancellationToken = default) =>
+        await RedisSubscription.Initialize(pool, channels, messageHandler, cancellationToken);
 
     /// <summary>
     /// Subscribe to a series of Redis Pub/Sub channels using a pattern instead of a specific channel name.
@@ -68,14 +60,6 @@ public class RedisDatabase(RedisConnectionPool pool, int databaseId = 0) : IRedi
     /// <param name="messageHandler">`T1` will be the channel pattern the message came in from, `T2` will be the specific channel, and `T3` will be the message.</param>
     /// <param name="cancellationToken"></param>
     /// <returns></returns>
-    public async Task<RedisSubscription> SubscribeWithPattern(string[] channelPatterns, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default)
-    {
-        var command = RedisCommandEnvelope.CreatePatternSubscribeCommand(channelPatterns);
-
-        var subscription = new RedisSubscription(pool, messageHandler);
-
-        await subscription.Initialize(command, cancellationToken);
-
-        return subscription;
-    }
+    public async Task<RedisSubscription> SubscribeWithPattern(string[] channelPatterns, Action<string, string, string> messageHandler, CancellationToken cancellationToken = default) =>
+        await RedisSubscription.InitializeWithPattern(pool, channelPatterns, messageHandler, cancellationToken);
 }

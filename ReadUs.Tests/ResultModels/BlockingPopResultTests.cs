@@ -1,5 +1,5 @@
 using JetBrains.Annotations;
-using ReadUs.Commands;
+using ReadUs.Commands.ResultModels;
 using ReadUs.Parser;
 using Xunit;
 
