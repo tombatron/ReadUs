@@ -7,11 +7,11 @@ namespace ReadUs.Commands;
 
 public static partial class Commands
 {
-    public static async Task<Result<RoleResult>> Role(this RedisConnection @this, CancellationToken cancellationToken = default)
+    public static async Task<Result<RoleResult>> Role(this IRedisConnection @this, CancellationToken cancellationToken = default)
     {
         if (@this.IsConnected)
         {
-            var result = await @this.SendCommandAsync(RedisCommandEnvelope.CreateRoleCommand(), cancellationToken);
+            var result = await @this.SendCommandAsync(CreateRoleCommand(), cancellationToken);
 
             if (result is Ok<byte[]> ok)
             {
@@ -34,7 +34,7 @@ public static partial class Commands
         return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
     }
 
-    public static Result<RoleResult> RoleSync(this RedisConnection @this) => @this.Role().GetAwaiter().GetResult();
+    public static Result<RoleResult> RoleSync(this IRedisConnection @this) => @this.Role().GetAwaiter().GetResult();
 
     private static readonly Result<ClusterSlots> DefaultSlots = Result<ClusterSlots>.Ok(new ClusterSlots(new SlotRange(0, 16_384)));
 
@@ -42,7 +42,7 @@ public static partial class Commands
     {
         if (@this.IsConnected)
         {
-            var result = await @this.SendCommandAsync(RedisCommandEnvelope.CreateClusterShardsCommand(), cancellationToken);
+            var result = await @this.SendCommandAsync(CreateClusterShardsCommand(), cancellationToken);
 
             if (result is Error<byte[]> err)
             {
@@ -78,11 +78,11 @@ public static partial class Commands
         result.Type == ResultType.Error &&
         string.Compare(new string(result.Value), NotAClusterError, StringComparison.InvariantCultureIgnoreCase) == 0);
     
-    public static async Task<Result<PingResult>> Ping(this RedisConnection @this, string? message = null, CancellationToken cancellationToken = default)
+    public static async Task<Result<PingResult>> Ping(this IRedisConnection @this, string? message = null, CancellationToken cancellationToken = default)
     {
         if (@this.IsConnected)
         {
-            var result = await @this.SendCommandAsync(RedisCommandEnvelope.CreatePingCommand(message), cancellationToken);
+            var result = await @this.SendCommandAsync(CreatePingCommand(message), cancellationToken);
 
             if (result is Error<byte[]> err)
             {
@@ -104,5 +104,24 @@ public static partial class Commands
         }
         
         return Result<PingResult>.Error("Socket isn't ready, can't execute the `PING` command.");
+    }
+
+    public static async Task<Result> Select(this IRedisConnection @this, int databaseId, CancellationToken cancellationToken = default)
+    {
+        if (@this.IsConnected)
+        {
+            var result = await @this.SendCommandAsync(CreateSelectCommand(databaseId), cancellationToken);
+
+            if (result is Error<byte[]> err)
+            {
+                return Result.Error("Error executing select command.", err);
+            }
+            
+            result.Unwrap();
+            
+            return Result.Ok;
+        }
+
+        return Result.Error("Socket isn't ready, can't execute the `PING` command.");
     }
 }

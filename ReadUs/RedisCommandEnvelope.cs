@@ -1,10 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.ParameterUtilities;
-using static ReadUs.RedisCommandNames;
 using static ReadUs.StandardValues;
 
 namespace ReadUs;
@@ -86,46 +82,4 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
     public static implicit operator byte[](RedisCommandEnvelope envelope) => envelope.ToByteArray();
 
     public static implicit operator ReadOnlyMemory<byte>(RedisCommandEnvelope envelope) => envelope.ToByteArray();
-
-    public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
-        new(Client, ClientSubcommands.SetName, null, TimeSpan.FromSeconds(5), clientConnectionName);
-
-    public static RedisCommandEnvelope CreateClusterNodesCommand() =>
-        new(Cluster, ClusterSubcommands.Nodes, null, TimeSpan.FromMilliseconds(5));
-
-    public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
-        new(SetMultiple, null, keysAndValues.Keys(), null, keysAndValues);
-    
-    public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
-        new(LeftPush, null, [key], null, key, elements);
-
-    public static RedisCommandEnvelope CreateListLengthCommand(RedisKey key) =>
-        new(ListLength, null, [key], null, key);
-
-    public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
-        new(RightPush, null, [key], null, key, elements);
-
-    public static RedisCommandEnvelope CreateRoleCommand() =>
-        new(Role, null, null, null, simpleCommand: true);
-    
-    public static RedisCommandEnvelope CreateClusterShardsCommand() =>
-        new(Cluster, ClusterSubcommands.Shards, null, TimeSpan.FromMilliseconds(5));
-
-    public static RedisCommandEnvelope CreatePublishCommand(string channel, string message) =>
-        new(PubSubCommands.Publish, channel, null, null, message);
-
-    public static RedisCommandEnvelope CreateSubscribeCommand(string[] channels) =>
-        new(PubSubCommands.Subscribe, channels, null, null, false);
-
-    public static RedisCommandEnvelope CreatePatternSubscribeCommand(string[] channelPatterns) =>
-        new(PubSubCommands.PatternSubscribe, channelPatterns, null, null, false);
-
-    public static RedisCommandEnvelope CreateUnsubscribeCommand(string[] channels) =>
-        new(PubSubCommands.Unsubscribe, channels, null, null, false);
-
-    public static RedisCommandEnvelope CreatePatternUnsubscribeCommand(string[] channelPatterns) =>
-        new(PubSubCommands.PatternUnsubscribe, channelPatterns, null, null, false);    
-    
-    public static RedisCommandEnvelope CreatePingCommand(string? message) =>
-        new(Ping,null, null, null, true, message);
 }

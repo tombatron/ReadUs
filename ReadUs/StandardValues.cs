@@ -11,4 +11,6 @@ internal static class StandardValues
     internal const int HeaderTokenLength = 1;
     internal const int CrlfLength = 2;
     internal static readonly byte[] CarriageReturnLineFeed = "\r\n"u8.ToArray();
+
+    internal const int MaxClusterSlots = 16_384;
 }

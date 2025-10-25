@@ -1,4 +1,4 @@
-﻿namespace ReadUs;
+﻿namespace ReadUs.Commands;
 
 internal static class RedisCommandNames
 {

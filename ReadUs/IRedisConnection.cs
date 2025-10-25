@@ -1,4 +1,6 @@
-﻿namespace ReadUs;
+﻿using System.Net;
+
+namespace ReadUs;
 
 public interface IRedisConnection : IDisposable
 {

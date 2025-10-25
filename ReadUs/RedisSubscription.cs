@@ -1,7 +1,4 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using ReadUs.Parser;
+﻿using ReadUs.Parser;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs;
@@ -60,37 +57,7 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
             }, cancelToken),
             cancelToken);
     }
-
-    public async Task<Result> Unsubscribe(params string[] channels)
-    {
-        var command = RedisCommandEnvelope.CreateUnsubscribeCommand(channels);
-
-        var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
-
-        var result = response switch
-        {
-            Ok<byte[]> _ => Result.Ok,
-            Error<byte[]> err => Result.Error(err.Message)
-        };
-
-        return result;
-    }
-
-    public async Task<Result> UnsubscribeWithPattern(params string[] channelPatterns)
-    {
-        var command = RedisCommandEnvelope.CreatePatternUnsubscribeCommand(channelPatterns);
-
-        var response = await _connection!.SendCommandAsync(command).ConfigureAwait(false);
-
-        var result = response switch
-        {
-            Ok<byte[]> _ => Result.Ok,
-            Error<byte[]> err => Result.Error(err.Message)
-        };
-
-        return result;
-    }
-
+    
     public void Dispose()
     {
         _cancellationTokenSource.Cancel();

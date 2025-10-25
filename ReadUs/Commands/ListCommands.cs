@@ -1,5 +1,5 @@
 using ReadUs.Parser;
-using Tombatron.Results;
+using ReadUs.Commands.ResultModels;
 using static ReadUs.Parser.Parser;
 
 namespace ReadUs.Commands;
@@ -8,7 +8,7 @@ public static partial class Commands
 {
     public static async Task<Result<int>> ListLength(this IRedisDatabase @this, RedisKey key, CancellationToken cancellationToken = default)
     {
-        var command = RedisCommandEnvelope.CreateListLengthCommand(key);
+        var command = CreateListLengthCommand(key);
 
         var rawResult = await @this.Execute(command).ConfigureAwait(false);
 
@@ -36,7 +36,7 @@ public static partial class Commands
 
     public static async Task<Result<int>> RightPushAsync(this IRedisDatabase @this, RedisKey key, string[] element, CancellationToken cancellationToken = default)
     {
-        var command = RedisCommandEnvelope.CreateRightPushCommand(key, element);
+        var command = CreateRightPushCommand(key, element);
 
         var rawResult = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 

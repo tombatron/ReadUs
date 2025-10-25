@@ -1,6 +1,4 @@
-﻿using ReadUs.Commands.ResultModels;
-
-namespace ReadUs;
+﻿namespace ReadUs;
 
 public partial class RedisConnection
 {

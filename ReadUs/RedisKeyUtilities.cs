@@ -5,8 +5,8 @@ namespace ReadUs;
 
 public static class RedisKeyUtilities
 {
-    private static readonly uint[] crc16tab =
-    {
+    private static readonly uint[] Crc16Tab =
+    [
         0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50a5, 0x60c6, 0x70e7,
         0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad, 0xe1ce, 0xf1ef,
         0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7, 0x62d6,
@@ -39,7 +39,7 @@ public static class RedisKeyUtilities
         0x7c26, 0x6c07, 0x5c64, 0x4c45, 0x3ca2, 0x2c83, 0x1ce0, 0x0cc1,
         0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
         0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0
-    };
+    ];
 
     // Adapted From: https://redis.io/docs/reference/cluster-spec/#appendix
     public static uint ComputeHashSlot(string key)
@@ -53,7 +53,7 @@ public static class RedisKeyUtilities
 
         for (counter = 0; counter < keyBytes.Length; counter++)
         {
-            crc = (crc << 8) ^ crc16tab[((crc >> 8) ^ keyBytes[position++]) & 0x00FF];
+            crc = (crc << 8) ^ Crc16Tab[((crc >> 8) ^ keyBytes[position++]) & 0x00FF];
         }
 
         return crc % 16_384;
@@ -62,9 +62,14 @@ public static class RedisKeyUtilities
     public static uint ComputeHashSlot(string[] keys)
     {
         if (keys is null || keys.Length < 1)
+        {
             throw new Exception("Can't compute a hash slot unless you give me some keys to hash.");
+        }
 
-        if (keys.Length == 1) return ComputeHashSlot(keys[0]);
+        if (keys.Length == 1)
+        {
+            return ComputeHashSlot(keys[0]);
+        }
 
         // We'll set the "anchor" slot here...
         var firstSlot = ComputeHashSlot(keys[0]);
@@ -75,7 +80,10 @@ public static class RedisKeyUtilities
         {
             var nextSlot = ComputeHashSlot(keys[i]);
 
-            if (firstSlot != nextSlot) throw new Exception("Not all keys are in the same slot and that's a problem.");
+            if (firstSlot != nextSlot)
+            {
+                throw new Exception("Not all keys are in the same slot and that's a problem.");
+            }
         }
 
         // We've made it this far, let's go ahead and return the needed slot.
@@ -89,7 +97,6 @@ public static class RedisKeyUtilities
 
         if (openBracePosition < closeBracePosition)
         {
-            var scratch = key[openBracePosition..closeBracePosition];
             return Encoding.UTF8.GetBytes(key[openBracePosition..closeBracePosition]);
         }
 

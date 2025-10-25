@@ -1,7 +1,7 @@
 using ReadUs.Exceptions;
 using ReadUs.Parser;
 
-namespace ReadUs.Commands;
+namespace ReadUs.Commands.ResultModels;
 
 public class BlockingPopResult(string listKey, string value)
 {

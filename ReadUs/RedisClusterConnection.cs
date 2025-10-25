@@ -2,6 +2,7 @@ using System.Diagnostics;
 using ReadUs.Commands;
 using ReadUs.Commands.ResultModels;
 using ReadUs.Errors;
+using static ReadUs.StandardValues;
 using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
@@ -72,10 +73,8 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
     private static bool IsResponseFaulted(Result<byte[]> response) =>
         response is Error<byte[]> { Details: CommandTimeout or SocketError };
 
-    public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse,
-        CancellationToken cancellationToken = default)
+    public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
     {
-        // I guess this makes sense. 
         foreach (var connection in this)
         {
             await connection.SendCommandWithMultipleResponses(command, onResponse, cancellationToken);
@@ -123,7 +122,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
             slots.UnionWith(ownedSlots);
         }
 
-        return slots.Count == 16_384;
+        return slots.Count == MaxClusterSlots;
     }
 
     public void Dispose()
