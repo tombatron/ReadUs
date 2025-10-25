@@ -17,36 +17,38 @@ public partial class RedisConnection : IRedisConnection
     private readonly IPEndPoint _endPoint;
     private readonly Socket _socket;
     private readonly TimeSpan _commandTimeout;
+    private readonly string _connectionName;
 
     private readonly Channel<byte[]> _channel = Channel.CreateBounded<byte[]>(1);
 
     public IPEndPoint EndPoint => _endPoint;
 
     public RedisConnection(RedisConnectionConfiguration configuration) :
-        this(configuration.ServerAddress, configuration.ServerPort)
+        this(configuration.ServerAddress, configuration.ServerPort, configuration.ConnectionName)
     {
     }
 
-    public RedisConnection(string address, int port) :
-        this(ResolveIpAddress(address), port)
+    public RedisConnection(string address, int port, string connectionName) :
+        this(ResolveIpAddress(address), port, connectionName)
     {
     }
 
-    public RedisConnection(IPAddress ipAddress, int port) :
-        this(new IPEndPoint(ipAddress, port), TimeSpan.FromSeconds(5))
+    public RedisConnection(IPAddress ipAddress, int port, string connectionName) :
+        this(new IPEndPoint(ipAddress, port), TimeSpan.FromSeconds(5), connectionName)
     {
     }
 
-    public RedisConnection(IPEndPoint endPoint, TimeSpan commandTimeout)
+    public RedisConnection(IPEndPoint endPoint, TimeSpan commandTimeout, string connectionName)
     {
         _endPoint = endPoint;
         _socket = new Socket(endPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
         _socket.ReceiveTimeout = (int)commandTimeout.TotalSeconds;
         _commandTimeout = commandTimeout;
+        _connectionName = connectionName;
     }
 
-    public string ConnectionName { get; } = $"ReadUs_Connection_{++_connectionCount}";
+    public string ConnectionName => $"{_connectionName}:{++_connectionCount}";
 
     public bool IsConnected => _socket.Connected;
     

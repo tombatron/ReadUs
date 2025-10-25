@@ -1,4 +1,4 @@
-namespace ReadUs;
+namespace ReadUs.Extras;
 
 public static class KeyValuePairExtensions // TODO: Move this to the extras namespace.
 {

@@ -5,21 +5,18 @@ using ReadUs.Exceptions;
 
 namespace ReadUs;
 
-public readonly struct RedisConnectionConfiguration(
-    string serverAddress,
-    int serverPort = RedisConnectionConfiguration.DefaultRedisPort,
-    int connectionsPerNode = 1)
+public readonly struct RedisConnectionConfiguration(string serverAddress, int serverPort, string connectionName)
 {
     private const string RedisScheme = "redis";
     private const int DefaultRedisPort = 6379;
-    private const string ConnectionsPerNodeKey = "connectionsPerNode";
+    private const string ConnectionNameKey = "connectionName";
+    private static Dictionary<int, string> _connectionNames = new();
 
-    public string ServerAddress { get; } = serverAddress;
+    public string ServerAddress => serverAddress;
 
-    public int ServerPort { get; } = serverPort;
+    public int ServerPort => serverPort;
 
-    // TODO: I don't even remember what I was thinking about here. 
-    public int ConnectionsPerNode { get; } = connectionsPerNode;
+    public string ConnectionName => connectionName;
 
     public static implicit operator RedisConnectionConfiguration(Uri connectionString)
     {
@@ -27,19 +24,19 @@ public readonly struct RedisConnectionConfiguration(
         {
             throw new RedisConnectionConfigurationException($"The provided scheme `{connectionString.Scheme}` is invalid, it must be `{RedisScheme}`.");
         }
+        
         var host = connectionString.DnsSafeHost;
         var port = connectionString.Port == 0 ? DefaultRedisPort : connectionString.Port;
 
         var queryEntries = HttpUtility.ParseQueryString(connectionString.Query);
 
-        if (int.TryParse(queryEntries.Get(ConnectionsPerNodeKey) ?? "1", out var parsedConnectionsPerNode))
-        {
-            return new RedisConnectionConfiguration(host, port, parsedConnectionsPerNode);
-        }
-
-        throw new RedisConnectionConfigurationException("`connectionsPerNode` must be a valid integer.");
+        var connectionName = queryEntries.Get(ConnectionNameKey) ?? "ReadUs_Connection";
+        
+        _connectionNames.Add(port, connectionName);
+        
+        return new RedisConnectionConfiguration(host, port, connectionName);
     }
 
     public static implicit operator RedisConnectionConfiguration(ClusterNodesResultItem clusterNodesResultItem) =>
-        new(clusterNodesResultItem.Address!.IpAddress.ToString(), clusterNodesResultItem.Address.RedisPort, 1);
+        new(clusterNodesResultItem.Address!.IpAddress.ToString(), clusterNodesResultItem.Address.RedisPort, _connectionNames[clusterNodesResultItem.Address.RedisPort]);
 }

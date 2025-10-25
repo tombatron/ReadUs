@@ -67,6 +67,10 @@ public static partial class Commands
             var clusterShards = new ClusterShardsResult(okResult);
             var currentShard = clusterShards.First(x =>
                 x.Nodes!.Any(y => y.Port == @this.EndPoint.Port && y.Ip.Equals(@this.EndPoint.Address)));
+            
+            var clusterSlots = new ClusterSlots(currentShard!.Slots!);
+            
+            return Result<ClusterSlots>.Ok(clusterSlots);
         }
 
 
@@ -142,5 +146,24 @@ public static partial class Commands
         }
 
         return Result<ClusterNodesResult>.Error("Socket isn't ready, can't execute the `CLUSTER NODES` command.");
+    }
+
+    public static async Task<Result> ClientSetName(this IRedisConnection @this, string connectionName, CancellationToken cancellationToken = default)
+    {
+        if (@this.IsConnected)
+        {
+            var result = await @this.SendCommandAsync(CreateClientSetNameCommand(connectionName),  cancellationToken).ConfigureAwait(false);
+
+            if (result is Error<byte[]> err)
+            {
+                return Result.Error("Error executing client set name command.", err);
+            }
+            
+            result.Unwrap();
+
+            return Result.Ok;
+        }
+        
+        return Result.Error("Socket isn't ready, can't execute the `CLIENT SETNAME` command.");
     }
 }

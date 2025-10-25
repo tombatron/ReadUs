@@ -6,10 +6,8 @@ namespace ReadUs;
 
 internal static class ParameterUtilities
 {
-    internal static object?[] CombineParameters(params object[] parameters)
-    {
-        return UnwindObjectArray(parameters).ToArray();
-    }
+    internal static object?[] CombineParameters(params object[] parameters) =>
+        UnwindObjectArray(parameters).ToArray();
 
     internal static IEnumerable<object?> UnwindObjectArray(object[] objects)
     {

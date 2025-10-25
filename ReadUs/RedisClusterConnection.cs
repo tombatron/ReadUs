@@ -13,16 +13,11 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 {
     public RedisClusterConnection(RedisConnectionConfiguration[] configurations)
     {
-        var connectionsPerNode = configurations.First().ConnectionsPerNode;
-
         foreach (var configuration in configurations)
         {
-            for (var i = 0; i < connectionsPerNode; i++)
+            if (IsSocketAvailable(configuration.ServerAddress, configuration.ServerPort))
             {
-                if (IsSocketAvailable(configuration.ServerAddress, configuration.ServerPort))
-                {
-                    Add(new RedisConnection(configuration));
-                }
+                Add(new RedisConnection(configuration));
             }
         }
     }

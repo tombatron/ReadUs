@@ -1,10 +1,11 @@
+using ReadUs.Extras;
 using static ReadUs.Commands.RedisCommandNames;
 
 namespace ReadUs.Commands;
 
 public static partial class Commands
 {
-        public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
+    public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
         new(Client, ClientSubcommands.SetName, null, TimeSpan.FromSeconds(5), clientConnectionName);
 
     public static RedisCommandEnvelope CreateClusterNodesCommand() =>

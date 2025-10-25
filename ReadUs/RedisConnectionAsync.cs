@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Net.Sockets;
+using ReadUs.Commands;
 using ReadUs.Errors;
 
 namespace ReadUs;
@@ -27,7 +28,11 @@ public partial class RedisConnection
             _connectionWork =
                 Task.Run(() => ConnectionWorker(_channel, _socket, this, _backgroundTaskCancellationTokenSource.Token),
                     _backgroundTaskCancellationTokenSource.Token);
-
+            
+            var setNameResult = await this.ClientSetName(ConnectionName, cancellationWithTimeout.Token).ConfigureAwait(false);
+            
+            setNameResult.VerifyOk();
+            
             return Result.Ok;
         }
         catch (SocketException sockEx)
