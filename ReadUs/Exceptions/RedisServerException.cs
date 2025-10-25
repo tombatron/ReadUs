@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace ReadUs.Exceptions;
+﻿namespace ReadUs.Exceptions;
 
 public class RedisServerException : Exception
 {

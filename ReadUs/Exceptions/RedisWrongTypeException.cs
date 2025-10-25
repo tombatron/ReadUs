@@ -1,5 +1,3 @@
-﻿using System;
-
-namespace ReadUs.Exceptions;
+﻿namespace ReadUs.Exceptions;
 
 public class RedisWrongTypeException(string message) : Exception(message);

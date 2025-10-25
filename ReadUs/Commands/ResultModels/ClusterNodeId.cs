@@ -21,7 +21,10 @@ public sealed class ClusterNodeId
         {
             var hash = 13;
 
-            foreach (var c in _rawValue) hash += hash * 7 + c;
+            foreach (var c in _rawValue)
+            {
+                hash += hash * 7 + c;
+            }
 
             return hash;
         }

@@ -96,7 +96,4 @@ public partial class RedisConnection
             }
         }
     }
-
-    private async Task SetConnectionClientNameAsync(CancellationToken cancellationToken) =>
-        await SendCommandAsync(RedisCommandEnvelope.CreateClientSetNameCommand(ConnectionName), cancellationToken);
 }

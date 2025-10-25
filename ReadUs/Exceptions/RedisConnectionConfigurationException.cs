@@ -1,5 +1,3 @@
-using System;
-
 namespace ReadUs.Exceptions;
 
 public class RedisConnectionConfigurationException : Exception

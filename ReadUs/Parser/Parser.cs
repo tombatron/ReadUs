@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text;
+﻿using System.Text;
 using static ReadUs.Parser.ProtocolHeaders;
 
 namespace ReadUs.Parser;
