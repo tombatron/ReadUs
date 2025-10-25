@@ -13,29 +13,25 @@ public static partial class Commands
         {
             var result = await @this.SendCommandAsync(CreateRoleCommand(), cancellationToken);
 
-            if (result is Ok<byte[]> ok)
-            {
-                var parseResult = Parse(ok.Value);
-
-                if (parseResult is Error<ParseResult> parseErr)
-                {
-                    return Result<RoleResult>.Error(parseErr.Message);
-                }
-
-                return Result<RoleResult>.Ok((RoleResult)parseResult.Unwrap());
-            }
-
             if (result is Error<byte[]> err)
             {
-                return Result<RoleResult>.Error(err.Message);
+                return Result<RoleResult>.Error("There was an error sending the role command.", err);
             }
+
+            var parsedResult = Parse(result.Unwrap());
+
+            if (parsedResult is Error<ParseResult> parseErr)
+            {
+                return Result<RoleResult>.Error("There was an error parsing the role result.", parseErr);
+            }
+
+            return Result<RoleResult>.Ok((RoleResult)parsedResult.Unwrap());
         }
 
         return Result<RoleResult>.Error("Socket isn't ready, can't execute command.");
     }
 
     public static Result<RoleResult> RoleSync(this IRedisConnection @this) => @this.Role().GetAwaiter().GetResult();
-
     private static readonly Result<ClusterSlots> DefaultSlots = Result<ClusterSlots>.Ok(new ClusterSlots(new SlotRange(0, 16_384)));
 
     public static async Task<Result<ClusterSlots>> Slots(this RedisConnection @this, CancellationToken cancellationToken = default)
@@ -67,21 +63,22 @@ public static partial class Commands
             var clusterShards = new ClusterShardsResult(okResult);
             var currentShard = clusterShards.First(x =>
                 x.Nodes!.Any(y => y.Port == @this.EndPoint.Port && y.Ip.Equals(@this.EndPoint.Address)));
-            
+
             var clusterSlots = new ClusterSlots(currentShard!.Slots!);
-            
+
             return Result<ClusterSlots>.Ok(clusterSlots);
         }
 
 
         return Result<ClusterSlots>.Error("Socket isn't ready, can't execute command.");
     }
-    
+
     private const string NotAClusterError = "ERR This instance has cluster support disabled";
+
     private static bool IsNotCluster(ParseResult result) => (
         result.Type == ResultType.Error &&
         string.Compare(new string(result.Value), NotAClusterError, StringComparison.InvariantCultureIgnoreCase) == 0);
-    
+
     public static async Task<Result<PingResult>> Ping(this IRedisConnection @this, string? message = null, CancellationToken cancellationToken = default)
     {
         if (@this.IsConnected)
@@ -100,13 +97,13 @@ public static partial class Commands
             {
                 return Result<PingResult>.Error("There was an error parsing the ping command result.", parseErr);
             }
-            
+
             var okResult = parsedResult.Unwrap();
             var pingResult = new PingResult(new string(okResult.Value));
-            
+
             return Result<PingResult>.Ok(pingResult);
         }
-        
+
         return Result<PingResult>.Error("Socket isn't ready, can't execute the `PING` command.");
     }
 
@@ -120,9 +117,9 @@ public static partial class Commands
             {
                 return Result.Error("Error executing select command.", err);
             }
-            
+
             result.Unwrap();
-            
+
             return Result.Ok;
         }
 
@@ -139,9 +136,9 @@ public static partial class Commands
             {
                 return Result<ClusterNodesResult>.Error("Error executing cluster nodes command.", err);
             }
-            
+
             var nodes = new ClusterNodesResult(result.Unwrap());
-            
+
             return Result<ClusterNodesResult>.Ok(nodes);
         }
 
@@ -152,18 +149,18 @@ public static partial class Commands
     {
         if (@this.IsConnected)
         {
-            var result = await @this.SendCommandAsync(CreateClientSetNameCommand(connectionName),  cancellationToken).ConfigureAwait(false);
+            var result = await @this.SendCommandAsync(CreateClientSetNameCommand(connectionName), cancellationToken).ConfigureAwait(false);
 
             if (result is Error<byte[]> err)
             {
                 return Result.Error("Error executing client set name command.", err);
             }
-            
+
             result.Unwrap();
 
             return Result.Ok;
         }
-        
+
         return Result.Error("Socket isn't ready, can't execute the `CLIENT SETNAME` command.");
     }
 }
