@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Web;
-using ReadUs.Commands.ResultModels;
 using ReadUs.Exceptions;
 
 namespace ReadUs;
@@ -10,7 +9,6 @@ public readonly struct RedisConnectionConfiguration(string serverAddress, int se
     private const string RedisScheme = "redis";
     private const int DefaultRedisPort = 6379;
     private const string ConnectionNameKey = "connectionName";
-    private static Dictionary<int, string> _connectionNames = new();
 
     public string ServerAddress => serverAddress;
 
@@ -32,11 +30,6 @@ public readonly struct RedisConnectionConfiguration(string serverAddress, int se
 
         var connectionName = queryEntries.Get(ConnectionNameKey) ?? "ReadUs_Connection";
         
-        _connectionNames.Add(port, connectionName);
-        
         return new RedisConnectionConfiguration(host, port, connectionName);
     }
-
-    public static implicit operator RedisConnectionConfiguration(ClusterNodesResultItem clusterNodesResultItem) =>
-        new(clusterNodesResultItem.Address!.IpAddress.ToString(), clusterNodesResultItem.Address.RedisPort, _connectionNames[clusterNodesResultItem.Address.RedisPort]);
 }

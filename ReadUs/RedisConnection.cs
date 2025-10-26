@@ -17,7 +17,6 @@ public partial class RedisConnection : IRedisConnection
     private readonly IPEndPoint _endPoint;
     private readonly Socket _socket;
     private readonly TimeSpan _commandTimeout;
-    private readonly string _connectionName;
 
     private readonly Channel<byte[]> _channel = Channel.CreateBounded<byte[]>(1);
 
@@ -45,10 +44,11 @@ public partial class RedisConnection : IRedisConnection
         _socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
         _socket.ReceiveTimeout = (int)commandTimeout.TotalSeconds;
         _commandTimeout = commandTimeout;
-        _connectionName = connectionName;
+
+        ConnectionName = $"{connectionName}:{++_connectionCount}";
     }
 
-    public string ConnectionName => $"{_connectionName}:{++_connectionCount}";
+    public string ConnectionName { get; }
 
     public bool IsConnected => _socket.Connected;
     

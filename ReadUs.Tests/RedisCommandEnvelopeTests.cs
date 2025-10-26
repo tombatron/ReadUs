@@ -20,7 +20,7 @@ public class RedisCommandEnvelopeTests
                 "27b9eae239ea40dba29ac3c6d5b863b7"
             };
 
-            var command = new RedisCommandEnvelope(default, default, keys, default);
+            var command = new RedisCommandEnvelope(default, default, keys, false);
 
             Assert.False(command.AllKeysInSingleSlot);
         }
@@ -35,7 +35,7 @@ public class RedisCommandEnvelopeTests
                 "1c9b65bb7f8c4a5080069be32023a800"
             };
 
-            var command = new RedisCommandEnvelope(default, default, keys, default);
+            var command = new RedisCommandEnvelope(default, default, keys, false);
 
             Assert.True(command.AllKeysInSingleSlot);
         }
@@ -46,7 +46,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillAppendCommandNameIfPresent()
         {
-            var command = new RedisCommandEnvelope("TestCommand", null, null, null);
+            var command = new RedisCommandEnvelope("TestCommand", null, null, false);
 
             var expected = Encode("TestCommand");
 
@@ -56,7 +56,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillAppendSubcommandNameIfPresent()
         {
-            var command = new RedisCommandEnvelope(null, "TestSubCommand", null, null);
+            var command = new RedisCommandEnvelope(null, ["TestSubCommand"], null, false);
 
             var expected = Encode("TestSubCommand");
 
@@ -66,7 +66,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillAppendCommandNameAndSubCommandNameIfPresent()
         {
-            var command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null);
+            var command = new RedisCommandEnvelope("TestCommand", ["TestSubCommand"], null, false);
 
             var expected = Encode("TestCommand", "TestSubCommand");
 
@@ -76,7 +76,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillAppendItemsIfPresent()
         {
-            var command = new RedisCommandEnvelope(null, null, null, null, "Hello", "World");
+            var command = new RedisCommandEnvelope(null, null, null, false, "Hello", "World");
 
             var expected = Encode("Hello", "World");
 
@@ -86,7 +86,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillAppendCommandNameAndItemsIfPresent()
         {
-            var command = new RedisCommandEnvelope("TestCommand", null, null, null, "Hello", "World");
+            var command = new RedisCommandEnvelope("TestCommand", null, null, false, "Hello", "World");
 
             var expected = Encode("TestCommand", "Hello", "World");
 
@@ -96,7 +96,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillAppendCommandNameSubCommandNameAndItemsIfPresent()
         {
-            var command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+            var command = new RedisCommandEnvelope("TestCommand", ["TestSubCommand"], null, false, "Hello", "World");
 
             var expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
 
@@ -109,7 +109,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void WillSucceed()
         {
-            byte[] command = new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+            byte[] command = new RedisCommandEnvelope("TestCommand", ["TestSubCommand"], null, false, "Hello", "World");
 
             var expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
 
@@ -123,7 +123,7 @@ public class RedisCommandEnvelopeTests
         public void WillSucceed()
         {
             ReadOnlyMemory<byte> command =
-                new RedisCommandEnvelope("TestCommand", "TestSubCommand", null, null, "Hello", "World");
+                new RedisCommandEnvelope("TestCommand", ["TestSubCommand"], null, false, "Hello", "World");
 
             ReadOnlyMemory<byte> expected = Encode("TestCommand", "TestSubCommand", "Hello", "World");
 
@@ -136,7 +136,7 @@ public class RedisCommandEnvelopeTests
         [Fact]
         public void AreCorrectlyHandled()
         {
-            ReadOnlyMemory<byte> command = new RedisCommandEnvelope("SUBSCRIBE", ["TEST_CHANNEL", "ANOTHER_CHANNEL"], null, null, false);
+            ReadOnlyMemory<byte> command = new RedisCommandEnvelope("SUBSCRIBE", ["TEST_CHANNEL", "ANOTHER_CHANNEL"], null, false);
 
             ReadOnlyMemory<byte> expected = Encode("SUBSCRIBE", "TEST_CHANNEL", "ANOTHER_CHANNEL");
 

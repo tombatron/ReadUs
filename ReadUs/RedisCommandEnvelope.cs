@@ -1,11 +1,10 @@
 using System.Text;
 using static ReadUs.Encoder.Encoder;
 using static ReadUs.ParameterUtilities;
-using static ReadUs.StandardValues;
 
 namespace ReadUs;
 
-public readonly struct RedisCommandEnvelope(string? command, string[]? subCommands, RedisKey[]? keys, TimeSpan? timeout, bool simpleCommand, params object?[] items)
+public class RedisCommandEnvelope(string? command, string[]? subCommands, RedisKey[]? keys, bool simpleCommand, params object?[] items)
 {
     public string? Command { get; } = command;
 
@@ -13,9 +12,7 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
 
     public RedisKey[]? Keys { get; } = keys;
 
-    public object?[] Items { get; } = items;
-
-    public TimeSpan Timeout { get; } = timeout ?? TimeSpan.FromSeconds(5);
+    public object?[]? Items { get; } = items;
 
     public bool SimpleCommand { get; } = simpleCommand;
 
@@ -34,25 +31,49 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
         }
     }
 
-    public RedisCommandEnvelope(string? command, string? subCommand, RedisKey[]? keys, TimeSpan? timeout, params object[]? items) :
-        this(command, subCommand is null ? null : [subCommand], keys, timeout, false, items)
+    public byte[] ToByteArray()
     {
+        byte[] bytes = SimpleCommand ? ToSimpleByteArray() : ToComplexByteArray();
+
+        return bytes;
     }
-
-    public byte[] ToByteArray() =>
-        SimpleCommand ? ToSimpleByteArray() : ToComplexByteArray();
-
 
     private byte[] ToSimpleByteArray()
     {
-        // TODO: Throw exception here if CommandName is null.
-        var result = new byte[Command!.Length + CarriageReturnLineFeed.Length];
-        
-        // TODO: Maybe for simple commands we can just hard code it?
-        Array.Copy(Encoding.UTF8.GetBytes(Command!), result, Command!.Length);
-        Array.Copy(CarriageReturnLineFeed, 0, result, Command!.Length, CarriageReturnLineFeed.Length);
+        var redisCommand = new StringBuilder();
+        redisCommand.Append(Command);
 
-        return result;
+        if (SubCommands is not null)
+        {
+            foreach (var subCommand in SubCommands)
+            {
+                redisCommand.Append(' ');
+                redisCommand.Append(subCommand);
+            }
+        }
+
+        if (Keys is not null)
+        {
+            foreach (var key in Keys)
+            {
+                redisCommand.Append(' ');
+                redisCommand.Append(key); // Assuming RedisKey has proper ToString()
+            }
+        }
+
+        if (Items is not null)
+        {
+            foreach (var item in Items)
+            {
+                redisCommand.Append(' ');
+                redisCommand.Append(item);
+            }
+        }
+
+        redisCommand.Append('\r');
+        redisCommand.Append('\n');
+
+        return Encoding.UTF8.GetBytes(redisCommand.ToString());
     }
 
     private byte[] ToComplexByteArray()
@@ -69,9 +90,14 @@ public readonly struct RedisCommandEnvelope(string? command, string[]? subComman
             availableParameters.AddRange(SubCommands);
         }
 
+        if (Keys is not null)
+        {
+            availableParameters.AddRange(Keys.Select(k => k.Name));
+        }
+
         if (Items is not null)
         {
-            availableParameters.AddRange(Items);
+            availableParameters.AddRange(Items!);
         }
 
         var combinedParameters = CombineParameters(availableParameters.ToArray());

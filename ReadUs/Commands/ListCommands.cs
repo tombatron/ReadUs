@@ -10,7 +10,7 @@ public static partial class Commands
     {
         var command = CreateListLengthCommand(key);
 
-        var rawResult = await @this.Execute(command).ConfigureAwait(false);
+        var rawResult = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
         var result = Parse(rawResult) switch
         {
@@ -23,7 +23,7 @@ public static partial class Commands
     
     public static async Task<Result<int>> LeftPush(this IRedisDatabase @this, RedisKey key, string[] elements, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("LPUSH", null, [key], null, key, elements);
+        RedisCommandEnvelope command = new("LPUSH", null, [key], false, elements);
         
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
@@ -51,7 +51,7 @@ public static partial class Commands
     
     public static async Task<Result<BlockingPopResult>> BlockingLeftPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("BLPOP", null, keys, timeout, keys);
+        RedisCommandEnvelope command = new("BLPOP", null, keys, false, keys);
         
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
@@ -64,7 +64,7 @@ public static partial class Commands
     
     public static async Task<Result<BlockingPopResult>> BlockingRightPop(this IRedisDatabase @this, TimeSpan timeout, RedisKey[] keys, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("BRPOP", null, keys, timeout, keys);
+        RedisCommandEnvelope command = new("BRPOP", null, keys, false, keys);
         
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 

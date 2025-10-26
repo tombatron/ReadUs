@@ -165,7 +165,8 @@ public class RedisConnectionPool(
             return false;
         }
 
-        nodeConfigurations = nodes.Select(x=> (RedisConnectionConfiguration)x).ToArray();
+        nodeConfigurations = nodes.Select(x=> 
+            new RedisConnectionConfiguration(x.Address!.IpAddress.ToString(), x.Address.RedisPort, configuration.ConnectionName)).ToArray();
 
         return true;
     }

@@ -8,7 +8,7 @@ public static partial class Commands
 {
     public static async Task<Result<string>> Get(this IRedisDatabase @this, RedisKey key, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("GET", null, [key], null, key);
+        RedisCommandEnvelope command = new("GET", null, [key], false);
         
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
@@ -21,7 +21,7 @@ public static partial class Commands
 
     public static async Task<Result> Set(this IRedisDatabase @this, RedisKey key, string value, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("SET", null, [key], null, key, value);
+        RedisCommandEnvelope command = new("SET", null, [key], false, value);
 
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
@@ -34,7 +34,7 @@ public static partial class Commands
     
     public static async Task<Result> SetMultiple(this IRedisDatabase @this, KeyValuePair<RedisKey, string>[]? keysAndValues, CancellationToken cancellationToken = default)
     {
-        RedisCommandEnvelope command = new("MSET", null, keysAndValues.Keys(), null, keysAndValues!);
+        RedisCommandEnvelope command = new("MSET", null, keysAndValues.Keys(), false, keysAndValues!);
         
         var result = await @this.Execute(command, cancellationToken).ConfigureAwait(false);
 
