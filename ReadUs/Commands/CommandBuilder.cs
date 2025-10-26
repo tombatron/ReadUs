@@ -7,27 +7,27 @@ public static class CommandBuilder
     ///
     /// For example, "LPUSH" is the `commandName` for the "left push" command that operates against a Redis list.
     /// </summary>
-    /// <param name="commandName"></param>
+    /// <param name="command"></param>
     /// <returns>`CommandSpecification` that carries the current state of the builder.</returns>
-    public static CommandSpecification WithCommandName(string commandName) => new(commandName: commandName);
+    public static CommandSpecification WithCommand(string command) => new(commandName: command);
     
     /// <summary>
     /// The name of the sub-command you're invoking.
     ///
     /// For example, in the "CLUSTER NODES" command "NODES" is the sub-command.
     /// </summary>
-    /// <param name="subCommandName"></param>
+    /// <param name="subCommand"></param>
     /// <returns>`CommandSpecification` that carries the current state of the builder.</returns>
-    public static CommandSpecification WithSubCommandName(string subCommandName) => new(subCommandNames: [subCommandName]);
+    public static CommandSpecification WithSubCommand(string subCommand) => new(subCommandNames: [subCommand]);
 
     /// <summary>
     /// The sub-commands that you're invoking.
     ///
     /// For example, in the "CONFIG SET timeout 300" command "SET timeout 300" are the sub-commands.
     /// </summary>
-    /// <param name="subCommandNames"></param>
+    /// <param name="subCommands"></param>
     /// <returns>`CommandSpecification` that carries the current state of the builder.</returns>
-    public static CommandSpecification WithSubCommandNames(params string[] subCommandNames) => new(subCommandNames: subCommandNames);
+    public static CommandSpecification WithSubCommands(params string[] subCommands) => new(subCommandNames: subCommands);
 
     /// <summary>
     /// The redis key that you're operating on.
@@ -82,7 +82,7 @@ public static class CommandBuilder
         private string? _commandName;
         private string[]? _subCommandNames;
         private RedisKey[]? _redisKeys;
-        private object?[] _items;
+        private List<object?> _items = [];
         private bool _inlineCommand;
 
         internal CommandSpecification(
@@ -92,8 +92,12 @@ public static class CommandBuilder
             _commandName = commandName;
             _subCommandNames = subCommandNames;
             _redisKeys = redisKeys;
-            _items = items ?? [];
             _inlineCommand = inlineCommand;
+
+            if (items is not null)
+            {
+                _items.AddRange(items);
+            }
         }
 
         /// <summary>
@@ -104,7 +108,7 @@ public static class CommandBuilder
         /// <param name="commandName"></param>
         /// <returns>`CommandSpecification` that carries the current state of the builder.</returns>
         // ReSharper disable once MemberHidesStaticFromOuterClass
-        public CommandSpecification WithCommandName(string commandName)
+        public CommandSpecification WithCommand(string commandName)
         {
             _commandName = commandName;
             return this;
@@ -118,7 +122,7 @@ public static class CommandBuilder
         /// <param name="subCommandName"></param>
         /// <returns>`CommandSpecification` that carries the current state of the builder.</returns>
         // ReSharper disable once MemberHidesStaticFromOuterClass
-        public CommandSpecification WithSubCommandName(string subCommandName)
+        public CommandSpecification WithSubCommand(string subCommandName)
         {
             _subCommandNames = [subCommandName];
             return this;
@@ -132,7 +136,7 @@ public static class CommandBuilder
         /// <param name="subCommandNames"></param>
         /// <returns>`CommandSpecification` that carries the current state of the builder.</returns>
         // ReSharper disable once MemberHidesStaticFromOuterClass
-        public CommandSpecification WithSubCommandNames(params string[] subCommandNames)
+        public CommandSpecification WithSubCommands(params string[] subCommandNames)
         {
             _subCommandNames = subCommandNames;
             return this;
@@ -169,6 +173,8 @@ public static class CommandBuilder
         /// <summary>
         /// An item is a single piece of data that we're passing to a Redis command.
         ///
+        /// Calling this method multiple times will append the items. 
+        ///
         /// For example, in the "SET key-name key-value" command, "key-value" would be the data item. 
         /// </summary>
         /// <param name="item"></param>
@@ -176,12 +182,14 @@ public static class CommandBuilder
         // ReSharper disable once MemberHidesStaticFromOuterClass
         public CommandSpecification AddItem(object? item)
         {
-            _items = [item];
+            _items.Add(item);
             return this;
         }
 
         /// <summary>
         /// A collection of item data that we're passing to a Redis command.
+        ///
+        /// Calling this method multiple times will append. 
         ///
         /// For example, in the "LPUSH key-name item-1 item-2 item-3" command the items "item-1", "item-2", and "item-3" are the components of the item collection.
         /// </summary>
@@ -190,7 +198,7 @@ public static class CommandBuilder
         // ReSharper disable once MemberHidesStaticFromOuterClass
         public CommandSpecification AddItems(params object?[] items)
         {
-            _items = items;
+            _items.AddRange(items);
             return this;
         }
 
@@ -222,7 +230,7 @@ public static class CommandBuilder
         /// <returns>`RedisCommandEnvelope` instance that matches what you've configured using the builder.</returns>
         public RedisCommandEnvelope Build()
         {
-            return new(command: _commandName, subCommands: _subCommandNames, keys: _redisKeys, simpleCommand: _inlineCommand, items: _items);
+            return new(command: _commandName, subCommands: _subCommandNames, keys: _redisKeys, simpleCommand: _inlineCommand, items: _items.ToArray());
         }
     }
 }

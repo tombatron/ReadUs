@@ -1,4 +1,5 @@
 ﻿using ReadUs.Commands;
+using ReadUs.Exceptions;
 using ReadUs.Parser;
 using static ReadUs.Parser.Parser;
 
@@ -20,8 +21,7 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
         var cancelToken = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cancellationTokenSource.Token).Token;
 
         _connection = await pool.GetConnection().ConfigureAwait(false);
-
-        // TODO: Let's not await this, but rather store the task and await it in the Dispose method. or something
+        
         _subscriptionTask = Task.Run(() => _connection.SendCommandWithMultipleResponses(command, bytes =>
             {
                 var message = Parse(bytes);
@@ -53,7 +53,7 @@ public class RedisSubscription(RedisConnectionPool pool, Action<string, string, 
 
                 if (message is Error<ParseResult> err)
                 {
-                    throw new Exception("Whatever");
+                    throw new RedisSubscriptionException($"There was an issue receiving a Pub/Sub message: {err.ToErrorString()}");
                 }
             }, cancelToken),
             cancelToken);

@@ -5,48 +5,101 @@ namespace ReadUs.Commands;
 
 public static partial class Commands
 {
-    public static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
-        new(Client, [ClientSubcommands.SetName], null, true, clientConnectionName);
+    private static RedisCommandEnvelope CreateClientSetNameCommand(string clientConnectionName) =>
+        CommandBuilder
+            .WithCommand(Client)
+            .WithSubCommand(ClientSubcommands.SetName)
+            .AddItem(clientConnectionName)
+            .AsInlineCommand()
+            .Build();
 
-    public static RedisCommandEnvelope CreateClusterNodesCommand() =>
-        new(Cluster, [ClusterSubcommands.Nodes], null, false);
+    private static RedisCommandEnvelope CreateClusterNodesCommand() =>
+        CommandBuilder
+            .WithCommand(Cluster)
+            .WithSubCommand(ClusterSubcommands.Nodes)
+            .Build();
 
-    public static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
-        new(RedisCommandNames.SetMultiple, null, keysAndValues.Keys(), false, keysAndValues);
+    private static RedisCommandEnvelope CreateSetMultipleCommand(KeyValuePair<RedisKey, string>[] keysAndValues) =>
+        CommandBuilder
+            .WithCommand(RedisCommandNames.SetMultiple)
+            .WithKeys(keysAndValues.Keys()!)
+            .AddItems(keysAndValues)
+            .Build();   
 
-    public static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, string[] elements) =>
-        new(RedisCommandNames.LeftPush, null, [key], false, key, elements);
+    private static RedisCommandEnvelope CreateLeftPushCommand(RedisKey key, object?[] elements) =>
+        CommandBuilder
+            .WithCommand(RedisCommandNames.LeftPush)
+            .WithKey(key)
+            .AddItems(elements)
+            .Build();
 
-    public static RedisCommandEnvelope CreateListLengthCommand(RedisKey key) =>
-        new(RedisCommandNames.ListLength, null, [key], false);
+    private static RedisCommandEnvelope CreateListLengthCommand(RedisKey key) =>
+        CommandBuilder
+            .WithCommand(RedisCommandNames.ListLength)
+            .WithKey(key)
+            .Build();
 
-    public static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, string[] elements) =>
-        new(RightPush, null, [key], false, elements);
+    private static RedisCommandEnvelope CreateRightPushCommand(RedisKey key, object?[] elements) =>
+        CommandBuilder
+            .WithCommand(RightPush)
+            .WithKey(key)
+            .AddItems(elements)
+            .Build();   
 
-    public static RedisCommandEnvelope CreateRoleCommand() =>
-        new(RedisCommandNames.Role, null, null, simpleCommand: true);
+    private static RedisCommandEnvelope CreateRoleCommand() =>
+        CommandBuilder
+            .WithCommand(RedisCommandNames.Role)
+            .AsInlineCommand()
+            .Build();   
 
-    public static RedisCommandEnvelope CreateClusterShardsCommand() =>
-        new(Cluster, [ClusterSubcommands.Shards], null, false);
+    private static RedisCommandEnvelope CreateClusterShardsCommand() =>
+        CommandBuilder
+            .WithCommand(Cluster)
+            .WithSubCommand(ClusterSubcommands.Shards)
+            .Build();
 
-    public static RedisCommandEnvelope CreatePublishCommand(string channel, string message) =>
-        new(PubSubCommands.Publish, [channel], null, false, message);
+    private static RedisCommandEnvelope CreatePublishCommand(string channel, string message) =>
+        CommandBuilder
+            .WithCommand(PubSubCommands.Publish)
+            .WithSubCommand(channel)
+            .AddItem(message)
+            .Build();
 
-    public static RedisCommandEnvelope CreateSubscribeCommand(string[] channels) =>
-        new(PubSubCommands.Subscribe, channels, null, false);
+    internal static RedisCommandEnvelope CreateSubscribeCommand(string[] channels) =>
+        CommandBuilder
+            .WithCommand(PubSubCommands.Subscribe)
+            .WithSubCommands(channels)
+            .Build();
 
-    public static RedisCommandEnvelope CreatePatternSubscribeCommand(string[] channelPatterns) =>
-        new(PubSubCommands.PatternSubscribe, channelPatterns, null, false);
+    internal static RedisCommandEnvelope CreatePatternSubscribeCommand(string[] channelPatterns) =>
+        CommandBuilder
+            .WithCommand(PubSubCommands.PatternSubscribe)
+            .WithSubCommands(channelPatterns)
+            .Build();
 
-    public static RedisCommandEnvelope CreateUnsubscribeCommand(string[] channels) =>
-        new(PubSubCommands.Unsubscribe, channels, null, false);
+    private static RedisCommandEnvelope CreateUnsubscribeCommand(string[] channels) =>
+        CommandBuilder
+            .WithCommand(PubSubCommands.Unsubscribe)
+            .WithSubCommands(channels)
+            .Build();
 
-    public static RedisCommandEnvelope CreatePatternUnsubscribeCommand(string[] channelPatterns) =>
-        new(PubSubCommands.PatternUnsubscribe, channelPatterns, null, false);
+    private static RedisCommandEnvelope CreatePatternUnsubscribeCommand(string[] channelPatterns) =>
+        CommandBuilder
+            .WithCommand(PubSubCommands.PatternUnsubscribe)
+            .WithSubCommands(channelPatterns)
+            .Build();
 
-    public static RedisCommandEnvelope CreatePingCommand(string? message) =>
-        new(RedisCommandNames.Ping, null, null, true, message);
+    private static RedisCommandEnvelope CreatePingCommand(string? message) =>
+        CommandBuilder
+            .WithCommand(RedisCommandNames.Ping)
+            .AddItem(message)
+            .AsInlineCommand()
+            .Build();   
 
-    public static RedisCommandEnvelope CreateSelectCommand(int databaseId) =>
-        new(RedisCommandNames.Select, null, null, false, databaseId);
+    private static RedisCommandEnvelope CreateSelectCommand(int databaseId) =>
+        CommandBuilder
+            .WithCommand(RedisCommandNames.Select)
+            .AddItem(databaseId)
+            .AsInlineCommand()
+            .Build();
 }

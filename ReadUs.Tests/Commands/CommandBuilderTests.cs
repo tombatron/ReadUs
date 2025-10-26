@@ -11,7 +11,7 @@ public class CommandBuilderTests
     public void WithCommandName_SetsCommandName()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("GET").Build();
+        var result = CommandBuilder.WithCommand("GET").Build();
 
         // Assert
         Assert.Equal("GET", result.Command);
@@ -21,7 +21,7 @@ public class CommandBuilderTests
     public void WithSubCommandName_SetsSingleSubCommand()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithSubCommandName("NODES").Build();
+        var result = CommandBuilder.WithSubCommand("NODES").Build();
 
         // Assert
         Assert.NotNull(result.SubCommands);
@@ -33,7 +33,7 @@ public class CommandBuilderTests
     public void WithSubCommandNames_SetsMultipleSubCommands()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithSubCommandNames("SET", "timeout", "300").Build();
+        var result = CommandBuilder.WithSubCommands("SET", "timeout", "300").Build();
 
         // Assert
         Assert.NotNull(result.SubCommands);
@@ -158,8 +158,8 @@ public class CommandBuilderTests
     public void InstanceWithCommandName_SetsCommandName()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("SET")
-            .WithCommandName("GET")
+        var result = CommandBuilder.WithCommand("SET")
+            .WithCommand("GET")
             .Build();
 
         // Assert
@@ -170,8 +170,8 @@ public class CommandBuilderTests
     public void InstanceWithSubCommandName_SetsSingleSubCommand()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("CLUSTER")
-            .WithSubCommandName("NODES")
+        var result = CommandBuilder.WithCommand("CLUSTER")
+            .WithSubCommand("NODES")
             .Build();
 
         // Assert
@@ -184,8 +184,8 @@ public class CommandBuilderTests
     public void InstanceWithSubCommandNames_ReplacesExistingSubCommands()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithSubCommandName("OLD")
-            .WithSubCommandNames("NEW1", "NEW2")
+        var result = CommandBuilder.WithSubCommand("OLD")
+            .WithSubCommands("NEW1", "NEW2")
             .Build();
 
         // Assert
@@ -232,7 +232,7 @@ public class CommandBuilderTests
     }
 
     [Fact]
-    public void InstanceAddItem_ReplacesExistingItems()
+    public void InstanceAddItem_AccumulatesWithExistingItems()
     {
         // Arrange & Act
         var result = CommandBuilder.AddItems("old1", "old2")
@@ -241,12 +241,14 @@ public class CommandBuilderTests
 
         // Assert
         Assert.NotNull(result.Items);
-        Assert.Single(result.Items);
-        Assert.Equal("new", result.Items[0]);
+        Assert.Equal(3, result.Items.Length);
+        Assert.Equal("old1", result.Items[0]);
+        Assert.Equal("old2", result.Items[1]);
+        Assert.Equal("new", result.Items[2]);
     }
 
     [Fact]
-    public void InstanceAddItems_ReplacesExistingItems()
+    public void InstanceAddItems_AccumulatesWithExistingItems()
     {
         // Arrange & Act
         var result = CommandBuilder.AddItem("old")
@@ -255,17 +257,94 @@ public class CommandBuilderTests
 
         // Assert
         Assert.NotNull(result.Items);
+        Assert.Equal(4, result.Items.Length);
+        Assert.Equal("old", result.Items[0]);
+        Assert.Equal("new1", result.Items[1]);
+        Assert.Equal("new2", result.Items[2]);
+        Assert.Equal("new3", result.Items[3]);
+    }
+
+    [Fact]
+    public void AddItem_CalledMultipleTimes_AccumulatesAllItems()
+    {
+        // Arrange & Act
+        var result = CommandBuilder.AddItem("first")
+            .AddItem("second")
+            .AddItem("third")
+            .Build();
+
+        // Assert
+        Assert.NotNull(result.Items);
         Assert.Equal(3, result.Items.Length);
-        Assert.Equal("new1", result.Items[0]);
-        Assert.Equal("new2", result.Items[1]);
-        Assert.Equal("new3", result.Items[2]);
+        Assert.Equal("first", result.Items[0]);
+        Assert.Equal("second", result.Items[1]);
+        Assert.Equal("third", result.Items[2]);
+    }
+
+    [Fact]
+    public void AddItems_CalledMultipleTimes_AccumulatesAllItems()
+    {
+        // Arrange & Act
+        var result = CommandBuilder.AddItems("a", "b")
+            .AddItems("c", "d")
+            .AddItems("e")
+            .Build();
+
+        // Assert
+        Assert.NotNull(result.Items);
+        Assert.Equal(5, result.Items.Length);
+        Assert.Equal("a", result.Items[0]);
+        Assert.Equal("b", result.Items[1]);
+        Assert.Equal("c", result.Items[2]);
+        Assert.Equal("d", result.Items[3]);
+        Assert.Equal("e", result.Items[4]);
+    }
+
+    [Fact]
+    public void AddItems_MixedWithAddItem_AccumulatesInOrder()
+    {
+        // Arrange & Act
+        var result = CommandBuilder.AddItem("first")
+            .AddItems("second", "third")
+            .AddItem("fourth")
+            .AddItems("fifth", "sixth")
+            .Build();
+
+        // Assert
+        Assert.NotNull(result.Items);
+        Assert.Equal(6, result.Items.Length);
+        Assert.Equal("first", result.Items[0]);
+        Assert.Equal("second", result.Items[1]);
+        Assert.Equal("third", result.Items[2]);
+        Assert.Equal("fourth", result.Items[3]);
+        Assert.Equal("fifth", result.Items[4]);
+        Assert.Equal("sixth", result.Items[5]);
+    }
+
+    [Fact]
+    public void AddItems_WithNullValues_AccumulatesNullsCorrectly()
+    {
+        // Arrange & Act
+        var result = CommandBuilder.AddItem("value1")
+            .AddItem(null)
+            .AddItems("value2", null, "value3")
+            .Build();
+
+        // Assert
+        Assert.NotNull(result.Items);
+        Assert.Equal(5, result.Items.Length);
+        Assert.Equal("value1", result.Items[0]);
+        Assert.Null(result.Items[1]);
+        Assert.Equal("value2", result.Items[2]);
+        Assert.Null(result.Items[3]);
+        Assert.Equal("value3", result.Items[4]);
     }
 
     [Fact]
     public void InstanceAsInlineCommand_SetsInlineCommandToTrue()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("PING")
+        var result = CommandBuilder.WithCommand("PING")
             .AsInlineCommand()
             .Build();
 
@@ -277,7 +356,7 @@ public class CommandBuilderTests
     public void InstanceAsEncodedCommand_SetsInlineCommandToFalse()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("PING")
+        var result = CommandBuilder.WithCommand("PING")
             .AsInlineCommand()
             .AsEncodedCommand()
             .Build();
@@ -297,7 +376,7 @@ public class CommandBuilderTests
         var key = new RedisKey("mykey");
 
         // Act
-        var result = CommandBuilder.WithCommandName("SET")
+        var result = CommandBuilder.WithCommand("SET")
             .WithKey(key)
             .AddItem("myvalue")
             .Build();
@@ -319,7 +398,7 @@ public class CommandBuilderTests
         var key = new RedisKey("mylist");
 
         // Act
-        var result = CommandBuilder.WithCommandName("LPUSH")
+        var result = CommandBuilder.WithCommand("LPUSH")
             .WithKey(key)
             .AddItems("item1", "item2", "item3")
             .Build();
@@ -341,7 +420,7 @@ public class CommandBuilderTests
         var key2 = new RedisKey("key2");
 
         // Act
-        var result = CommandBuilder.WithCommandName("MGET")
+        var result = CommandBuilder.WithCommand("MGET")
             .WithKeys(key1, key2)
             .Build();
 
@@ -357,8 +436,8 @@ public class CommandBuilderTests
     public void ChainedMethods_BuildsCLUSTERNODESCommand()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("CLUSTER")
-            .WithSubCommandName("NODES")
+        var result = CommandBuilder.WithCommand("CLUSTER")
+            .WithSubCommand("NODES")
             .Build();
 
         // Assert
@@ -372,8 +451,8 @@ public class CommandBuilderTests
     public void ChainedMethods_BuildsCONFIGSETCommand()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("CONFIG")
-            .WithSubCommandNames("SET", "timeout", "300")
+        var result = CommandBuilder.WithCommand("CONFIG")
+            .WithSubCommands("SET", "timeout", "300")
             .Build();
 
         // Assert
@@ -389,7 +468,7 @@ public class CommandBuilderTests
     public void ChainedMethods_BuildsInlineCommand()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("PING")
+        var result = CommandBuilder.WithCommand("PING")
             .AsInlineCommand()
             .Build();
 
@@ -405,7 +484,7 @@ public class CommandBuilderTests
         var key = new RedisKey("complexkey");
 
         // Act
-        var result = CommandBuilder.WithCommandName("ZADD")
+        var result = CommandBuilder.WithCommand("ZADD")
             .WithKey(key)
             .AddItems(1.5, "member1", 2.3, "member2")
             .AsEncodedCommand()
@@ -429,7 +508,7 @@ public class CommandBuilderTests
     public void Build_WithNoParameters_CreatesCommandWithDefaults()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("PING").Build();
+        var result = CommandBuilder.WithCommand("PING").Build();
 
         // Assert
         Assert.Equal("PING", result.Command);
@@ -444,7 +523,7 @@ public class CommandBuilderTests
     public void Build_WithOnlySubCommands_CreatesCommandWithNullCommandName()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithSubCommandName("TEST").Build();
+        var result = CommandBuilder.WithSubCommand("TEST").Build();
 
         // Assert
         Assert.Null(result.Command);
@@ -472,17 +551,17 @@ public class CommandBuilderTests
     public void WithCommandName_WithEmptyString_SetsEmptyString()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithCommandName("").Build();
+        var result = CommandBuilder.WithCommand("").Build();
 
         // Assert
         Assert.Equal("", result.Command);
     }
 
     [Fact]
-    public void WithSubCommandNames_WithEmptyArray_SetsEmptyArray()
+    public void WithSubCommands_WithEmptyArray_SetsEmptyArray()
     {
         // Arrange & Act
-        var result = CommandBuilder.WithSubCommandNames().Build();
+        var result = CommandBuilder.WithSubCommands().Build();
 
         // Assert
         Assert.NotNull(result.SubCommands);
@@ -515,7 +594,7 @@ public class CommandBuilderTests
     public void MultipleBuilds_FromSameSpecification_ProducesIndependentResults()
     {
         // Arrange
-        var spec = CommandBuilder.WithCommandName("GET");
+        var spec = CommandBuilder.WithCommand("GET");
 
         // Act
         var result1 = spec.Build();

@@ -9,7 +9,7 @@ internal class Program
     {
         Trace.Listeners.Add(new ConsoleTraceListener());
         
-        //await PubSubScenario.Run();
-        await Playground.Run();
+        await PubSubScenario.Run();
+        // await Playground.Run();
     }
 }
