@@ -63,7 +63,7 @@ public static class RedisKeyUtilities
     {
         if (keys is null || keys.Length < 1)
         {
-            throw new Exception("Can't compute a hash slot unless you give me some keys to hash.");
+            throw new ArgumentNullException(nameof(keys));
         }
 
         if (keys.Length == 1)
