@@ -9,7 +9,9 @@ internal class Program
     {
         Trace.Listeners.Add(new ConsoleTraceListener());
         
-        await PubSubScenario.Run();
+        // Start the chaos runner which will bring up a local redis cluster (via docker compose)
+        // and then exercise the client while randomly stopping/starting nodes.
+        await ChaosRunner.Run();
         // await Playground.Run();
     }
 }
