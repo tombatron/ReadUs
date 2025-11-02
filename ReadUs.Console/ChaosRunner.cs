@@ -161,14 +161,14 @@ public static class ChaosRunner
 
             try
             {
-                var db = await pool.GetDatabase();
+                var db = pool.GetDatabase();
 
                 var setRes = await db.Set(key, value);
 
                 if (setRes is Error setErr)
                 {
                     Cons.WriteLine($"Set error: {setErr.Message}");
-                    System.Threading.Interlocked.Increment(ref _consecutiveFailures);
+                    Interlocked.Increment(ref _consecutiveFailures);
                 }
                 else if (setRes is Ok)
                 {

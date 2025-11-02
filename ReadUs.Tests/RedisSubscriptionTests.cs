@@ -13,7 +13,7 @@ public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture)
     {
         var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
         
-        var db = await pool.GetDatabase();
+        var db = pool.GetDatabase();
 
         string subscriptionMessage = "got nothing";
 
@@ -36,7 +36,7 @@ public sealed class RedisSubscriptionTests(RedisSingleInstanceFixture fixture)
     {
         var pool = RedisConnectionPool.Create(fixture.GetConnectionString());
         
-        var db = await pool.GetDatabase();
+        var db = pool.GetDatabase();
         
         string channel1Message = "got nothing";
         string channel2Message = "got nothing";

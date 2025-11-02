@@ -11,7 +11,7 @@ public class RedisConnectionPoolClusterTests(RedisClusterFixture redisClusterFix
     {
         using var clusterConnectionPool = RedisConnectionPool.Create(redisClusterFixture.ConnectionString);
 
-        var redisDatabase = await clusterConnectionPool.GetDatabase();
+        var redisDatabase = clusterConnectionPool.GetDatabase();
         
         Assert.IsType<IRedisDatabase>(redisDatabase, exactMatch: false);
     }

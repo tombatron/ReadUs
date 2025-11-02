@@ -15,7 +15,7 @@ public sealed class ListCommandTests(RedisSingleInstanceFixture fixture)
         
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await pool.GetDatabase();
+        var commands = pool.GetDatabase();
 
         var initialLength = (await commands.ListLength(testKey)).Unwrap();
 

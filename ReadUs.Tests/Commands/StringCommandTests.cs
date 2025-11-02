@@ -19,7 +19,7 @@ public class StringCommandTests(RedisSingleInstanceFixture fixture) : IDisposabl
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await _pool.GetDatabase();
+        var commands = _pool.GetDatabase();
 
         await commands.Set(testKey, "The quick brown fox jumped over the lazy moon.");
 
@@ -33,7 +33,7 @@ public class StringCommandTests(RedisSingleInstanceFixture fixture) : IDisposabl
     {
         var testKey = Guid.NewGuid().ToString("N");
 
-        var commands = await _pool.GetDatabase();
+        var commands = _pool.GetDatabase();
 
         await commands.Set(testKey, "Never eat soggy waffles.");
 
@@ -50,7 +50,7 @@ public class StringCommandTests(RedisSingleInstanceFixture fixture) : IDisposabl
         var firstKey = $"{baseTestKey}1";
         var secondKey = $"{baseTestKey}2";
 
-        var commands = await _pool.GetDatabase();
+        var commands = _pool.GetDatabase();
 
         var keysAndValues = new[]
         {

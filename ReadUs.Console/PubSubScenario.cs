@@ -13,7 +13,7 @@ public static class PubSubScenario
 
         using var pool = RedisConnectionPool.Create(connectionString);
 
-        var db = await pool.GetDatabase();
+        var db = pool.GetDatabase();
 
         Cons.WriteLine("Subscribing to `test_channel`.");
         await db.Subscribe("test_channel", MessageReceived);

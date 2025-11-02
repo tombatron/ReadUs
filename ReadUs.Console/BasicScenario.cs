@@ -29,7 +29,7 @@ public static class BasicScenario
 
                 while (!success)
                 {
-                    var db = await pool.GetDatabase();
+                    var db = pool.GetDatabase();
 
                     var setResult = await db.Set(key, value);
 

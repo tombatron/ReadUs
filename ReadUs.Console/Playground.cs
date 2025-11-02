@@ -15,7 +15,7 @@ public static class Playground
 
         var pool = RedisConnectionPool.Create(connectionString);
         
-        var commands = await pool.GetDatabase();
+        var commands = pool.GetDatabase();
 
         await commands.LeftPush(testKey, ["Never eat soggy waffles."]);
 

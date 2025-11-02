@@ -1,72 +1,165 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Threading.Channels;
 using ReadUs.Commands;
 using ReadUs.Commands.ResultModels;
 using ReadUs.Exceptions;
-using static ReadUs.Extras.AsyncTools;
 using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
 
-public class RedisConnectionPool(RedisConnectionConfiguration[] configurations, Func<RedisConnectionConfiguration[], IRedisConnection> connectionFactory) : IRedisConnectionPool
-{
-    private static bool _isReinitializing = false;
-    private readonly List<IRedisConnection> _allConnections = new();
-    private readonly ConcurrentQueue<IRedisConnection> _backingPool = new();
+internal abstract record PoolRequest;
+internal record GetConnectionRequest(TaskCompletionSource<IRedisConnection> Response) : PoolRequest;
+internal record ReturnConnectionRequest(IRedisConnection Connection) : PoolRequest;
+internal record ReinitializeRequest(TaskCompletionSource<bool> Response) : PoolRequest;
 
-    private RedisConnectionPool(RedisConnectionConfiguration redisConfiguration,
-        Func<RedisConnectionConfiguration[], IRedisConnection> connectionFactory) : this([redisConfiguration],
-        connectionFactory)
+public class RedisConnectionPool : IRedisConnectionPool
+{
+    private readonly Channel<PoolRequest> _requestChannel;
+    private readonly CancellationTokenSource _shutdownCts;
+    private readonly Task _processorTask;
+    
+    private readonly List<IRedisConnection> _allConnections = new();
+    private readonly Queue<IRedisConnection> _availableConnections = new();
+    private int _failures = 0;
+    
+    private readonly RedisConnectionConfiguration[] _configurations;
+    private readonly Func<RedisConnectionConfiguration[], IRedisConnection> _connectionFactory;
+
+    private RedisConnectionPool(RedisConnectionConfiguration[] configurations, Func<RedisConnectionConfiguration[], IRedisConnection> connectionFactory)
     {
+        _configurations = configurations;
+        _connectionFactory = connectionFactory;
+        
+        _requestChannel = Channel.CreateUnbounded<PoolRequest>(new UnboundedChannelOptions{SingleReader = true, SingleWriter = false});
+        _shutdownCts = new();
+        _processorTask = Task.Run(() => ProcessRequestsAsync(_shutdownCts.Token));
     }
 
-    public async Task<IRedisDatabase> GetDatabase(int databaseId = 0,
-        CancellationToken cancellationToken = default)
+    public IRedisDatabase GetDatabase(int databaseId = 0) => new RedisDatabase(this, databaseId);
+    
+    public void Dispose()
     {
-        await WaitWhileAsync(() => _isReinitializing, cancellationToken);
+        // This should shutdown our processing task gracefully.
+        _requestChannel.Writer.Complete();
+        
+        // Wait for the processing task to finish.
+        _shutdownCts.Cancel();
 
-        return new RedisDatabase(this, databaseId);
+        try
+        {
+            // Wait a second for the task to complete.
+            _processorTask.Wait(TimeSpan.FromSeconds(1));
+        }
+        catch (OperationCanceledException)
+        {
+            // This is expected, we're just going to swallow it. 
+        }
+        
+        DisposeAllConnections();
+        
+        _shutdownCts.Dispose();
     }
 
     internal async Task<IRedisConnection> GetConnection()
     {
-        IRedisConnection connection;
-
-        if (_backingPool.TryDequeue(out var conn))
-        {
-            connection = conn;
-        }
-        else
-        {
-            // Create a new connection using the existing configuration object.
-            var newConnection = connectionFactory(configurations);
-
-            // Add a reference to the new connection to the existing collection of connections. Heh.
-            _allConnections.Add(newConnection);
-
-            if (!newConnection.IsConnected)
-            {
-                await newConnection.ConnectAsync();
-            }
-
-            connection = newConnection;
-        }
-
-        return connection;
+        var tcs = new TaskCompletionSource<IRedisConnection>();
+        var request = new GetConnectionRequest(tcs);
+        
+        await _requestChannel.Writer.WriteAsync(request);
+        
+        return await tcs.Task;
     }
-
-    private int _failures = 0;
 
     internal void ReturnConnection(IRedisConnection connection)
     {
-        if (connection.IsFaulted)
+        var request = new ReturnConnectionRequest(connection);
+        
+        // Fire and forget, we don't need to await this.
+        _requestChannel.Writer.TryWrite(request);
+    }
+    
+    private async Task ProcessRequestsAsync(CancellationToken cancellationToken)
+    {
+        await foreach(var request in _requestChannel.Reader.ReadAllAsync(cancellationToken))
+        {
+            try
+            {
+                switch (request)
+                {
+                    case GetConnectionRequest getConnectionRequest:
+                        await HandleGetConnection(getConnectionRequest);
+                        break;
+                    
+                    case ReturnConnectionRequest returnConnectionRequest:
+                        HandleReturnConnection(returnConnectionRequest);
+                        break;
+                    
+                    case ReinitializeRequest reinitializeRequest:
+                        HandleReinitialize(reinitializeRequest);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Obviously we're going to do something a little more fancy here...
+                Console.WriteLine($"Error processing request: {ex}");
+            }
+        }
+    }    
+    
+    private void Reinitialize()
+    {
+        var request = new ReinitializeRequest(new TaskCompletionSource<bool>());
+        
+        _requestChannel.Writer.TryWrite(request);
+
+        _failures = 0;
+    }
+    
+    private async Task HandleGetConnection(GetConnectionRequest request)
+    {
+        try
+        {
+            IRedisConnection connection;
+
+            if (_availableConnections.TryDequeue(out var conn))
+            {
+                connection = conn;
+            }
+            else
+            {
+                // Create a new connection using the existing configuration object.
+                var newConnection = _connectionFactory(_configurations);
+
+                // Add a reference to the new connection to the existing collection of connections. Heh.
+                _allConnections.Add(newConnection);
+
+                if (!newConnection.IsConnected)
+                {
+                    await newConnection.ConnectAsync();
+                }
+
+                connection = newConnection;
+            }
+
+            request.Response.SetResult(connection);
+        }
+        catch (Exception ex)
+        {
+            request.Response.SetException(ex);
+        }
+    }
+
+    private void HandleReturnConnection(ReturnConnectionRequest request)
+    {
+        if (request.Connection.IsFaulted)
         {
             _failures++;
 
             if (_failures < 5)
             {
                 Trace.WriteLine("!!![CONNECTION FAULTED]: Disposing...");
-                connection.Dispose();
+                request.Connection.Dispose();
             }
             else
             {
@@ -79,37 +172,39 @@ public class RedisConnectionPool(RedisConnectionConfiguration[] configurations, 
         }
         else
         {
-            _backingPool.Enqueue(connection);
+            _availableConnections.Enqueue(request.Connection);
+        }
+    }
+    
+    private void HandleReinitialize(ReinitializeRequest request)
+    {
+        try
+        {
+            Trace.WriteLine("Reinitializing connection pool...");
+            
+            DisposeAllConnections();
+
+            _allConnections.Clear();
+            _availableConnections.Clear();
+            
+            Trace.WriteLine("Reinitialization complete.");
+
+            request.Response.SetResult(true);
+        }
+        catch (Exception ex)
+        {
+            request.Response.SetException(ex);
         }
     }
 
-    public void Dispose()
+    private void DisposeAllConnections()
     {
         foreach (var connection in _allConnections)
         {
             connection.Dispose();
         }
     }
-
-    private void Reinitialize()
-    {
-        _isReinitializing = true;
-        Trace.WriteLine("reinit - reinit flag set.");
-
-        // Dispose of all connections.
-        Dispose();
-        Trace.WriteLine("reinit - all connections disposed");
-
-        // Clear out that collection. 
-        _allConnections.Clear();
-        Trace.WriteLine("reinit - all connections collection has been cleared");
-
-        // All the connections in the backing pool should be closed now,
-        // we'll clear those out too.
-        _backingPool.Clear();
-        Trace.WriteLine("reinit - backing pool has been cleared.");
-    }
-
+    
     public static IRedisConnectionPool Create(Uri connectionString)
     {
         RedisConnectionConfiguration[] configuration = [connectionString];
@@ -167,5 +262,5 @@ public class RedisConnectionPool(RedisConnectionConfiguration[] configurations, 
             new RedisConnectionConfiguration(x.Address!.IpAddress.ToString(), x.Address.RedisPort, configuration.ConnectionName)).ToArray();
 
         return true;
-    }
+    }    
 }
