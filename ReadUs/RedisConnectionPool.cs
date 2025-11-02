@@ -8,9 +8,7 @@ using static ReadUs.Extras.SocketTools;
 
 namespace ReadUs;
 
-public class RedisConnectionPool(
-    RedisConnectionConfiguration[] configurations,
-    Func<RedisConnectionConfiguration[], IRedisConnection> connectionFactory) : IRedisConnectionPool
+public class RedisConnectionPool(RedisConnectionConfiguration[] configurations, Func<RedisConnectionConfiguration[], IRedisConnection> connectionFactory) : IRedisConnectionPool
 {
     private static bool _isReinitializing = false;
     private readonly List<IRedisConnection> _allConnections = new();
@@ -85,7 +83,7 @@ public class RedisConnectionPool(
         }
     }
 
-    public virtual void Dispose()
+    public void Dispose()
     {
         foreach (var connection in _allConnections)
         {
