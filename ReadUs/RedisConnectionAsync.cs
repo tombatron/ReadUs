@@ -2,6 +2,10 @@
 using System.Net.Sockets;
 using ReadUs.Commands;
 using ReadUs.Errors;
+using ReadUs.Parser;
+using static ReadUs.Parser.Parser;
+
+
 
 namespace ReadUs;
 
@@ -35,7 +39,7 @@ public partial class RedisConnection
             
             return Result.Ok;
         }
-        catch (SocketException sockEx)
+        catch (SocketException)
         {
             IsFaulted = true;
 
@@ -50,6 +54,8 @@ public partial class RedisConnection
             return Result.Error("Connection attempt timed out.");
         }
     }
+    
+    private static readonly ParseResult UnparsedError = new(ResultType.Error, "Unparsed error".ToCharArray(), 14);
 
     public async Task<Result<byte[]>> SendCommandAsync(RedisCommandEnvelope command, CancellationToken cancellationToken = default)
     {
@@ -69,6 +75,16 @@ public partial class RedisConnection
 
             if (_channel.Reader.TryRead(out var response))
             {
+                if (response.Length > 0 && response[0] == StandardValues.ErrorHeader)
+                {
+                    var errorMessage = Parse(response).UnwrapOr(UnparsedError).ToString();
+
+                    if (errorMessage.StartsWith("CLUSTER"))
+                    {
+                        return RedisError.Create<byte[]>(errorMessage);
+                    }
+                }
+                
                 return Result<byte[]>.Ok(response);
             }
         }
