@@ -20,7 +20,7 @@ public class RedisConnectionPool : IRedisConnectionPool
     
     private readonly List<IRedisConnection> _allConnections = new();
     private readonly Queue<IRedisConnection> _availableConnections = new();
-    private int _failures = 0;
+    private int _failures;
     
     private readonly RedisConnectionConfiguration[] _configurations;
     private readonly Func<RedisConnectionConfiguration[], IRedisConnection> _connectionFactory;

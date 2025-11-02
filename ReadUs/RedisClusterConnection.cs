@@ -67,9 +67,7 @@ public class RedisClusterConnection : List<RedisConnection>, IRedisConnection
 
     private static bool IsResponseFaulted(Result<byte[]> response) => 
         response is Error<byte[]> { Details: CommandTimeout or SocketError or RedisError };
-
-        
-
+    
     public async Task SendCommandWithMultipleResponses(RedisCommandEnvelope command, Action<byte[]> onResponse, CancellationToken cancellationToken = default)
     {
         foreach (var connection in this)
