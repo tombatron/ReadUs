@@ -5,8 +5,6 @@ using ReadUs.Errors;
 using ReadUs.Parser;
 using static ReadUs.Parser.Parser;
 
-
-
 namespace ReadUs;
 
 public partial class RedisConnection
