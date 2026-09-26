@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/benchmarks/">
+    <Project Path="benchmarks/ReadUs.Benchmarks/ReadUs.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/ReadUs.Cluster/ReadUs.Cluster.csproj" />
+    <Project Path="src/ReadUs.Core/ReadUs.Core.csproj" />
+    <Project Path="src/ReadUs.Extensions.DependencyInjection/ReadUs.Extensions.DependencyInjection.csproj" />
+    <Project Path="src/ReadUs.Extensions.OpenTelemetry/ReadUs.Extensions.OpenTelemetry.csproj" />
+    <Project Path="src/ReadUs.Sentinel/ReadUs.Sentinel.csproj" />
+    <Project Path="src/ReadUs.SourceGenerators/ReadUs.SourceGenerators.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ReadUs.Tests.Fuzz/ReadUs.Tests.Fuzz.csproj" />
+    <Project Path="tests/ReadUs.Tests.Integration/ReadUs.Tests.Integration.csproj" />
+    <Project Path="tests/ReadUs.Tests.Soak/ReadUs.Tests.Soak.csproj" />
+    <Project Path="tests/ReadUs.Tests.Unit/ReadUs.Tests.Unit.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,9 @@
+root = true
+
+[*.cs]
+# CA1720: flags enum members like RespType.Integer / RespType.Double for "containing a
+# type name". Those are the wire protocol's own vocabulary (RESP "integer reply",
+# "double reply") — renaming them away from Redis's own terms would hurt readability
+# for no correctness benefit, so this rule is disabled project-wide rather than
+# suppressed ad hoc at each occurrence.
+dotnet_diagnostic.CA1720.severity = none
