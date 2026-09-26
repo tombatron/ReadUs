@@ -540,3 +540,67 @@ should be easy to revisit rather than silently baked in:
   the tests stay runnable across sessions; folding it into a proper
   disposable Testcontainers fixture is part of the fault-injection work this
   project still owes for Cluster and Sentinel.
+
+### Recorded during §13 step 5 implementation (Sentinel support)
+
+- **A real deadlock bug was found and fixed while writing this phase, not by
+  review — by the test actually hanging.** `SentinelPubSubMonitor.Completion`
+  only resolves once its *own* internal cancellation fires; the first draft
+  of `PubSubSupervisorLoopAsync` did `await monitor.Completion` directly,
+  with `await using var monitor = ...` disposing it only *after* that await
+  returned. Since nothing ever cancelled the monitor's internal token from
+  outside, and disposal — the only thing that would — was scoped to run
+  after the await it was blocking, `SentinelClient.DisposeAsync` hung
+  forever the moment the supervisor loop reached that line. A quick
+  isolated console repro (connect, one command, dispose) didn't reproduce
+  it — the race needed enough elapsed time for the supervisor loop to
+  actually reach the blocking await first — but the real integration test,
+  which does three round trips before disposing, hit it reliably. Fixed by
+  racing `monitor.Completion` against a `Task.Delay(Timeout.Infinite,
+  _lifetimeCts.Token)` instead of awaiting it directly, so `await using`'s
+  disposal always runs promptly on shutdown regardless of which task
+  "wins." Kept here because it's exactly the class of hazard §9's exhaustive-
+  walker mandate exists to catch structurally rather than by luck — this one
+  wasn't caught structurally, it was caught by a slow-enough test, which is
+  the reminder to eventually give Sentinel's own state machines the same
+  walker treatment as the blocking-cancellation race got in §2.6.
+- **Master discovery quorum policy: strict majority of *responders*, not of
+  all configured sentinels.** If 3 sentinels are configured but only 1
+  answers within the per-sentinel timeout, that 1 response is accepted
+  (1-of-1 is a majority of responders) rather than blocking forever waiting
+  for a majority of the full configured set. This trades safety for
+  availability in a way worth being explicit about: a partitioned client
+  that can only reach one (possibly stale) sentinel will trust it. A future
+  revision could require a minimum absolute responder count in addition to
+  the majority-of-responders rule.
+- **The known-sentinel list only grows, never shrinks.**
+  `RefreshSentinelListAsync` (`SENTINEL sentinels`) adds newly-discovered
+  peers but never prunes ones that stop responding or were removed from the
+  constellation, mirroring the same simplification made for Cluster node
+  health in §13 step 5's Cluster work. A sentinel that's genuinely gone
+  just becomes one more endpoint that always fails quickly in the
+  per-sentinel query fan-out.
+- **No dedicated test exercises `RefreshSentinelListAsync`'s parsing path.**
+  It's structurally identical to `ClusterTopology`'s Map/Array-shaped entry
+  parsing (already tested there) and runs on every poll tick in practice,
+  but the integration tests in this pass complete faster than one poll
+  interval, so it's never actually exercised by them. Low-risk, but a real
+  gap — worth a direct test once Sentinel's `PollInterval` is configurable
+  (see the AWS IAM/Azure Entra credential-rotation precedent in §7 for why
+  hardcoded intervals eventually want to become options).
+- **`SentinelClient` and `ClusterClient` duplicate the same
+  `ExecuteAsync`/`ExecuteBlockingAsync`/`BeginTransactionAsync` facade
+  surface independently** rather than sharing an interface — project spec
+  §10 explicitly calls for "a top-level `IRedisClient`... abstraction with
+  the same shape for standalone, Cluster, and Sentinel-discovered
+  connections," which doesn't exist yet. Both types wrap `RedisClient`
+  instances and forward to them with the same three methods; unifying this
+  is real, spec-mandated future work, not a new gap this phase introduced.
+- **The Sentinel test fixture's config-persistence warnings are cosmetic,
+  not functional.** The bind-mounted sentinel config files live in a
+  directory the container user can't write a temp file into, so each
+  sentinel logs "WARNING: Sentinel was not able to save the new
+  configuration on disk" on every state change. Failover, quorum voting,
+  and `+switch-master` all worked correctly regardless — sentinels operate
+  fine in-memory — but a longer-lived version of this fixture would want the
+  mounted directory itself writable, not just the file.
