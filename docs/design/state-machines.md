@@ -484,3 +484,59 @@ should be easy to revisit rather than silently baked in:
   benchmarking the generated convenience layer itself (as opposed to the
   underlying `RespCommandWriter`/pipe path, which is already allocation-
   conscious) shows this matters.
+
+### Recorded during §13 step 5 implementation (Cluster support)
+
+- **Replica read routing is not implemented.** `ClusterTopology` only tracks
+  each shard's master (project spec §5's own "primary-only, safest" default
+  policy) — `CLUSTER SHARDS` already reports replicas too, so adding
+  prefer-replica/replica-only/round-robin routing later is a matter of
+  tracking the rest of each shard's `nodes` array, not re-discovering it.
+- **No per-node health tracking, quarantine, or ejection.** A node that goes
+  down surfaces as an ordinary `RedisConnectionException` from whatever call
+  hit it; there's no background health-checker ejecting a repeatedly-failing
+  node's connections or reintegrating one that recovers. §5 asks for this
+  explicitly — deferred, not forgotten.
+- **No explicit per-node pipeline batching.** Concurrent calls through
+  `ClusterClient.ExecuteAsync` still pipeline within whatever node's Tier 1
+  pool they land on, but there's no batch API that fans a single logical
+  batch out across multiple nodes by destination and reassembles replies in
+  the caller's original order (§5's "pipelining means batching per-
+  destination-node, not per-call"). Worth building once there's a
+  non-cluster batch API to extend in parallel — right now there isn't one
+  for the standalone client either.
+- **`ConcurrentDictionary<string, Task<RedisClient>>.GetOrAdd` can race under
+  contention**: two callers discovering the same new node for the first time
+  simultaneously can each start a connect, with the loser's `RedisClient`
+  silently discarded (never returned, never disposed) rather than reused.
+  Rare (only matters the first time a given node is contacted) and not a
+  correctness bug — `RedisClient`/`RedisConnection` clean up their own
+  sockets on GC finalization paths notwithstanding, this is still a minor
+  resource-efficiency gap. A `SemaphoreSlim`-per-key or `Lazy<Task<T>>`
+  wrapper would close it if it ever shows up in practice.
+- **Key extraction for the raw `ExecuteAsync` escape hatch only looks at
+  top-level (non-subcommand) `CommandMetadata` entries.** Subcommands
+  (`CLIENT`/`CLUSTER`/`SENTINEL`/...) never carry keys in the vendored table,
+  so this is correct today, but it's a real assumption, not a general
+  solution — if some future command ever added a subcommand with keys, it
+  would silently route as if keyless (to an arbitrary master) rather than by
+  slot. Worth a comment-linked assertion in the generator if this ever
+  becomes false.
+- **`HasUnknownKeys` commands (SORT's `BY`/`GET`/`STORE`, movable-keys
+  commands generally) route using only whatever `KeySpecs` entries *are*
+  statically resolvable**, silently ignoring the unresolvable ones rather
+  than implementing Redis's server-side `getkeys`-equivalent logic
+  client-side. For SORT specifically this means the primary source key still
+  routes correctly; a `SORT ... STORE` writing to a genuinely different slot
+  than the source key lives in would not be caught by the client-side
+  CROSSSLOT pre-check (it would only surface via the server's own wire-level
+  error, which the spec explicitly allows as the defensive fallback for
+  exactly this kind of gap).
+- **The live-cluster fixture for `ClusterClientTests` is three manually
+  Docker-launched `redis-server` processes** (host networking, ports
+  7001-7003, bootstrapped via `redis-cli --cluster create`), not yet the
+  Testcontainers-based throwaway harness project spec §9.2 calls for. It's
+  intentionally left running (like the existing standalone dev server) so
+  the tests stay runnable across sessions; folding it into a proper
+  disposable Testcontainers fixture is part of the fault-injection work this
+  project still owes for Cluster and Sentinel.
