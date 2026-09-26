@@ -394,3 +394,44 @@ should be easy to revisit rather than silently baked in:
   reconnect) is left to the credential-rotation layer rather than fixed here,
   intentionally, since AWS IAM vs. Azure Entra token providers may want
   different defaults.
+
+### Recorded during §13 step 3 implementation (Tier 2 + blocking commands)
+
+- **Grace deadline is a fixed constant, not configurable yet.**
+  `RedisConnection.UnblockReconciliationGrace` (2s) bounds how long a
+  cancelled blocking command waits, after a successful `CLIENT UNBLOCK`, for
+  the corresponding frame before the connection is discarded (§2.5's
+  `Discarded` transition). Should become part of `RedisConnectionOptions`
+  once Tier 2 pool configuration solidifies; hardcoding it now was the
+  simplest thing that let the reconciliation logic be written and tested.
+- **Control channel is a narrow interface (`IControlChannel`), not a direct
+  dependency on the pooling layer.** `RedisConnection.SendBlockingAsync`
+  takes an `IControlChannel` rather than referencing
+  `ReadUs.Pooling.MultiplexedConnectionPool` directly, so the Connections
+  layer doesn't need to know about pooling policy. `MultiplexedConnectionPool`
+  satisfies it structurally. Worth keeping as the pattern scales (e.g. if the
+  control channel ever needs its own retry/backoff policy independent of
+  ordinary Tier 1 traffic).
+- **The reconciliation sink (`TaskCompletionSource`) is an allocation on the
+  cancellation path.** Fine per §8's own framing — the zero-allocation
+  mandate is for steady-state command execution, not for the comparatively
+  rare blocking-cancellation path — but flagged here so it isn't mistaken for
+  an oversight if it shows up in an allocation profile.
+- **The exhaustive walker (§2.6, §9.1) covers the `PendingRequest` completion-
+  claim primitive exhaustively (every reachable ordering of claim/reply/
+  reconciliation events, both as deterministic sequences and as a real
+  concurrent-thread stress test), but does not yet model the full network-
+  timing state space** (control-channel latency vs. primary-channel latency
+  vs. grace-deadline expiry, all racing against a live server). That's
+  integration-level coverage — `BlockingCommandTests` in
+  `ReadUs.Tests.Integration` exercises one real end-to-end path against a
+  live server — and will grow into deliberate fault injection (delayed/
+  dropped bytes on each channel independently) once the Testcontainers-based
+  harness lands with Cluster/Sentinel (project spec §9.2), rather than being
+  faked with a mocked transport now.
+- **`LeasedConnectionPool` is fixed-size with lazy self-healing, not
+  eagerly-reconnecting.** A connection returned in a non-`Ready` state is
+  discarded and replaced the next time it would have been leased, not
+  reconnected in the background. Simpler for v0; a background top-up could
+  reduce tail latency for the unlucky caller who pays for the reconnect, if
+  that turns out to matter.

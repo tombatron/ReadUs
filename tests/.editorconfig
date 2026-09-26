@@ -1,0 +1,5 @@
+[*.cs]
+# CA1707: test method names use the conventional MethodUnderTest_Scenario_Expected
+# underscore style throughout this repo's test projects for readability; that's a
+# deliberate convention, not an oversight.
+dotnet_diagnostic.CA1707.severity = none

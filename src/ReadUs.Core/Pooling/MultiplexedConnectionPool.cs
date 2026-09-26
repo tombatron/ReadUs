@@ -10,7 +10,7 @@ namespace ReadUs.Pooling;
 /// command, per the spec, but not yet load-aware (least-pending / latency-aware
 /// routing is a later optimization once benchmarks justify the added complexity).
 /// </summary>
-public sealed class MultiplexedConnectionPool : IAsyncDisposable
+public sealed class MultiplexedConnectionPool : IAsyncDisposable, IControlChannel
 {
     private readonly RedisConnection[] _connections;
     private int _nextIndex = -1;

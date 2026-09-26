@@ -12,4 +12,11 @@
                        ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Lets ReadUs.Tests.Unit exercise internal types directly — specifically
+         PendingRequest, for the exhaustive completion-claim state-space walker
+         (docs/design/state-machines.md §2.6, project spec §9.1). -->
+    <InternalsVisibleTo Include="ReadUs.Tests.Unit" />
+  </ItemGroup>
+
 </Project>

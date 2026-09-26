@@ -15,12 +15,24 @@ namespace ReadUs.Connections;
 /// requests purely by FIFO order (Redis guarantees in-order replies), via the
 /// <see cref="_pending"/> queue.
 ///
-/// Tier 2 (leased, dedicated) connections — required for blocking commands,
-/// transactions, and pub/sub sessions per project spec §4 — are not implemented yet
-/// (§13 step 3); this type only needs to satisfy the non-blocking multiplexed path.
+/// Tier 2 (leased, dedicated) usage — blocking commands and transactions, per project
+/// spec §4 — shares this same type: <see cref="SendBlockingAsync"/> reuses the identical
+/// transport, read loop, and pending-queue machinery as <see cref="SendAsync"/>, per the
+/// spec's explicit direction that tiering is a pooling/lifetime policy layered on common
+/// connection machinery, not a second protocol stack. What differs is only how
+/// cancellation is handled (see docs/design/state-machines.md §2).
 /// </summary>
 public sealed class RedisConnection : IAsyncDisposable
 {
+    /// <summary>
+    /// Bound on how long a Tier 2 cancellation waits, after a successful <c>CLIENT
+    /// UNBLOCK</c>, for the corresponding frame to arrive on the primary connection
+    /// before giving up and discarding the connection (docs/design/state-machines.md
+    /// §2.5, the <c>Discarded</c> transition). Deferred decision: fixed for v0; should
+    /// become configurable once Tier 2 pool options solidify (see design doc §5).
+    /// </summary>
+    private static readonly TimeSpan UnblockReconciliationGrace = TimeSpan.FromSeconds(2);
+
     private readonly ConcurrentQueue<PendingRequest> _pending = new();
     private readonly ConcurrentQueue<PendingRequest> _requestPool = new();
     private readonly SemaphoreSlim _writeGate = new(1, 1);
@@ -39,6 +51,13 @@ public sealed class RedisConnection : IAsyncDisposable
 
     internal ConnectionState State => (ConnectionState)Volatile.Read(ref _state);
 
+    /// <summary>
+    /// Captured via <c>CLIENT ID</c> during the handshake (docs/design/state-machines.md
+    /// §2.2) so a Tier 2 cancellation can issue <c>CLIENT UNBLOCK &lt;id&gt;</c> without
+    /// an extra round trip that would itself race the thing it's trying to interrupt.
+    /// </summary>
+    public long ClientId { get; private set; }
+
     public static async Task<RedisConnection> ConnectAsync(RedisConnectionOptions options, CancellationToken cancellationToken = default)
     {
         var connection = new RedisConnection();
@@ -51,7 +70,148 @@ public sealed class RedisConnection : IAsyncDisposable
         ThrowIfNotReady();
 
         var pending = RentPendingRequest();
+        await WriteAndEnqueueAsync(pending, commandName, args, cancellationToken).ConfigureAwait(false);
 
+        using var registration = cancellationToken.CanBeCanceled
+            ? cancellationToken.Register(
+                static state => ((PendingRequest)state!).TryCompleteWithException(new OperationCanceledException()),
+                pending)
+            : default;
+
+        try
+        {
+            return await new ValueTask<RedisResult>(pending, pending.Version).ConfigureAwait(false);
+        }
+        finally
+        {
+            ReturnPendingRequest(pending);
+        }
+    }
+
+    /// <summary>
+    /// Tier 2 (project spec §4): sends a <c>BLOCKING</c>-flagged command on a leased
+    /// connection. Unlike <see cref="SendAsync"/>, cancellation here does not simply
+    /// discard the eventual reply — it drives the <c>CLIENT UNBLOCK</c> reconciliation
+    /// protocol in docs/design/state-machines.md §2.3–§2.6, because a leased connection
+    /// must become reusable again (or be safely discarded) once the caller stops
+    /// waiting, not just abandoned mid-block forever.
+    /// </summary>
+    internal async ValueTask<RedisResult> SendBlockingAsync(
+        ReadOnlyMemory<byte> commandName,
+        ReadOnlyMemory<byte>[] args,
+        IControlChannel controlChannel,
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfNotReady();
+
+        var pending = RentPendingRequest();
+        await WriteAndEnqueueAsync(pending, commandName, args, cancellationToken).ConfigureAwait(false);
+
+        using var registration = cancellationToken.CanBeCanceled
+            ? cancellationToken.Register(
+                static state =>
+                {
+                    var (self, request, channel) = ((RedisConnection, PendingRequest, IControlChannel))state!;
+                    _ = self.ReconcileCancellationAsync(request, channel);
+                },
+                (this, pending, controlChannel))
+            : default;
+
+        try
+        {
+            return await new ValueTask<RedisResult>(pending, pending.Version).ConfigureAwait(false);
+        }
+        finally
+        {
+            ReturnPendingRequest(pending);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await FaultAsync(new ObjectDisposedException(nameof(RedisConnection))).ConfigureAwait(false);
+        await _readLoopTask.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The Tier 2 cancellation path (docs/design/state-machines.md §2.4–§2.6). Claims
+    /// the request for reconciliation (a no-op if the real reply already won via the
+    /// read loop's normal path), sends <c>CLIENT UNBLOCK &lt;id&gt; TIMEOUT</c> on the
+    /// control channel, then waits — bounded by <see cref="UnblockReconciliationGrace"/>
+    /// — for the corresponding frame on the primary connection before deciding the
+    /// caller's outcome. Every exit path completes `pending` exactly once (H1/H2) and
+    /// only ever leaves the connection in the pool-eligible <c>Ready</c> state when the
+    /// reconciliation could be proven clean (H3) — any ambiguity faults (and thereby
+    /// closes) the connection instead.
+    /// </summary>
+    private async Task ReconcileCancellationAsync(PendingRequest pending, IControlChannel controlChannel)
+    {
+        if (!pending.TryClaimForReconciliation(out var frameDelivered))
+        {
+            // The real reply already completed this request via the read loop's normal
+            // TryCompleteWithResult path. Nothing to reconcile.
+            return;
+        }
+
+        try
+        {
+            RedisResult unblockReply;
+            try
+            {
+                unblockReply = await controlChannel
+                    .ExecuteAsync(CommandNames.Client, [CommandNames.ClientUnblockSubcommand, EncodeClientId(ClientId), CommandNames.UnblockTimeoutMode])
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                // Control channel itself failed — no proof the server-side block was
+                // ever interrupted. Discard rather than risk handing back a connection
+                // that's still blocked server-side (H3).
+                pending.CompleteClaimedWithException(new OperationCanceledException("The blocking command was cancelled, but CLIENT UNBLOCK could not be delivered.", ex));
+                await FaultAsync(new RedisConnectionException("Failed to reconcile a cancelled blocking command.", ex)).ConfigureAwait(false);
+                return;
+            }
+
+            using var graceCts = new CancellationTokenSource(UnblockReconciliationGrace);
+            RedisResult frame;
+            try
+            {
+                frame = await frameDelivered.WaitAsync(graceCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                pending.CompleteClaimedWithException(new OperationCanceledException("Timed out reconciling a cancelled blocking command; the connection cannot be safely reused."));
+                await FaultAsync(new RedisConnectionException("Grace deadline elapsed reconciling a cancelled blocking command.")).ConfigureAwait(false);
+                return;
+            }
+
+            if (unblockReply.AsInt64() == 1)
+            {
+                // The server confirms it actually unblocked our client; the frame that
+                // just arrived is the resulting timeout/error artifact, not real data.
+                pending.CompleteClaimedWithException(new OperationCanceledException("The blocking command was cancelled."));
+            }
+            else
+            {
+                // UNBLOCK returned 0: a genuine reply had already been produced before
+                // the server could act on it. Honor it — see design doc §2.4's policy —
+                // rather than throw away a valid result the caller already paid for.
+                pending.CompleteClaimed(frame);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Defensive: never leave `pending` uncompleted (H1) regardless of what else
+            // goes wrong above.
+            pending.CompleteClaimedWithException(ex);
+            await FaultAsync(ex).ConfigureAwait(false);
+        }
+    }
+
+    private static byte[] EncodeClientId(long clientId) => Encoding.ASCII.GetBytes(clientId.ToString(CultureInfo.InvariantCulture));
+
+    private async ValueTask WriteAndEnqueueAsync(PendingRequest pending, ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken)
+    {
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
@@ -80,27 +240,6 @@ public sealed class RedisConnection : IAsyncDisposable
         {
             _writeGate.Release();
         }
-
-        using var registration = cancellationToken.CanBeCanceled
-            ? cancellationToken.Register(
-                static state => ((PendingRequest)state!).TryCompleteWithException(new OperationCanceledException()),
-                pending)
-            : default;
-
-        try
-        {
-            return await new ValueTask<RedisResult>(pending, pending.Version).ConfigureAwait(false);
-        }
-        finally
-        {
-            ReturnPendingRequest(pending);
-        }
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await FaultAsync(new ObjectDisposedException(nameof(RedisConnection))).ConfigureAwait(false);
-        await _readLoopTask.ConfigureAwait(false);
     }
 
     private async Task OpenAsync(RedisConnectionOptions options, CancellationToken cancellationToken)
@@ -143,6 +282,14 @@ public sealed class RedisConnection : IAsyncDisposable
             {
                 throw new RedisConnectionException($"HELLO failed: {reply.AsString()}");
             }
+
+            // Captured once, up front, per docs/design/state-machines.md §2.2 — a Tier 2
+            // cancellation needs this to issue CLIENT UNBLOCK without an extra round
+            // trip at cancel time.
+            RespCommandWriter.WriteCommand(_writer, CommandNames.Client, [CommandNames.ClientIdSubcommand]);
+            await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            var clientIdReply = await ReadOneFrameAsync(_reader, cancellationToken).ConfigureAwait(false);
+            ClientId = clientIdReply.AsInt64();
         }
         catch (RedisConnectionException)
         {
@@ -247,10 +394,17 @@ public sealed class RedisConnection : IAsyncDisposable
             throw new RespProtocolException("Received a reply with no matching pending request.");
         }
 
-        // Returns false if a caller's CancellationToken already claimed this request —
-        // the real reply is simply discarded, per the Tier 1 cancellation policy
-        // documented on PendingRequest.
-        request.TryCompleteWithResult(result);
+        if (request.TryCompleteWithResult(result))
+        {
+            return;
+        }
+
+        // Already claimed. If a Tier 2 cancellation is reconciling this request, it's
+        // waiting to inspect this exact frame (docs/design/state-machines.md §2.4-2.6) —
+        // hand it over instead of dropping it. If no reconciliation is in progress
+        // (the simpler Tier 1 cancellation case), this is a no-op and the frame is
+        // discarded, matching Tier 1's documented policy.
+        request.TryDeliverReconciliationFrame(result);
     }
 
     /// <summary>
