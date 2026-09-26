@@ -2,12 +2,14 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using ReadUs.Connections;
+using ReadUs.Generated;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
 /// Exercises Tier 2 blocking commands (project spec §4, §13 step 3) against a real
-/// standalone <c>redis-server</c>. Provisional, same caveat as
+/// standalone <c>redis-server</c>, via the generated <c>BlpopAsync</c>/<c>LpushAsync</c>
+/// extension methods (project spec §13 step 4). Provisional, same caveat as
 /// <see cref="StandaloneClientTests"/>: assumes a reachable server rather than
 /// provisioning one; the dedicated fault-injection harness lands with Cluster/Sentinel
 /// (project spec §9.2).
@@ -25,9 +27,9 @@ public class BlockingCommandTests
         await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1, leasedConnectionCount: 1);
         var key = Encoding.UTF8.GetBytes($"readus:test:blpop:{Guid.NewGuid():N}");
 
-        await client.LPushAsync(key, "value"u8.ToArray());
+        await client.LpushAsync(key, ["value"u8.ToArray()]);
 
-        var result = await client.BlPopAsync(key, timeoutSeconds: 5);
+        var result = await client.BlpopAsync([key], timeout: 5);
 
         var items = result.AsItems();
         Assert.Equal(2, items.Length);
@@ -41,7 +43,7 @@ public class BlockingCommandTests
         await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1, leasedConnectionCount: 1);
         var key = Encoding.UTF8.GetBytes($"readus:test:blpop:empty:{Guid.NewGuid():N}");
 
-        var result = await client.BlPopAsync(key, timeoutSeconds: 1);
+        var result = await client.BlpopAsync([key], timeout: 1);
 
         Assert.True(result.IsNull);
     }
@@ -58,7 +60,7 @@ public class BlockingCommandTests
         var key = Encoding.UTF8.GetBytes($"readus:test:blpop:cancel:{Guid.NewGuid():N}");
 
         using var cts = new CancellationTokenSource();
-        var blockingCall = client.BlPopAsync(key, timeoutSeconds: 30, cts.Token).AsTask();
+        var blockingCall = client.BlpopAsync([key], timeout: 30, cts.Token).AsTask();
 
         // Give the command time to actually reach the server and enter its blocking
         // wait before cancelling — cancelling too early would just hit the
@@ -76,8 +78,8 @@ public class BlockingCommandTests
 
         // The pool's one leased connection must have come back healthy.
         var followUpKey = Encoding.UTF8.GetBytes($"readus:test:blpop:followup:{Guid.NewGuid():N}");
-        await client.LPushAsync(followUpKey, "still-works"u8.ToArray());
-        var followUp = await client.BlPopAsync(followUpKey, timeoutSeconds: 5);
+        await client.LpushAsync(followUpKey, ["still-works"u8.ToArray()]);
+        var followUp = await client.BlpopAsync([followUpKey], timeout: 5);
         Assert.Equal("still-works", followUp.AsItems()[1].AsString());
     }
 }

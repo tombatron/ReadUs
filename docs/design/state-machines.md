@@ -435,3 +435,52 @@ should be easy to revisit rather than silently baked in:
   reconnected in the background. Simpler for v0; a background top-up could
   reduce tail latency for the unlucky caller who pays for the reconnect, if
   that turns out to matter.
+
+### Recorded during §13 step 4 implementation (command-table source generator)
+
+- **Command/subcommand names are PascalCased as whole words, not split into
+  natural word boundaries** (`BLPOP` → `Blpop`, not `BlPop`) — there's no
+  general way to do this correctly without a hand-curated exception table for
+  all ~460 commands, which would itself be an ad hoc, drifting artifact. A
+  literal hyphen in a name (`NO-EVICT`) *is* treated as a real word boundary
+  (→ `NoEvict`) since that's an unambiguous, mechanical split. Revisit if a
+  curated override table (only for the handful of commands where the ugly
+  casing really bothers people) turns out to be worth the upkeep.
+- **A `oneof` group's members are flattened into independent optional
+  parameters, prefixed with the group's own name** (EXPIRE's `condition`
+  oneof → `conditionNx`/`conditionXx`/...). This was forced by BLMOVE having
+  two independent oneof groups (`wherefrom`/`whereto`) that both offer
+  `LEFT`/`RIGHT` — without the prefix the flattened parameters collide. A
+  side benefit: the prefix also makes clear which logical group a flag
+  belongs to. The server still enforces mutual exclusivity within a oneof;
+  this client doesn't duplicate that validation client-side.
+- **Only two levels of argument nesting are supported**: a plain top-level
+  argument, or one level of `oneof`/`block` beneath it. Anything deeper (a
+  `block` containing a non-scalar member, a `oneof` nested inside another
+  `oneof`/`block`) aborts typed-method generation for that whole command —
+  it still gets a full metadata entry (routing/blocking/key-spec
+  information), just no generated typed method, until the escape hatch
+  (`ExecuteAsync`/`ExecuteBlockingAsync`) is used directly. In practice this
+  covers 412 of 459 vendored commands (~90%) as of the `8.10.1` snapshot.
+- **Generated methods target `RedisClient` only** (as extension methods),
+  not `ConnectionLease`/`RedisTransaction`, which run over a leased
+  connection rather than the Tier 1/Tier 2 pools `RedisClient` wraps. This is
+  why `RedisTransaction` still hand-writes its `WATCH`/`MULTI`/`EXEC`/
+  `DISCARD` calls via `CommandNames` rather than using the generated
+  `TransactionsCommands` extension methods. Extending codegen to also target
+  a leased-connection context is future work, not fundamental — it would
+  need a shared "can execute a command" abstraction that both `RedisClient`
+  and `ConnectionLease` implement.
+- **Response typing stays at `RedisResult` for every generated method** —
+  the generator's scope this pass is typed *arguments*, not mapping each
+  command's `reply_schema` to a precise C# return type. That's a
+  substantially bigger design task (union-shaped replies, e.g. SET's
+  `anyOf` of `OK`/previous-value/null, would need their own modeling) better
+  done as a deliberate follow-up once the argument side has proven itself.
+- **The generated per-call argument list is always built via a
+  `List<ReadOnlyMemory<byte>>` + `ToArray()`, even for commands with zero
+  optional/multiple parameters** (which could instead emit a fixed-size
+  array literal directly). Kept uniform for generator simplicity; revisit if
+  benchmarking the generated convenience layer itself (as opposed to the
+  underlying `RespCommandWriter`/pipe path, which is already allocation-
+  conscious) shows this matters.

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text;
 using ReadUs.Connections;
+using ReadUs.Generated;
 
 namespace ReadUs.Tests.Integration;
 

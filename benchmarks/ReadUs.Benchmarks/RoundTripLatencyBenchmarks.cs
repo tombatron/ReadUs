@@ -1,6 +1,7 @@
 using System.Net;
 using BenchmarkDotNet.Attributes;
 using ReadUs.Connections;
+using ReadUs.Generated;
 using ReadUs.Protocol;
 
 namespace ReadUs.Benchmarks;

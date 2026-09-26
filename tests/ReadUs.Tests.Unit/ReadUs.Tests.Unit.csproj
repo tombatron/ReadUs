@@ -22,6 +22,8 @@
     <ProjectReference Include="..\..\src\ReadUs.Core\ReadUs.Core.csproj" />
     <ProjectReference Include="..\..\src\ReadUs.Cluster\ReadUs.Cluster.csproj" />
     <ProjectReference Include="..\..\src\ReadUs.Sentinel\ReadUs.Sentinel.csproj" />
+    <!-- Ordinary reference (not analyzer-only) so parser tests can call it directly. -->
+    <ProjectReference Include="..\..\src\ReadUs.SourceGenerators\ReadUs.SourceGenerators.csproj" />
   </ItemGroup>
 
 </Project>

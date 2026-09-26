@@ -8,9 +8,15 @@ namespace ReadUs;
 /// <summary>
 /// Top-level standalone client (project spec §10). Wraps both the Tier 1 multiplexed
 /// pool (§13 step 2) and the Tier 2 leased pool (§13 step 3) — Cluster/Sentinel-
-/// transparent routing lands later still. <see cref="ExecuteAsync"/> is the low-level
-/// escape hatch from §3; the Ping/Set/Get/BlPop convenience wrappers are hand-written
-/// stand-ins for the generated typed command surface that §13 step 4 will produce.
+/// transparent routing lands later still.
+///
+/// <see cref="ExecuteAsync"/>/<see cref="ExecuteBlockingAsync"/> are the low-level
+/// escape hatches from project spec §3 — for anything the generated surface doesn't
+/// cover yet, and module commands (<c>FT.*</c>, <c>JSON.*</c>, <c>BF.*</c>, ...). Typed
+/// command methods (<c>GetAsync</c>, <c>SetAsync</c>, <c>BlpopAsync</c>, ...) are
+/// generated onto this type as extension methods by <c>ReadUs.SourceGenerators</c> from
+/// the vendored command table (project spec §13 step 4) — see the
+/// <c>ReadUs.Generated</c> namespace and codegen/redis-commands/SOURCE.md.
 /// </summary>
 public sealed class RedisClient : IAsyncDisposable
 {
@@ -36,8 +42,8 @@ public sealed class RedisClient : IAsyncDisposable
 
     /// <summary>
     /// The raw escape hatch (project spec §3): sends any non-blocking command over the
-    /// Tier 1 pool, including ones the future generated surface doesn't know about yet,
-    /// and module commands (<c>FT.*</c>, <c>JSON.*</c>, <c>BF.*</c>, ...).
+    /// Tier 1 pool, including ones the generated surface doesn't know about yet, and
+    /// module commands.
     /// </summary>
     public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default) =>
         _multiplexedPool.ExecuteAsync(commandName, args, cancellationToken);
@@ -56,29 +62,6 @@ public sealed class RedisClient : IAsyncDisposable
 
     public Task<RedisTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
         RedisTransaction.StartAsync(_leasedPool, cancellationToken);
-
-    public ValueTask<RedisResult> PingAsync(CancellationToken cancellationToken = default) =>
-        ExecuteAsync(CommandNames.Ping, [], cancellationToken);
-
-    public ValueTask<RedisResult> SetAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken = default) =>
-        ExecuteAsync(CommandNames.Set, [key, value], cancellationToken);
-
-    public ValueTask<RedisResult> GetAsync(ReadOnlyMemory<byte> key, CancellationToken cancellationToken = default) =>
-        ExecuteAsync(CommandNames.Get, [key], cancellationToken);
-
-    /// <summary>
-    /// <c>BLPOP key [key ...] timeout</c> — blocks server-side for up to
-    /// <paramref name="timeoutSeconds"/> (0 = block indefinitely), independently
-    /// cancellable via <paramref name="cancellationToken"/> per project spec §4.
-    /// </summary>
-    public ValueTask<RedisResult> BlPopAsync(ReadOnlyMemory<byte> key, double timeoutSeconds, CancellationToken cancellationToken = default) =>
-        ExecuteBlockingAsync(CommandNames.BlPop, [key, TimeoutArg(timeoutSeconds)], cancellationToken);
-
-    public ValueTask<RedisResult> LPushAsync(ReadOnlyMemory<byte> key, ReadOnlyMemory<byte> value, CancellationToken cancellationToken = default) =>
-        ExecuteAsync(CommandNames.LPush, [key, value], cancellationToken);
-
-    private static byte[] TimeoutArg(double timeoutSeconds) =>
-        System.Text.Encoding.ASCII.GetBytes(timeoutSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
     public async ValueTask DisposeAsync()
     {

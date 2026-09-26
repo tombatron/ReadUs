@@ -4,12 +4,21 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- Writes CommandTableGenerator's output to disk for inspection/debugging. -->
+    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ReadUs.SourceGenerators\ReadUs.SourceGenerators.csproj"
                        OutputItemType="Analyzer"
                        ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The vendored command table CommandTableGenerator reads (project spec §3;
+         see codegen/redis-commands/SOURCE.md for provenance). -->
+    <AdditionalFiles Include="..\..\codegen\redis-commands\*.json" />
   </ItemGroup>
 
   <ItemGroup>
