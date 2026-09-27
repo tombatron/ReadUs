@@ -1,29 +1,31 @@
-using System.Net;
 using ReadUs.Connections;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
 /// Exercises the pluggable rotating-credential auth path (project spec §7) against a
-/// real server — a stand-in for AWS IAM/Azure Entra token providers, which ReadUs
-/// deliberately doesn't implement itself. Each test gets its own throwaway ACL user
+/// real, disposable Testcontainers-managed server (project spec §9.2) — a stand-in for
+/// AWS IAM/Azure Entra token providers, which ReadUs deliberately doesn't implement
+/// itself. Each test gets its own throwaway ACL user
 /// (<see cref="InitializeAsync"/>/<see cref="DisposeAsync"/>) so tests never interfere
 /// with each other's password state.
 /// </summary>
-public class CredentialsProviderTests : IAsyncLifetime
+[Collection(StandaloneRedisCollection.Name)]
+public class CredentialsProviderTests(StandaloneRedisFixture fixture) : IAsyncLifetime
 {
     private const string InitialPassword = "initial-pw-1";
     private readonly string _username = $"readus-rotate-{Guid.NewGuid():N}";
 
     public async Task InitializeAsync()
     {
-        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379) }, connectionCount: 1);
+        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = fixture.EndPoint }, connectionCount: 1);
         await admin.ExecuteAsync("ACL"u8.ToArray(), ["SETUSER"u8.ToArray(), Encode(_username), Encode($">{InitialPassword}"), "allkeys"u8.ToArray(), "allcommands"u8.ToArray(), "on"u8.ToArray()]);
     }
 
     public async Task DisposeAsync()
     {
-        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379) }, connectionCount: 1);
+        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = fixture.EndPoint }, connectionCount: 1);
         await admin.ExecuteAsync("ACL"u8.ToArray(), ["DELUSER"u8.ToArray(), Encode(_username)]);
     }
 
@@ -31,7 +33,7 @@ public class CredentialsProviderTests : IAsyncLifetime
     public async Task ConnectsUsingACredentialsProviderInsteadOfAStaticPassword()
     {
         var provider = new MutableCredentialsProvider(_username, InitialPassword);
-        var options = new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379), CredentialsProvider = provider };
+        var options = new RedisConnectionOptions { EndPoint = fixture.EndPoint, CredentialsProvider = provider };
 
         await using var connection = await RedisConnection.ConnectAsync(options);
         var result = await connection.SendAsync("PING"u8.ToArray(), []);
@@ -43,7 +45,7 @@ public class CredentialsProviderTests : IAsyncLifetime
     public async Task ConnectingWithAWrongPasswordFromTheProviderFails()
     {
         var provider = new MutableCredentialsProvider(_username, "definitely-the-wrong-password");
-        var options = new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379), CredentialsProvider = provider };
+        var options = new RedisConnectionOptions { EndPoint = fixture.EndPoint, CredentialsProvider = provider };
 
         await Assert.ThrowsAsync<RedisConnectionException>(async () => await RedisConnection.ConnectAsync(options));
     }
@@ -54,7 +56,7 @@ public class CredentialsProviderTests : IAsyncLifetime
         const string rotatedPassword = "rotated-pw-2";
 
         var provider = new MutableCredentialsProvider(_username, InitialPassword);
-        var options = new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379), CredentialsProvider = provider };
+        var options = new RedisConnectionOptions { EndPoint = fixture.EndPoint, CredentialsProvider = provider };
 
         await using var connection = await RedisConnection.ConnectAsync(options);
         var beforeRotation = await connection.SendAsync("PING"u8.ToArray(), []);
@@ -62,7 +64,7 @@ public class CredentialsProviderTests : IAsyncLifetime
 
         // Rotate the server-side password out from under the already-open connection —
         // exactly the scenario a real IAM/Entra token refresh looks like.
-        await using (var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379) }, connectionCount: 1))
+        await using (var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = fixture.EndPoint }, connectionCount: 1))
         {
             await admin.ExecuteAsync("ACL"u8.ToArray(), ["SETUSER"u8.ToArray(), Encode(_username), Encode($">{rotatedPassword}"), Encode($"<{InitialPassword}")]);
         }

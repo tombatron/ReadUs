@@ -1,6 +1,6 @@
-using System.Net;
 using ReadUs.Connections;
 using ReadUs.Pooling;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
@@ -8,13 +8,15 @@ namespace ReadUs.Tests.Integration;
 /// Exercises Tier 1's self-healing (project spec §7: "cross-AZ/cross-region latency
 /// and transient managed-service blips are the norm") directly against
 /// <see cref="MultiplexedConnectionPool"/>, since <see cref="RedisClient"/> doesn't
-/// expose its underlying connections for a test to fault deliberately.
+/// expose its underlying connections for a test to fault deliberately. Runs against a
+/// disposable Testcontainers-managed server (project spec §9.2).
 /// </summary>
-public class MultiplexedConnectionPoolHealingTests
+[Collection(StandaloneRedisCollection.Name)]
+public class MultiplexedConnectionPoolHealingTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

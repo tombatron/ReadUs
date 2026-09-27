@@ -1,8 +1,8 @@
-using System.Net;
 using System.Text;
 using System.Text.Json.Serialization;
 using ReadUs.Connections;
 using ReadUs.Extensions.Json;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
@@ -13,12 +13,13 @@ internal sealed partial class TestJsonContext : JsonSerializerContext
 {
 }
 
-/// <summary>Exercises the typed JSON POCO helpers (project spec §10, §13 step 7's lowest-priority "typed helpers" item) against a real server.</summary>
-public class JsonRedisClientExtensionsTests
+/// <summary>Exercises the typed JSON POCO helpers (project spec §10, §13 step 7's lowest-priority "typed helpers" item) against a real, disposable Testcontainers-managed server (project spec §9.2).</summary>
+[Collection(StandaloneRedisCollection.Name)]
+public class JsonRedisClientExtensionsTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

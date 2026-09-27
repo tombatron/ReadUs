@@ -1,16 +1,17 @@
-using System.Net;
 using System.Text;
 using ReadUs.Caching;
 using ReadUs.Connections;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
-/// <summary>Exercises the RESP3 CLIENT TRACKING-backed client-side cache (project spec §10) against a real server.</summary>
-public class ClientSideCacheTests
+/// <summary>Exercises the RESP3 CLIENT TRACKING-backed client-side cache (project spec §10) against a real, disposable Testcontainers-managed server (project spec §9.2).</summary>
+[Collection(StandaloneRedisCollection.Name)]
+public class ClientSideCacheTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

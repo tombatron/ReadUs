@@ -1,25 +1,21 @@
-using System.Net;
 using System.Text;
 using ReadUs.Connections;
 using ReadUs.Generated;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
 /// Exercises the Tier 1 multiplexed pool (project spec §13 step 2) against a real
-/// standalone <c>redis-server</c> at <c>localhost:6379</c>.
-///
-/// Provisional: this assumes a server is already reachable rather than provisioning
-/// one. The real fault-injection harness (project spec §9.2) will spin up disposable
-/// containers via Testcontainers once Tier 2 and the connection-lifecycle fault paths
-/// land in §13 step 3 — these tests only need something real to talk RESP3 to in the
-/// meantime.
+/// standalone <c>redis-server</c> — a disposable Testcontainers-managed instance
+/// (project spec §9.2), shared across this whole collection.
 /// </summary>
-public class StandaloneClientTests
+[Collection(StandaloneRedisCollection.Name)]
+public class StandaloneClientTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

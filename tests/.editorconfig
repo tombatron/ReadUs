@@ -3,3 +3,8 @@
 # underscore style throughout this repo's test projects for readability; that's a
 # deliberate convention, not an oversight.
 dotnet_diagnostic.CA1707.severity = none
+
+# CA1711: flags xUnit [CollectionDefinition] marker classes (e.g. StandaloneRedisCollection)
+# for ending in "Collection" — that's xUnit's own documented naming convention for these
+# marker types, not a real collision with a collection-implementing type.
+dotnet_diagnostic.CA1711.severity = none

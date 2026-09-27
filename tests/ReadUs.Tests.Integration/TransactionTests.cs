@@ -1,19 +1,21 @@
-using System.Net;
 using System.Text;
 using ReadUs.Connections;
 using ReadUs.Generated;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
 /// Exercises the <c>MULTI</c>/<c>WATCH</c>/<c>EXEC</c> transaction builder (project
-/// spec §10, §13 step 3) against a real standalone <c>redis-server</c>.
+/// spec §10, §13 step 3) against a real standalone <c>redis-server</c> — a disposable
+/// Testcontainers-managed instance (project spec §9.2), shared across this collection.
 /// </summary>
-public class TransactionTests
+[Collection(StandaloneRedisCollection.Name)]
+public class TransactionTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

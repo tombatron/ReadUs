@@ -1,8 +1,8 @@
 using System.Diagnostics.Metrics;
-using System.Net;
 using ReadUs.Connections;
 using ReadUs.Diagnostics;
 using ReadUs.Pooling;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
@@ -12,13 +12,15 @@ namespace ReadUs.Tests.Integration;
 /// into this test project — proving the "zero dependency in ReadUs.Core" design works
 /// on its own terms, the same way an application's own OpenTelemetry pipeline would
 /// observe these instruments once <c>ReadUs.Extensions.OpenTelemetry</c> points a real
-/// <c>MeterProvider</c> at <see cref="ReadUsDiagnostics.MeterName"/>.
+/// <c>MeterProvider</c> at <see cref="ReadUsDiagnostics.MeterName"/>. Runs against a
+/// disposable Testcontainers-managed server (project spec §9.2).
 /// </summary>
-public class MetricsTests
+[Collection(StandaloneRedisCollection.Name)]
+public class MetricsTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

@@ -1,7 +1,7 @@
-using System.Net;
 using System.Text;
 using ReadUs.Connections;
 using ReadUs.Generated;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
@@ -12,11 +12,12 @@ namespace ReadUs.Tests.Integration;
 /// nullable tuple) and repeating (HSET's field/value pairs, a list of tuples) — against
 /// a real server, not just checking that the generated code compiles.
 /// </summary>
-public class GeneratedCommandsTests
+[Collection(StandaloneRedisCollection.Name)]
+public class GeneratedCommandsTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]

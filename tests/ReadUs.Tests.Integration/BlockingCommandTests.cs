@@ -1,24 +1,22 @@
 using System.Diagnostics;
-using System.Net;
 using System.Text;
 using ReadUs.Connections;
 using ReadUs.Generated;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
 /// Exercises Tier 2 blocking commands (project spec §4, §13 step 3) against a real
-/// standalone <c>redis-server</c>, via the generated <c>BlpopAsync</c>/<c>LpushAsync</c>
-/// extension methods (project spec §13 step 4). Provisional, same caveat as
-/// <see cref="StandaloneClientTests"/>: assumes a reachable server rather than
-/// provisioning one; the dedicated fault-injection harness lands with Cluster/Sentinel
-/// (project spec §9.2).
+/// standalone <c>redis-server</c> — a disposable Testcontainers-managed instance
+/// (project spec §9.2), shared across this whole collection.
 /// </summary>
-public class BlockingCommandTests
+[Collection(StandaloneRedisCollection.Name)]
+public class BlockingCommandTests(StandaloneRedisFixture fixture)
 {
-    private static RedisConnectionOptions Options => new()
+    private RedisConnectionOptions Options => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = fixture.EndPoint,
     };
 
     [Fact]
