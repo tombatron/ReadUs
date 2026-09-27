@@ -49,7 +49,7 @@ public class ClientSideCacheTests(StandaloneRedisFixture fixture)
         // The invalidation push is asynchronous — poll briefly rather than assuming an
         // exact delivery time.
         var evicted = false;
-        for (var i = 0; i < 50 && !evicted; i++)
+        for (var i = 0; i < 300 && !evicted; i++)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20));
             evicted = !cache.TryGetCached(key, out _);
@@ -75,7 +75,7 @@ public class ClientSideCacheTests(StandaloneRedisFixture fixture)
         await admin.ExecuteAsync("FLUSHALL"u8.ToArray(), []);
 
         var cleared = false;
-        for (var i = 0; i < 50 && !cleared; i++)
+        for (var i = 0; i < 300 && !cleared; i++)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20));
             cleared = cache.Count == 0;
@@ -161,7 +161,7 @@ public class ClientSideCacheTests(StandaloneRedisFixture fixture)
         await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v2"u8.ToArray()]);
 
         var evicted = false;
-        for (var i = 0; i < 50 && !evicted; i++)
+        for (var i = 0; i < 300 && !evicted; i++)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20));
             evicted = !cache.TryGetCached(key, out _);

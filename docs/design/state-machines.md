@@ -1317,3 +1317,65 @@ existing `ReadUs.SourceGenerators` project, alongside
   working correctly for a key within a registered prefix) — between
   those two, there's no gap in confidence that would justify adding
   `ClientSideCache` surface area purely for introspection.
+
+### Recorded during implementation of fault-injection tests (project spec §9.2)
+
+Of §9.2's fault-injection list, everything except two items already had
+real-infrastructure coverage: MOVED/ASK/CLUSTERDOWN sequences
+(`ClusterClientTests`, against a live migration/redirect, not a
+simulation), a forced Sentinel failover (`SentinelClientTests`, a real
+`SENTINEL FAILOVER`), and blocking-command cancellation racing the
+server's reply (the exhaustive completion-claim state-space walker, §2.6,
+plus `BlockingCommandTests`). The two genuinely missing: mid-response TCP
+resets, and partial writes/reads. `FaultInjectionTests` covers both,
+using Toxiproxy — the spec's own named option ("via a proxy layer like
+Toxiproxy or a custom byte-delaying stream wrapper") — rather than a
+hand-rolled proxy, on the reasoning that a purpose-built, widely-used
+fault-injection tool is less likely to have its own subtle bugs than a
+first attempt at reinventing one.
+
+- **`ToxiproxyFixture` sits Toxiproxy and a target Redis on a private
+  Docker network together**, with the .NET test process only ever
+  talking to Toxiproxy's own mapped ports — never directly to Redis. This
+  is what makes an injected fault genuinely sit on the wire between
+  ReadUs and the server, not just a mock standing in for one.
+- **A real, non-obvious Testcontainers gotcha, not a ReadUs bug**: the
+  official Toxiproxy image is scratch-based with no shell at all — no
+  `sh`, no `cat`, nothing. An exec-based wait strategy
+  (`UntilInternalTcpPortIsAvailable`, used successfully for every other
+  fixture's plain Linux-distro-based Redis image) can never succeed
+  against it, and — this is the sharp edge — it doesn't fail loudly when
+  it can't; it just retries forever, hanging the whole test run with no
+  error. Diagnosed by adding a file-based diagnostic log at each fixture
+  step (Console output isn't reliably captured by the test runner,
+  same lesson as the earlier `ClientSideCache` race investigation) and
+  observing exactly where progress stopped. Fixed with an HTTP-based wait
+  strategy (`UntilHttpRequestIsSucceeded` against Toxiproxy's own
+  `/version` endpoint) — performed from outside the container, needing
+  nothing inside it at all. Worth remembering for any future
+  minimal-image fixture: prefer an HTTP/TCP-level wait check over an
+  exec-based one unless the image is known to have a shell.
+- **One shared Toxiproxy proxy for the whole fixture, not one per test**:
+  a proxy's listen port is a container port that has to be mapped
+  *before* the container starts, which rules out creating a fresh proxy
+  on a fresh port per test without restarting the container. Tests add
+  and remove their own named toxics against the one shared proxy instead
+  — safe because collection tests run sequentially, so there's no
+  cross-test toxic interference.
+- **Once the fixture's wait-strategy bug was fixed, both fault scenarios
+  behaved exactly as hoped, and fast**: the mid-response reset produces
+  `RedisConnectionException` in milliseconds (no hang, no ambiguous
+  failure mode — this is genuinely reassuring evidence for "provably
+  stable," not just an assumption), and 500 bytes of reply data sliced
+  into 1-byte network fragments with a delay between each still parses
+  correctly, proving the zero-copy `ReadOnlySequence<byte>` reassembly
+  path (design doc, project spec §8) holds up against real socket-level
+  fragmentation, not just an in-memory unit test's synthetic split.
+- **A real, if minor, side effect of adding a sixth concurrent fixture
+  collection**: `ClientSideCacheTests`' eviction-polling tests (50 × 20ms
+  = 1s budget) started flaking under the added concurrent Docker load
+  from `ToxiproxyFixture`'s extra containers starting up alongside
+  everything else. Widened to 300 × 20ms = 6s, matching the more generous
+  budget this file's own race test already uses for the identical
+  reason (see its own remarks) — confirmed stable across four repeated
+  full-suite runs afterward.
