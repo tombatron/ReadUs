@@ -887,10 +887,9 @@ should be easy to revisit rather than silently baked in:
   REDIRECT`) are mentioned only in passing by the project spec and are not
   implemented; `ClientSideCache` assumes one dedicated connection tracks
   exactly the keys it has personally read.
-- **Higher-level typed helpers (POCO mapping) are deliberately out of
-  scope for this pass.** The project spec frames these as optional/lowest
-  priority within the convenience-layer step, behind DI, metrics, and
-  client-side caching; not attempted here.
+- ~~**Higher-level typed helpers (POCO mapping) are deliberately out of
+  scope for this pass.**~~ Done in a later pass — see "Recorded during
+  implementation of typed JSON helpers" below (`ReadUs.Extensions.Json`).
 
 ### Recorded during implementation of §3.1 (Cluster node health tracking)
 
@@ -1022,3 +1021,39 @@ should be easy to revisit rather than silently baked in:
   options factory counts its own invocations per endpoint, and 30
   concurrent commands racing first contact with a node still show exactly
   one connection attempt.
+
+### Recorded during implementation of typed JSON helpers
+
+- **Scoped to whole-value `GET`/`SET` only, deliberately, not hash-field
+  mapping.** Mapping a POCO's properties onto `HSET`/`HGETALL` is a
+  distinctly bigger design task (partial-update semantics, `HGETALL`'s
+  flat field/value reply shape, what a missing field on read means) —
+  left for a follow-up if whole-value JSON mapping proves worthwhile.
+  `SetJsonAsync`/`GetJsonAsync` just serialize/deserialize the entire
+  value as one JSON blob through ordinary `SET`/`GET`.
+- **A new package, `ReadUs.Extensions.Json`, not a `ReadUs.Core` addition**
+  — project spec §8 is explicit that reflection-driven convenience
+  "belongs in an optional, clearly-labeled higher-level convenience
+  package, never in the core command path," matching the same pattern
+  `ReadUs.Extensions.DependencyInjection`/`.OpenTelemetry` already
+  established: referencing the package (and only it) is what costs
+  anything.
+- **Every operation ships two overloads: a `JsonTypeInfo<T>` one (the
+  AOT-safe, reflection-free path §8 asks for "if [reflection-driven
+  convenience is] offered at all," typically backed by a caller's own
+  source-generated `JsonSerializerContext`) and a `JsonSerializerOptions`
+  one (ordinary `System.Text.Json` runtime reflection, for callers who
+  haven't set one up).** Both are kept, rather than only the AOT-safe one,
+  as a pragmatic middle ground — the reflection path is `System.Text
+  .Json`'s own, not anything ReadUs implements itself, and the same
+  tension is resolved the same way elsewhere in the .NET ecosystem (e.g.
+  ASP.NET Core minimal APIs).
+- **A real (if minor) language limitation surfaced while writing this**:
+  `ReadOnlySpan<byte>` can't be a generic type argument (ref structs never
+  can), so a first attempt at sharing the null/error-checking logic
+  between the `JsonTypeInfo<T>` and `JsonSerializerOptions` `GetJsonAsync`
+  overloads via a `Func<ReadOnlySpan<byte>, T?>` helper didn't compile.
+  Fixed by extracting a non-generic `TryGetJsonPayload(RedisResult reply,
+  out ReadOnlySpan<byte> span)` instead — `out`/`ref` ReadOnlySpan
+  parameters are fine, it's specifically the generic-argument position
+  that's disallowed.

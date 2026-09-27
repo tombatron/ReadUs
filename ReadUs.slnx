@@ -6,6 +6,7 @@
     <Project Path="src/ReadUs.Cluster/ReadUs.Cluster.csproj" />
     <Project Path="src/ReadUs.Core/ReadUs.Core.csproj" />
     <Project Path="src/ReadUs.Extensions.DependencyInjection/ReadUs.Extensions.DependencyInjection.csproj" />
+    <Project Path="src/ReadUs.Extensions.Json/ReadUs.Extensions.Json.csproj" />
     <Project Path="src/ReadUs.Extensions.OpenTelemetry/ReadUs.Extensions.OpenTelemetry.csproj" />
     <Project Path="src/ReadUs.Sentinel/ReadUs.Sentinel.csproj" />
     <Project Path="src/ReadUs.SourceGenerators/ReadUs.SourceGenerators.csproj" />

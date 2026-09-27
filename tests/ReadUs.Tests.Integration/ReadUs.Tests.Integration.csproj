@@ -24,6 +24,7 @@
     <ProjectReference Include="..\..\src\ReadUs.Cluster\ReadUs.Cluster.csproj" />
     <ProjectReference Include="..\..\src\ReadUs.Sentinel\ReadUs.Sentinel.csproj" />
     <ProjectReference Include="..\..\src\ReadUs.Extensions.DependencyInjection\ReadUs.Extensions.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\src\ReadUs.Extensions.Json\ReadUs.Extensions.Json.csproj" />
   </ItemGroup>
 
 </Project>
