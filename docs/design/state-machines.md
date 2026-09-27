@@ -638,14 +638,8 @@ should be easy to revisit rather than silently baked in:
 - ~~**Replica read routing is not implemented.**~~ Done — see §3.2.
 - ~~**No per-node health tracking, quarantine, or ejection.**~~ Done — see
   §3.1.
-- **No explicit per-node pipeline batching.** Concurrent calls through
-  `ClusterClient.ExecuteAsync` still pipeline within whatever node's Tier 1
-  pool they land on, but there's no batch API that fans a single logical
-  batch out across multiple nodes by destination and reassembles replies in
-  the caller's original order (§5's "pipelining means batching per-
-  destination-node, not per-call"). Worth building once there's a
-  non-cluster batch API to extend in parallel — right now there isn't one
-  for the standalone client either.
+- ~~**No explicit per-node pipeline batching.**~~ Done — see "Recorded
+  during implementation of batch execution" below.
 - ~~**`ConcurrentDictionary<string, Task<RedisClient>>.GetOrAdd` can race
   under contention**~~ Fixed (see "Recorded during implementation of §3.2"
   below — done alongside replica read routing since that work already
@@ -1057,3 +1051,51 @@ should be easy to revisit rather than silently baked in:
   out ReadOnlySpan<byte> span)` instead — `out`/`ref` ReadOnlySpan
   parameters are fine, it's specifically the generic-argument position
   that's disallowed.
+
+### Recorded during implementation of batch execution
+
+- **The honest scope of this feature turned out smaller than the original
+  §13 step 5 note implied.** That note framed the missing piece as "a
+  batch API that fans a single logical batch out across multiple nodes by
+  destination and reassembles replies in the caller's original order," as
+  if grouping-by-destination were a mechanism still to be built. It isn't:
+  `ClusterClient.ExecuteAsync` already routes each command by its own slot
+  through the same redirect-handling path regardless of caller, and Tier
+  1's FIFO completion-claim protocol (design doc §2.4) already pipelines
+  correctly whenever several calls are concurrently in flight on the same
+  connection. Firing N commands without awaiting any of them first, *then*
+  joining them, already produces correct per-node fan-out and pipelining
+  as an emergent property of machinery that was already built and already
+  tested — there was no separate grouping step to design. `ExecuteBatchAsync`
+  (`RedisClient`, `ClusterClient`, and a one-line delegating overload on
+  `SentinelClient` for API parity) is real, and its ordered-array,
+  single-call ergonomics are the genuine value it adds — but it does not
+  contain new dispatch logic, and the design doc should say so plainly
+  rather than imply otherwise.
+- **Implemented with `Task.WhenAll` over `.AsTask()`-converted calls, not
+  by storing the `ValueTask<RedisResult>`s an array for later awaiting.**
+  The latter is what a first draft did, and while every item actually was
+  consumed exactly once regardless, `CA2012` correctly flags storing a
+  `ValueTask` in a local as looking like a bug (it usually is) and the
+  project has zero tolerance for new warnings. `.AsTask()` immediately
+  converts each to an ordinary `Task<RedisResult>` (no single-consumption
+  constraint, forces a real allocation — acceptable here since a batch API
+  is already allocating an array per call, not a steady-state hot path),
+  and `Task.WhenAll` is the idiomatic, well-understood primitive for
+  exactly this "fire N, join N" shape.
+- **A connection-level failure on any one item aborts the whole batch and
+  propagates — `Task.WhenAll`'s own behavior, not a custom partial-failure
+  model.** An ordinary command-level error (a RESP error reply) never
+  does; it's captured per-item via `RedisResult.IsError`, same as a single
+  `ExecuteAsync` call. Considered returning `Task<RedisResult>[]` instead
+  (never losing partial results to one item's connection failure) but
+  rejected it: no other part of this client's API models partial failure
+  this way (`RedisTransaction`'s `EXEC` is all-or-nothing at the protocol
+  level too), and `Task.WhenAll`'s ordinary semantics are what every other
+  caller of this pattern in .NET already expects.
+- **No per-item read-preference override in a Cluster batch** — every
+  item uses `ReadPreference.PrimaryOnly`. A caller wanting replica reads
+  for some batch items and not others can still get there today (call the
+  single-command `ReadPreference` overload directly instead of batching
+  those specific items), so this is a real but low-cost scope limit, not a
+  capability gap.

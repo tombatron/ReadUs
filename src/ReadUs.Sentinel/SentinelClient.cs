@@ -72,6 +72,10 @@ public sealed class SentinelClient : IAsyncDisposable
     public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default) =>
         _masterClient.ExecuteAsync(commandName, args, cancellationToken);
 
+    /// <summary>Same shape as <see cref="RedisClient.ExecuteBatchAsync"/>, routed to the currently-known master.</summary>
+    public Task<RedisResult[]> ExecuteBatchAsync(IReadOnlyList<RedisBatchCommand> commands, CancellationToken cancellationToken = default) =>
+        _masterClient.ExecuteBatchAsync(commands, cancellationToken);
+
     public ValueTask<RedisResult> ExecuteBlockingAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default) =>
         _masterClient.ExecuteBlockingAsync(commandName, args, cancellationToken);
 

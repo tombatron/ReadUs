@@ -115,6 +115,29 @@ public sealed class ClusterClient : IAsyncDisposable
         return ExecuteWithRedirectsAsync(commandName, args, slot, readPreference, cancellationToken);
     }
 
+    /// <summary>
+    /// Same shape as <see cref="RedisClient.ExecuteBatchAsync"/>, cluster-routed
+    /// (project spec §5: "pipelining means batching per-destination-node, not
+    /// per-call"). Each command is independently routed by its own slot through the
+    /// same redirect-handling <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>
+    /// path a single call would use — a batch spanning multiple shards therefore fans
+    /// out to each shard's own Tier 1 pool and pipelines there as an already-correct,
+    /// already-tested emergent property of that routing, rather than this method
+    /// duplicating redirect handling for a "batch" special case. Always
+    /// <see cref="ReadPreference.PrimaryOnly"/> per item — no per-item read-preference
+    /// override in a batch; use the single-command overload for that.
+    /// </summary>
+    public Task<RedisResult[]> ExecuteBatchAsync(IReadOnlyList<RedisBatchCommand> commands, CancellationToken cancellationToken = default)
+    {
+        var pending = new Task<RedisResult>[commands.Count];
+        for (var i = 0; i < commands.Count; i++)
+        {
+            pending[i] = ExecuteAsync(commands[i].CommandName, commands[i].Args, cancellationToken).AsTask();
+        }
+
+        return Task.WhenAll(pending);
+    }
+
     public async ValueTask DisposeAsync()
     {
         await _lifetimeCts.CancelAsync().ConfigureAwait(false);
