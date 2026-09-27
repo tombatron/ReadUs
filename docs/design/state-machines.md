@@ -666,14 +666,11 @@ should be easy to revisit rather than silently baked in:
   CROSSSLOT pre-check (it would only surface via the server's own wire-level
   error, which the spec explicitly allows as the defensive fallback for
   exactly this kind of gap).
-- **The live-cluster fixture for `ClusterClientTests` is three manually
-  Docker-launched `redis-server` processes** (host networking, ports
-  7001-7003, bootstrapped via `redis-cli --cluster create`), not yet the
-  Testcontainers-based throwaway harness project spec §9.2 calls for. It's
-  intentionally left running (like the existing standalone dev server) so
-  the tests stay runnable across sessions; folding it into a proper
-  disposable Testcontainers fixture is part of the fault-injection work this
-  project still owes for Cluster and Sentinel.
+- ~~**The live-cluster fixture for `ClusterClientTests` is three manually
+  Docker-launched `redis-server` processes**~~ Done — every integration
+  fixture (standalone, TLS, Cluster, Sentinel) is now a disposable
+  Testcontainers-managed one; see "Recorded during implementation of the
+  Testcontainers conversion" near the end of this document.
 
 ### Recorded during §13 step 5 implementation (Sentinel support)
 
@@ -1099,3 +1096,68 @@ should be easy to revisit rather than silently baked in:
   single-command `ReadPreference` overload directly instead of batching
   those specific items), so this is a real but low-cost scope limit, not a
   capability gap.
+
+### Recorded during implementation of the Testcontainers conversion
+
+Project spec §9.2 asks for tests "spun up via Testcontainers or an
+equivalent throwaway-process harness, not mocked." Every integration
+fixture had instead been a long-lived, manually `docker run` container —
+started once early in the session and left running so tests stayed
+runnable across later sessions, growing ad hoc as later phases needed
+more (a 4th cluster node added for replica routing, an ACL-capable
+standalone server, a TLS-enabled instance, a full Sentinel constellation).
+Converted all four (`StandaloneRedisFixture`, `TlsRedisFixture`,
+`ClusterRedisFixture`, `SentinelRedisFixture`) to disposable,
+per-test-run containers via `Testcontainers`/`Testcontainers.Redis`,
+shared within a run via xUnit `ICollectionFixture`.
+
+- **Host networking for Cluster and Sentinel, ordinary bridge networking
+  for standalone and TLS** — the deciding factor is whether the server
+  announces its own address to anything. Cluster nodes gossip their
+  announced address to each other and report it via `CLUSTER SHARDS` to
+  any client that asks; Sentinel announces the master's address and its
+  own to peer sentinels. Every one of those addresses has to be something
+  both the other containers *and* this out-of-Docker .NET test process
+  can reach — bridge networking's per-container random-port-mapping model
+  has no way to satisfy that without the containers announcing an address
+  the host-side process can't route to. Host networking sidesteps the
+  whole problem: a container's ports *are* the host's ports, so a free
+  host port found (`FreePort`, a `TcpListener` bound to port 0) before a
+  container starts is unambiguously the one address everyone uses. A
+  standalone server or a TLS-terminating one never announces anything to
+  a peer, so ordinary bridge networking with Testcontainers' own random
+  host-port mapping is simpler and was kept for those two.
+- **Two real, non-obvious infrastructure problems surfaced while building
+  the Cluster and Sentinel fixtures, neither one a ReadUs bug** — both
+  worth remembering for any future fixture work in this vein:
+  - `ConcurrentDictionary.GetOrAdd`-shaped test-authoring pitfall aside
+    (see the §3.2 entry above), the Testcontainers-specific one was a
+    permissions problem: `redis-sentinel` rewrites its own config file to
+    persist discovered state, so the file has to actually be writable by
+    the process running it. Copying it in via `WithResourceMapping`, even
+    with fully permissive mode bits, still left it unwritable — almost
+    certainly an ownership mismatch against whichever user the redis
+    image's entrypoint drops privileges to before exec'ing
+    `redis-sentinel`. Fixed by writing the config via a root shell command
+    at container startup instead (`sh -c "echo <base64> | base64 -d >
+    /etc/sentinel.conf && exec redis-sentinel ..."`), overriding the
+    entrypoint entirely — the image's own `redis-server`/`redis-sentinel`
+    argument-sniffing (the thing that triggers the privilege drop) never
+    runs, so the whole chain, sentinel process included, just stays root.
+    Fine for a throwaway test container; would not be an acceptable fix
+    for anything the image was actually deployed as.
+  - Testcontainers' generic `ContainerBuilder` has no first-class "host
+    networking" method — `WithNetworkMode` doesn't exist on it. The
+    supported escape hatch is `WithCreateParameterModifier`, which hands
+    back the raw Docker.DotNet `CreateContainerParameters` for exactly
+    this kind of thing not covered by the fluent API
+    (`parameters.HostConfig!.NetworkMode = "host"`).
+- **Real, measured cost: per-run bootstrap time.** The full integration
+  suite went from ~3-9s (against already-running manual containers) to
+  ~10-17s (standing up a standalone server, a TLS server, a 4-node
+  Cluster with a live `redis-cli --cluster create` bootstrap, and a full
+  Sentinel constellation, all from scratch, every run). Confirmed stable
+  across many repeated full-suite runs during this conversion. Judged
+  worth it for the reproducibility spec §9.2 asks for — no test's
+  correctness depends anymore on a container someone remembered to start
+  in a previous session, or on a fixed port happening to be free.
