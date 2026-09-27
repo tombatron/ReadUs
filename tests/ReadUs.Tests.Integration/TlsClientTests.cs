@@ -1,20 +1,18 @@
-using System.Net;
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
 using ReadUs.Connections;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
-/// Exercises TLS support (project spec §7) against a real TLS-enabled
-/// <c>redis-server</c> (port 6400, self-signed certificate — see the session's setup
-/// notes) using a custom certificate-validation callback, exactly the shape needed for
-/// the private/self-signed CAs common in managed deployments.
+/// Exercises TLS support (project spec §7) against a real, disposable
+/// Testcontainers-managed TLS-enabled <c>redis-server</c> (project spec §9.2,
+/// fresh self-signed certificate per run — see <see cref="TlsRedisFixture"/>) using a
+/// custom certificate-validation callback, exactly the shape needed for the
+/// private/self-signed CAs common in managed deployments.
 /// </summary>
-public class TlsClientTests
+[Collection(TlsRedisCollection.Name)]
+public class TlsClientTests(TlsRedisFixture fixture)
 {
-    private static readonly X509Certificate2 ServerCertificate = X509CertificateLoader.LoadCertificateFromFile("/tmp/readus-tls/redis.crt");
-
     [Fact]
     public async Task ConnectsOverTlsAndValidatesTheServerCertificateViaTheCustomCallback()
     {
@@ -22,7 +20,7 @@ public class TlsClientTests
 
         var options = new RedisConnectionOptions
         {
-            EndPoint = new DnsEndPoint("localhost", 6400),
+            EndPoint = fixture.EndPoint,
             UseTls = true,
             CertificateValidationCallback = (_, certificate, _, _) =>
             {
@@ -30,7 +28,7 @@ public class TlsClientTests
                 // Real validation, not "always true": confirms the exact self-signed
                 // certificate this server was configured with, the way an application
                 // would pin a private CA in a managed deployment.
-                return certificate is not null && certificate.GetCertHashString() == ServerCertificate.GetCertHashString();
+                return certificate is not null && certificate.GetCertHashString() == fixture.ServerCertificate.GetCertHashString();
             },
         };
 
@@ -46,7 +44,7 @@ public class TlsClientTests
     {
         var options = new RedisConnectionOptions
         {
-            EndPoint = new DnsEndPoint("localhost", 6400),
+            EndPoint = fixture.EndPoint,
             UseTls = true,
             CertificateValidationCallback = (_, _, _, _) => false,
         };
@@ -59,7 +57,7 @@ public class TlsClientTests
     {
         var options = new RedisConnectionOptions
         {
-            EndPoint = new DnsEndPoint("localhost", 6400),
+            EndPoint = fixture.EndPoint,
             UseTls = true,
             // This test is about the SET/GET round trip actually working over an
             // encrypted channel, not about validation policy (that's the other two
