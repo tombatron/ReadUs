@@ -48,20 +48,33 @@ public sealed class ClusterClient : IAsyncDisposable
     private readonly ClusterNodeHealthTracker _nodeHealth;
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly Task _refreshLoopTask;
+    private readonly ReadPreference _defaultReadPreference;
     private volatile ClusterTopology _topology;
     private int _roundRobinCounter = -1;
 
-    private ClusterClient(ClusterTopology topology, Func<EndPoint, RedisConnectionOptions> optionsFactory)
+    private ClusterClient(ClusterTopology topology, Func<EndPoint, RedisConnectionOptions> optionsFactory, ReadPreference defaultReadPreference)
     {
         _topology = topology;
         _optionsFactory = optionsFactory;
+        _defaultReadPreference = defaultReadPreference;
         _nodeHealth = new ClusterNodeHealthTracker(GetOrCreateNodeClientAsync);
         _refreshLoopTask = Task.Run(RefreshLoopAsync);
     }
 
+    /// <param name="defaultReadPreference">
+    /// Applied automatically by the plain <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>
+    /// overload — but only to a command the vendored table marks read-only; a write
+    /// always stays <see cref="ReadPreference.PrimaryOnly"/> regardless of this
+    /// setting, since anything else would make an ordinary write throw. Project spec
+    /// §5: "configurable per call *or* per client" — this is the per-client half; the
+    /// other <c>ExecuteAsync</c> overload remains the per-call override and always
+    /// wins when used. Defaults to <see cref="ReadPreference.PrimaryOnly"/>, so
+    /// existing callers see no behavior change.
+    /// </param>
     public static async Task<ClusterClient> ConnectAsync(
         IReadOnlyList<EndPoint> seedEndpoints,
         Func<EndPoint, RedisConnectionOptions>? optionsFactory = null,
+        ReadPreference defaultReadPreference = ReadPreference.PrimaryOnly,
         CancellationToken cancellationToken = default)
     {
         if (seedEndpoints.Count == 0)
@@ -77,7 +90,7 @@ public sealed class ClusterClient : IAsyncDisposable
             try
             {
                 var topology = await DiscoverTopologyAsync(seed, optionsFactory, cancellationToken).ConfigureAwait(false);
-                return new ClusterClient(topology, optionsFactory);
+                return new ClusterClient(topology, optionsFactory, defaultReadPreference);
             }
             catch (Exception ex)
             {
@@ -88,9 +101,16 @@ public sealed class ClusterClient : IAsyncDisposable
         throw new RedisConnectionException("Could not discover cluster topology from any seed endpoint.", lastError!);
     }
 
-    /// <summary>The raw escape hatch (project spec §3), cluster-routed, always against the shard's primary.</summary>
+    /// <summary>
+    /// The raw escape hatch (project spec §3), cluster-routed. Uses this client's
+    /// configured <see cref="ConnectAsync(IReadOnlyList{EndPoint}, Func{EndPoint, RedisConnectionOptions}, ReadPreference, CancellationToken)"/>
+    /// default read preference for a read-only command, and always
+    /// <see cref="ReadPreference.PrimaryOnly"/> for anything else (a write can't
+    /// honor a non-primary preference at all, regardless of what the client's default
+    /// is set to).
+    /// </summary>
     public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default) =>
-        ExecuteAsync(commandName, args, ReadPreference.PrimaryOnly, cancellationToken);
+        ExecuteAsync(commandName, args, IsReadOnlyCommand(commandName) ? _defaultReadPreference : ReadPreference.PrimaryOnly, cancellationToken);
 
     /// <summary>
     /// Same as <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>,

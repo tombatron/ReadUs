@@ -425,6 +425,15 @@ ct)` is unchanged — it now just forwards to the new overload with
 today's exact behavior with zero risk. No client-wide default is added
 this pass (spec says "per call *or* per client" — per-call alone already
 satisfies it; a client-wide default is easy to add later if wanted).
+~~No client-wide default is added this pass~~ Added in a later pass: a
+`defaultReadPreference` parameter on `ClusterClient.ConnectAsync`
+(default `PrimaryOnly`, so existing callers see no change), applied
+automatically by the plain `ExecuteAsync` overload — but only to a
+command the vendored table marks read-only. A write always stays
+`PrimaryOnly` regardless of the configured default; otherwise setting
+any non-primary default would make every ordinary write through the
+plain overload throw the CROSSSLOT-style validation below. The per-call
+`ReadPreference` overload is unaffected and still always wins when used.
 
 **Client-side validation, same shape as CROSSSLOT (§3)**: a non-`PrimaryOnly`
 preference on a command that isn't read-only (`GeneratedCommandInfo
@@ -485,8 +494,8 @@ case, so `ResolveEndPoint`'s existing masters-only fallback is left
 untouched rather than generalized to "any node, master or replica, across
 the whole cluster."
 
-Not covered by this pass, deliberately: a client-wide default read
-preference (see "Surface" above); latency-aware replica selection
+Not covered by this pass, deliberately: ~~a client-wide default read
+preference~~ (see "Surface" above — added in a later pass); latency-aware replica selection
 (`RoundRobin` is plain round-robin, not the "or latency-aware" alternative
 the spec offers — no latency signal exists to rank candidates by yet, and
 adding one speculatively without a benchmark showing it matters would

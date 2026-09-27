@@ -343,6 +343,58 @@ public class ClusterClientTests(ClusterRedisFixture fixture)
     }
 
     [Fact]
+    public async Task ClientWideDefaultReadPreferenceAppliesToReadsButNeverToWrites()
+    {
+        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = SeedEndpoints[0] }, connectionCount: 1);
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints, defaultReadPreference: ReadPreference.PreferReplica);
+
+        var key = FindRandomKeyInSlotRange(Node1RangeStart, Node1RangeEnd);
+        var keyBytes = Encoding.UTF8.GetBytes(key);
+        await admin.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "from-primary"u8.ToArray()]);
+
+        // A write via the plain overload must still succeed even though this client's
+        // default read preference is non-primary — a write can never honor anything
+        // but PrimaryOnly, regardless of the configured default.
+        var setResult = await cluster.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "still-writable"u8.ToArray()]);
+        Assert.Equal("OK", setResult.AsString());
+
+        // A read via the plain overload (no explicit ReadPreference argument) picks up
+        // the client-wide default. Verified the same way the explicit-overload
+        // PreferReplica test is: zero MOVED redirects means READONLY was actually
+        // issued on a replica connection, proving this genuinely went to the replica.
+        var movedRedirects = 0;
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == ReadUsDiagnostics.MeterName)
+            {
+                l.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+        {
+            if (instrument.Name == "readus.cluster.redirects")
+            {
+                foreach (var tag in tags)
+                {
+                    if (tag is { Key: "kind", Value: "moved" })
+                    {
+                        Interlocked.Add(ref movedRedirects, (int)value);
+                    }
+                }
+            }
+        });
+        listener.Start();
+
+        var getResult = await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes]);
+
+        listener.Dispose();
+
+        Assert.Equal("still-writable", getResult.AsString());
+        Assert.Equal(0, movedRedirects);
+    }
+
+    [Fact]
     public async Task ConcurrentFirstContactWithANewNodeOnlyEverConnectsOnce()
     {
         // Design doc §5's "Recorded during §13 step 5" list: ConcurrentDictionary.GetOrAdd
