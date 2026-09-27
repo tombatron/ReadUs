@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net;
-using System.Net.Sockets;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 
@@ -42,7 +41,7 @@ public sealed class ClusterRedisFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        int[] ports = [.. Enumerable.Range(0, 4).Select(_ => GetFreePort())];
+        int[] ports = [.. Enumerable.Range(0, 4).Select(_ => FreePort.Find())];
 
         foreach (var port in ports)
         {
@@ -146,14 +145,6 @@ public sealed class ClusterRedisFixture : IAsyncLifetime
         throw new TimeoutException("Timed out waiting for the cluster fixture to converge.");
     }
 
-    private static int GetFreePort()
-    {
-        using var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
-    }
 }
 
 [CollectionDefinition(Name)]

@@ -3,24 +3,19 @@ using System.Text;
 using ReadUs.Connections;
 using ReadUs.Protocol;
 using ReadUs.Sentinel;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
-/// Exercises Sentinel support (project spec §6, §13 step 5) against a real
-/// constellation running locally: a master (port 8001), a replica (port 8002), and
-/// three sentinels (ports 8100-8102) monitoring service name "mymaster" — see the
-/// session's setup notes. Provisional, same caveat as the Cluster tests: a permanent
-/// Testcontainers-based fixture is follow-up work (project spec §9.2).
+/// Exercises Sentinel support (project spec §6, §13 step 5) against a real, disposable
+/// Testcontainers-managed constellation (project spec §9.2): a master, a replica, and
+/// three sentinels monitoring service name "mymaster" — see <see cref="SentinelRedisFixture"/>.
 /// </summary>
-public class SentinelClientTests
+[Collection(SentinelRedisCollection.Name)]
+public class SentinelClientTests(SentinelRedisFixture fixture)
 {
-    private static readonly IReadOnlyList<EndPoint> SentinelEndpoints =
-    [
-        new DnsEndPoint("127.0.0.1", 8100),
-        new DnsEndPoint("127.0.0.1", 8101),
-        new DnsEndPoint("127.0.0.1", 8102),
-    ];
+    private IReadOnlyList<EndPoint> SentinelEndpoints => fixture.SentinelEndpoints;
 
     private const string ServiceName = "mymaster";
 
