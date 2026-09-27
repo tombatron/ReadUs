@@ -13,35 +13,28 @@ namespace ReadUs.Extensions.Json;
 /// higher-level convenience package, never in the core command path," and referencing
 /// this package (and only it) is what costs anything.
 ///
-/// Every operation has a <see cref="JsonTypeInfo{T}"/> overload — the AOT-safe,
+/// Every operation takes a <see cref="JsonTypeInfo{T}"/> — the AOT-safe,
 /// reflection-free path §8 asks for wherever reflection-driven convenience is offered
-/// at all, typically backed by a caller's own source-generated
-/// <see cref="System.Text.Json.Serialization.JsonSerializerContext"/> — and a
-/// <see cref="JsonSerializerOptions"/> overload (reflection-based, via
-/// <c>System.Text.Json</c>'s own runtime reflection, not anything ReadUs does itself)
-/// for callers who haven't set one up. Only whole-value <c>GET</c>/<c>SET</c> is
-/// covered — hash-field-per-property mapping is a distinctly bigger design task
-/// (partial updates, `HGETALL` reply shape) left for a follow-up if this proves
-/// worthwhile.
+/// at all, backed by a caller's own source-generated
+/// <see cref="System.Text.Json.Serialization.JsonSerializerContext"/>. An earlier
+/// version also offered a <see cref="JsonSerializerOptions"/> overload (ordinary
+/// <c>System.Text.Json</c> runtime reflection) as a lower-friction fallback for callers
+/// without one — deliberately removed once zero reflection anywhere in this client's
+/// surface, including the optional convenience packages, became the actual bar. Only
+/// whole-value <c>GET</c>/<c>SET</c> is covered — hash-field-per-property mapping is a
+/// distinctly bigger design task (partial updates, `HGETALL` reply shape) covered by
+/// <c>ReadUs.Extensions.Hashes</c> instead, via compile-time generated mapping rather
+/// than <c>System.Text.Json</c>'s serialization model.
 /// </summary>
 public static class JsonRedisClientExtensions
 {
     public static ValueTask SetJsonAsync<T>(this RedisClient client, ReadOnlyMemory<byte> key, T value, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken = default) =>
         SetJsonCoreAsync(client, key, JsonSerializer.SerializeToUtf8Bytes(value, typeInfo), cancellationToken);
 
-    public static ValueTask SetJsonAsync<T>(this RedisClient client, ReadOnlyMemory<byte> key, T value, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default) =>
-        SetJsonCoreAsync(client, key, JsonSerializer.SerializeToUtf8Bytes(value, options), cancellationToken);
-
     public static async ValueTask<T?> GetJsonAsync<T>(this RedisClient client, ReadOnlyMemory<byte> key, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken = default)
     {
         var reply = await client.ExecuteAsync("GET"u8.ToArray(), [key], cancellationToken).ConfigureAwait(false);
         return TryGetJsonPayload(reply, out var span) ? JsonSerializer.Deserialize(span, typeInfo) : default;
-    }
-
-    public static async ValueTask<T?> GetJsonAsync<T>(this RedisClient client, ReadOnlyMemory<byte> key, JsonSerializerOptions? options = null, CancellationToken cancellationToken = default)
-    {
-        var reply = await client.ExecuteAsync("GET"u8.ToArray(), [key], cancellationToken).ConfigureAwait(false);
-        return TryGetJsonPayload(reply, out var span) ? JsonSerializer.Deserialize<T>(span, options) : default;
     }
 
     private static async ValueTask SetJsonCoreAsync(RedisClient client, ReadOnlyMemory<byte> key, byte[] json, CancellationToken cancellationToken)

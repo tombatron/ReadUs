@@ -1029,16 +1029,18 @@ should be easy to revisit rather than silently baked in:
   `ReadUs.Extensions.DependencyInjection`/`.OpenTelemetry` already
   established: referencing the package (and only it) is what costs
   anything.
-- **Every operation ships two overloads: a `JsonTypeInfo<T>` one (the
-  AOT-safe, reflection-free path §8 asks for "if [reflection-driven
-  convenience is] offered at all," typically backed by a caller's own
-  source-generated `JsonSerializerContext`) and a `JsonSerializerOptions`
-  one (ordinary `System.Text.Json` runtime reflection, for callers who
-  haven't set one up).** Both are kept, rather than only the AOT-safe one,
-  as a pragmatic middle ground — the reflection path is `System.Text
-  .Json`'s own, not anything ReadUs implements itself, and the same
-  tension is resolved the same way elsewhere in the .NET ecosystem (e.g.
-  ASP.NET Core minimal APIs).
+- ~~**Every operation ships two overloads: a `JsonTypeInfo<T>` one ... and a
+  `JsonSerializerOptions` one (ordinary `System.Text.Json` runtime
+  reflection, for callers who haven't set one up).**~~ Reversed: the
+  `JsonSerializerOptions` overload was removed once "zero reflection
+  anywhere in this client's surface, including the optional convenience
+  packages" became the actual bar the user set, not just the core command
+  path §8 mandates it for. `JsonTypeInfo<T>` — a caller's own
+  source-generated `JsonSerializerContext` — is now the only path. A
+  pragmatic-middle-ground argument for keeping the reflection fallback
+  (matching how ASP.NET Core minimal APIs resolves the same tension) was
+  the original reasoning; it didn't survive contact with what the user
+  actually wanted for this client specifically.
 - **A real (if minor) language limitation surfaced while writing this**:
   `ReadOnlySpan<byte>` can't be a generic type argument (ref structs never
   can), so a first attempt at sharing the null/error-checking logic
@@ -1161,3 +1163,97 @@ shared within a run via xUnit `ICollectionFixture`.
   worth it for the reproducibility spec §9.2 asks for — no test's
   correctness depends anymore on a container someone remembered to start
   in a previous session, or on a fixed port happening to be free.
+
+### Recorded during implementation of Redis hash mapping (`ReadUs.Extensions.Hashes`)
+
+Direct follow-up to the typed JSON helpers: once the user asked "would it
+be possible to use source generation... to get zero reflection," two
+things happened — the JSON helpers' `JsonSerializerOptions` (reflection)
+overload was removed outright (zero reflection is now the actual bar for
+this client, not just the core command path per project spec §8), and
+this package was built as the "real Hash mapping" item that was already
+on the deferred list. Unlike the JSON helpers (which lean on
+`System.Text.Json`'s own source generator), this one is ReadUs's own: a
+second `IIncrementalGenerator` (`HashModelGenerator`) added to the
+existing `ReadUs.SourceGenerators` project, alongside
+`CommandTableGenerator`.
+
+- **A genuinely different kind of generator from the existing one, and
+  that shaped several decisions.** `CommandTableGenerator` reads a
+  vendored JSON snapshot of *Redis's own* commands and emits code once,
+  baked into `ReadUs.Core.dll` at ReadUs's own build time — a consuming
+  application never needs the generator to run again. `HashModelGenerator`
+  reads *the consuming application's own* POCOs, decorated with
+  `[RedisHashModel]`, and must run inside *that application's* build
+  every time — it uses `ForAttributeWithMetadataName` (the standard
+  efficient incremental-generator pattern for "find types with this
+  attribute," re-running only for changed syntax, not the whole
+  compilation) rather than `AdditionalTextsProvider`. Both the marker
+  attribute (`RedisHashModelAttribute`) and the `IRedisHashModel<TSelf>`
+  interface the generated code implements live as ordinary types in the
+  runtime package (`ReadUs.Extensions.Hashes`), not emitted via
+  `RegisterPostInitializationOutput` — simpler, and the interface in
+  particular is a stable contract better versioned as a normal library
+  type than regenerated text.
+- **Zero reflection is achieved architecturally, not just by omission**:
+  every property access in the generated `ToHashFields`/`FromHash`
+  methods is an ordinary compile-time-resolved member access — `this.Name`,
+  `new Person(...)` — exactly as if a person had hand-written it. The
+  generic constraint making this possible, `IRedisHashModel<TSelf>` with
+  a C# 11 `static abstract FromHash(...)` member, lets
+  `HashRedisClientExtensions.GetHashAsync<T>` call `T.FromHash(reply)`
+  with the compiler resolving the correct implementation at the call
+  site — no `Activator.CreateInstance`, no `PropertyInfo`, nothing
+  reflection-based anywhere in the path.
+- **Only two constructor shapes are supported: a public parameterless
+  constructor (plain mutable POCO, mapped via object initializer) or a
+  public constructor whose parameters exactly match every mapped property
+  by name (a positional `record`, purely positional construction).**
+  Anything else — a record with *some* primary-constructor properties and
+  *some* separate mutable ones, multiple constructors that each partially
+  match — is rejected with a clear compile-time diagnostic
+  (`READUSHASH004`) rather than guessed at. These two shapes cover the
+  overwhelming majority of real POCOs; the alternative (a general
+  best-fit constructor solver) is real complexity for shapes that are
+  rare and arguably ill-advised for a hash-mapped model anyway.
+- **A missing field throws on read unless the property is nullable** —
+  deliberately, not silently defaulting to `0`/`false`/etc. A property
+  typed `int?`/`string?`/etc. (or the value never written in the first
+  place, e.g. from an older version of the model) comes back `null`;
+  everything else throws a clear `InvalidOperationException` naming the
+  field and type. Symmetric on write: a null-valued nullable property is
+  skipped entirely rather than writing an empty-string sentinel — Redis
+  hashes are naturally sparse, so "field absent" is already the correct
+  representation of "no value," with no separate encoding needed.
+- **Scoped to scalars only, deliberately** — `string`, `byte[]`, `int`,
+  `long`, `double`, `bool`, `Guid`, `DateTime`, any `enum`, and a nullable
+  of any value-typed one of these. No nested objects, no collections
+  (other than the `byte[]` scalar itself), no dictionaries — an
+  unsupported property type is a compile-time diagnostic
+  (`READUSHASH003`), not a silent skip or a runtime surprise. Matches how
+  the original command generator caps its own nesting depth (design doc
+  §13 step 4 "Recorded" entry): support the shapes that cover the
+  overwhelming majority of real use, fail loudly and immediately on
+  anything past that line rather than half-supporting it.
+- **A real, non-obvious C# scoping bug caught immediately by the first
+  test with more than one nullable property**: the emitter's first draft
+  used a fixed pattern-variable name (`if (this.X is T __v)`) for every
+  nullable property. A pattern variable introduced in an `if` condition
+  stays in scope for the *rest of the enclosing block*, not just that
+  one `if` statement's body — so a *second* nullable property's `if (...
+  is T __v)` collided with the first as "already defined in this scope."
+  Fixed by giving each property's pattern variable a unique name
+  (`__v{PropertyName}`). Caught at compile time (the generated code
+  simply didn't compile), which is exactly the point of the "generate
+  code, let the C# compiler be the correctness check" approach — a
+  runtime-reflection-based mapper would have had no equivalent safety net
+  for an analogous bug.
+- **Test coverage at both levels, matching how `CommandTableParser` is
+  tested**: `HashModelParserTests` (`ReadUs.Tests.Unit`) compiles small
+  source snippets in-process (via `CSharpCompilation`/a semantic model)
+  and asserts on `HashModelParser`'s classification and diagnostics
+  directly, without needing the generator pipeline or a live server;
+  `HashRedisClientExtensionsTests` (`ReadUs.Tests.Integration`) proves the
+  generator's *output* actually compiles and round-trips correctly
+  against a real, disposable Testcontainers-managed server, including the
+  missing-required-field throw and the null-nullable-fields-omitted paths.

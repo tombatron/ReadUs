@@ -23,7 +23,7 @@ public class JsonRedisClientExtensionsTests(StandaloneRedisFixture fixture)
     };
 
     [Fact]
-    public async Task RoundTripsAPocoUsingTheSourceGeneratedTypeInfoOverload()
+    public async Task RoundTripsAPoco()
     {
         await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1);
         var key = Encoding.UTF8.GetBytes($"readus:test:json:{Guid.NewGuid():N}");
@@ -31,19 +31,6 @@ public class JsonRedisClientExtensionsTests(StandaloneRedisFixture fixture)
 
         await client.SetJsonAsync(key, person, TestJsonContext.Default.TestPerson);
         var result = await client.GetJsonAsync(key, TestJsonContext.Default.TestPerson);
-
-        Assert.Equal(person, result);
-    }
-
-    [Fact]
-    public async Task RoundTripsAPocoUsingTheReflectionBasedOverload()
-    {
-        await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1);
-        var key = Encoding.UTF8.GetBytes($"readus:test:json:{Guid.NewGuid():N}");
-        var person = new TestPerson("Grace Hopper", 85);
-
-        await client.SetJsonAsync(key, person);
-        var result = await client.GetJsonAsync<TestPerson>(key);
 
         Assert.Equal(person, result);
     }

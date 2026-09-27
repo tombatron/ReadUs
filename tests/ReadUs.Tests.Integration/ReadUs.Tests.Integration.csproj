@@ -27,6 +27,14 @@
     <ProjectReference Include="..\..\src\ReadUs.Sentinel\ReadUs.Sentinel.csproj" />
     <ProjectReference Include="..\..\src\ReadUs.Extensions.DependencyInjection\ReadUs.Extensions.DependencyInjection.csproj" />
     <ProjectReference Include="..\..\src\ReadUs.Extensions.Json\ReadUs.Extensions.Json.csproj" />
+    <ProjectReference Include="..\..\src\ReadUs.Extensions.Hashes\ReadUs.Extensions.Hashes.csproj" />
+    <!-- The Hash generator needs to run directly against this project's own test
+         POCOs (declared here, not in ReadUs.Extensions.Hashes) — an analyzer
+         reference on a *different* project doesn't propagate downstream, unlike an
+         ordinary assembly reference, so this project needs its own. -->
+    <ProjectReference Include="..\..\src\ReadUs.SourceGenerators\ReadUs.SourceGenerators.csproj"
+                       OutputItemType="Analyzer"
+                       ReferenceOutputAssembly="false" />
   </ItemGroup>
 
 </Project>
