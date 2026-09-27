@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using ReadUs.Cluster.Routing;
 using ReadUs.Connections;
+using ReadUs.Diagnostics;
 using ReadUs.Generated;
 using ReadUs.Protocol;
 
@@ -134,6 +135,7 @@ public sealed class ClusterClient : IAsyncDisposable
 
             if (error.StartsWith("MOVED ", StringComparison.Ordinal))
             {
+                ReadUsDiagnostics.ClusterRedirect("moved");
                 var (movedSlot, endpoint) = ParseRedirect(error);
                 UpdateSlotOwner(movedSlot, endpoint);
                 askTarget = null;
@@ -142,18 +144,21 @@ public sealed class ClusterClient : IAsyncDisposable
 
             if (error.StartsWith("ASK ", StringComparison.Ordinal))
             {
+                ReadUsDiagnostics.ClusterRedirect("ask");
                 (_, askTarget) = ParseRedirect(error);
                 continue;
             }
 
             if (error.StartsWith("TRYAGAIN", StringComparison.Ordinal))
             {
+                ReadUsDiagnostics.ClusterRedirect("tryagain");
                 await Task.Delay(TryAgainBackoff, cancellationToken).ConfigureAwait(false);
                 continue;
             }
 
             if (error.StartsWith("CLUSTERDOWN", StringComparison.Ordinal))
             {
+                ReadUsDiagnostics.ClusterRedirect("clusterdown");
                 throw new ClusterDownException(error);
             }
 

@@ -1,4 +1,5 @@
 using ReadUs.Connections;
+using ReadUs.Diagnostics;
 using ReadUs.Protocol;
 
 namespace ReadUs.Pooling;
@@ -153,6 +154,7 @@ public sealed class MultiplexedConnectionPool : IAsyncDisposable, IControlChanne
                     var replacement = await RedisConnection.ConnectAsync(_options, _lifetimeCts.Token).ConfigureAwait(false);
                     var previous = Volatile.Read(ref _connections[index]);
                     Volatile.Write(ref _connections[index], replacement);
+                    ReadUsDiagnostics.Reconnected();
 
                     // Deliberately fire-and-forget: `previous` is already Faulted/Closed
                     // (that's why it's being replaced), so this is just releasing its

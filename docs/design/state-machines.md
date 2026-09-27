@@ -661,3 +661,93 @@ should be easy to revisit rather than silently baked in:
   every call, including every reconnect through Tier 1's health loop or
   Tier 2's lazy reconnect. Recorded here since it's a real §7 requirement,
   even though nothing needed to change to satisfy it.
+
+### Recorded during §13 step 7 implementation (convenience layer: DI, metrics, client-side caching)
+
+- **DI registration blocks synchronously (`.GetAwaiter().GetResult()`)
+  during singleton resolution** in
+  `ReadUs.Extensions.DependencyInjection.ServiceCollectionExtensions`,
+  because `RedisClient.ConnectAsync`/`ClusterClient.ConnectAsync`/
+  `SentinelClient.ConnectAsync` are all inherently async (they connect to a
+  real server) while `IServiceCollection.AddSingleton` has no async
+  resolution path. Accepted as a documented tradeoff consistent with
+  ecosystem norms (`ConnectionMultiplexer.Connect` does the same); an
+  application that can't tolerate a blocking resolve should call the async
+  `ConnectAsync` itself and register the resulting instance.
+- **Metrics use only the BCL's `System.Diagnostics.Metrics`
+  (`ReadUsDiagnostics`), with zero OpenTelemetry dependency in
+  `ReadUs.Core`** — `ReadUs.Extensions.OpenTelemetry` exists purely to call
+  `AddMeter(ReadUsDiagnostics.MeterName)` on an application's own
+  `MeterProviderBuilder`; referencing it (and only it) is what actually
+  costs anything.
+- **`ObservableGauge<T>` was tried and abandoned for the "active
+  connections" instrument.** The natural design — one gauge per
+  `MultiplexedConnectionPool`, observed on demand — doesn't work in this
+  runtime because `ObservableGauge<T>` doesn't implement `IDisposable`,
+  which would leak every pool instance through the shared static `Meter`
+  for the process's lifetime. Replaced with a single process-wide
+  `UpDownCounter<int>` (`readus.connections.active`), driven imperatively
+  from `RedisConnection.ConnectionOpened()`/`ConnectionFaulted(bool
+  wasReady)`. Consequence: the metric is process-wide, not broken out
+  per-pool-instance; revisit if per-pool attribution is ever needed (would
+  require tagging the counter with a pool identity rather than switching
+  instrument kind).
+- **The shared static `Meter` is genuinely process-wide, which makes
+  `MetricsTests.PoolReconnectIsRecordedWhenAFaultedSlotIsHealed` inherently
+  observe other concurrently-running tests' pool healing, not just its
+  own** — asserted as `>= 1`, not `== 1`, rather than trying to isolate the
+  meter per test (not possible without changing `ReadUsDiagnostics` to be
+  instance-scoped, which would then require threading a `Meter` instance
+  through every pool/connection — a bigger change than this phase's metrics
+  work justified).
+- **`ClientSideCache`'s read-through/invalidation race — the substantive
+  bug of this phase — took two attempts to close correctly, and the second
+  attempt is the one that shipped.** The cache uses one dedicated
+  `CLIENT TRACKING`-enabled connection (tracking is a connection property,
+  not layerable over the pool); a read-through populates `_cache` after a
+  `GET`, and an async RESP3 push (`>2\r\n$10\r\ninvalidate\r\n...`) evicts a
+  key the moment any client writes it. The race: an invalidation for a key
+  can arrive at any point between issuing that key's `GET` and populating
+  the cache with its result.
+  - *First attempt*: check-invalidated-and-clear-pending-marker *before*
+    writing the cache. Left a gap — an invalidation arriving in the narrow
+    window after the marker was cleared but before the write happened found
+    the key in neither the pending-set nor the cache, did nothing, and the
+    stale write then went uncorrected.
+  - *Second attempt* (looked correct, wasn't): write the cache *first*,
+    then clear the pending marker, then check an "invalidated while
+    pending" flag — reasoning that the invalidation handler's own
+    unconditional per-key `_cache.TryRemove` would always have *something*
+    to act on. This missed that the invalidation handler's "remove from
+    cache" and "is this key pending" were two independent
+    `ConcurrentDictionary` calls, not one atomic step — and the read-through
+    method's entire write-then-clear-pending sequence could run completely
+    *between* those two calls: the cache-removal found nothing (write
+    hadn't happened yet), and by the time the pending-check ran, the read
+    had already cleared its own pending marker — so the invalidation was
+    dropped with nothing left to catch it. This was caught, and the exact
+    interleaving proven, with a 50-iteration concurrent-write stress test
+    (`ClientSideCacheTests.NeverCachesAValueThatWasAlreadyInvalidatedWhileTheReadWasInFlight`)
+    instrumented with a globally-sequenced diagnostic trace of each
+    individual dictionary operation — the test failed even fully isolated
+    (this was not a full-suite-contention artifact, despite initially
+    looking like one).
+  - *The fix that shipped*: a per-key lock, striped (`Environment
+    .ProcessorCount * 4` stripes) so unrelated keys don't contend, making
+    the read-through's post-`GET` completion and the invalidation handler's
+    per-key handling atomic with respect to each other. Neither ever holds
+    a stripe lock across the network round trip. `FLUSHALL`/null-payload
+    invalidation acquires every stripe simultaneously (fixed acquisition
+    order, so it can't deadlock against any single-stripe acquisition)
+    before clearing the cache, making the flush atomic against every
+    in-flight read across every key at once, the same way one stripe makes
+    one key's invalidation atomic against that key's read.
+- **Only default (non-`BCAST`) tracking mode is implemented.** `BCAST`
+  mode, key-prefix tracking, and redirected tracking (`CLIENT TRACKING
+  REDIRECT`) are mentioned only in passing by the project spec and are not
+  implemented; `ClientSideCache` assumes one dedicated connection tracks
+  exactly the keys it has personally read.
+- **Higher-level typed helpers (POCO mapping) are deliberately out of
+  scope for this pass.** The project spec frames these as optional/lowest
+  priority within the convenience-layer step, behind DI, metrics, and
+  client-side caching; not attempted here.

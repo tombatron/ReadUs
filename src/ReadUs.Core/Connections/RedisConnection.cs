@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
+using ReadUs.Diagnostics;
 using ReadUs.Protocol;
 
 namespace ReadUs.Connections;
@@ -82,6 +84,7 @@ public sealed class RedisConnection : IAsyncDisposable
         ThrowIfNotReady();
 
         var pending = RentPendingRequest();
+        long startTimestamp = Stopwatch.GetTimestamp();
         await WriteAndEnqueueAsync(pending, commandName, args, cancellationToken).ConfigureAwait(false);
 
         using var registration = cancellationToken.CanBeCanceled
@@ -97,6 +100,7 @@ public sealed class RedisConnection : IAsyncDisposable
         finally
         {
             ReturnPendingRequest(pending);
+            ReadUsDiagnostics.CommandExecuted("multiplexed", Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
         }
     }
 
@@ -117,6 +121,7 @@ public sealed class RedisConnection : IAsyncDisposable
         ThrowIfNotReady();
 
         var pending = RentPendingRequest();
+        long startTimestamp = Stopwatch.GetTimestamp();
         await WriteAndEnqueueAsync(pending, commandName, args, cancellationToken).ConfigureAwait(false);
 
         using var registration = cancellationToken.CanBeCanceled
@@ -136,6 +141,10 @@ public sealed class RedisConnection : IAsyncDisposable
         finally
         {
             ReturnPendingRequest(pending);
+            // Includes the actual server-side block time by design — tagged
+            // separately from "multiplexed" so it doesn't skew that histogram; how
+            // long blocking commands actually block is itself useful signal.
+            ReadUsDiagnostics.CommandExecuted("leased", Stopwatch.GetElapsedTime(startTimestamp).TotalMilliseconds);
         }
     }
 
@@ -448,6 +457,7 @@ public sealed class RedisConnection : IAsyncDisposable
         }
 
         SetState(ConnectionState.Ready);
+        ReadUsDiagnostics.ConnectionOpened();
 
         // Deliberately CancellationToken.None: the read loop's lifetime is the
         // connection's lifetime, not the caller's connect-time deadline — it must
@@ -571,13 +581,23 @@ public sealed class RedisConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Invoked from the read loop for every RESP3 out-of-band push frame (project spec
+    /// §10) — pub/sub messages, <c>CLIENT TRACKING</c> invalidation notices, etc. Not
+    /// correlated to any pending request, so there's nothing to complete; a caller that
+    /// wants to observe these (e.g. <c>ReadUs.Caching.ClientSideCache</c>) sets this
+    /// once, before the connection sees any traffic that could produce one. No general
+    /// pub/sub subscriber layer exists yet — this is deliberately just a raw hook, not
+    /// a queue or dispatcher, so it stays useful to whatever the next consumer turns
+    /// out to need without guessing that shape now.
+    /// </summary>
+    public Action<RedisResult>? OnPush { get; set; }
+
     private void DispatchReply(RedisResult result)
     {
         if (result.Type == RespType.Push)
         {
-            // Out-of-band RESP3 push (pub/sub, client-side-cache invalidation, etc.) —
-            // not correlated to a pending request. No subscriber layer exists yet
-            // (project spec §10); dropped here until it does.
+            OnPush?.Invoke(result);
             return;
         }
 
@@ -612,6 +632,8 @@ public sealed class RedisConnection : IAsyncDisposable
         {
             return;
         }
+
+        ReadUsDiagnostics.ConnectionFaulted(wasReady: previous == ConnectionState.Ready);
 
         while (_pending.TryDequeue(out var request))
         {
