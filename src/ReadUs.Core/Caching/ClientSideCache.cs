@@ -12,14 +12,20 @@ namespace ReadUs.Caching;
 /// connection, so the cache can't be layered transparently over the Tier 1 pool the
 /// way ordinary commands are.
 ///
-/// Default (non-<c>BCAST</c>) tracking mode: the server remembers exactly the keys this
-/// connection has read and pushes an invalidation the moment any client writes one of
-/// them. <c>BCAST</c> mode, key prefixes, and redirected tracking (project spec §10
-/// mentions these only in passing) are not implemented — see design doc §5.
+/// Supports both <see cref="TrackingMode.Default"/> (the server remembers exactly the
+/// keys this connection has read) and <see cref="TrackingMode.Bcast"/> (the server
+/// invalidates every write under given prefixes, whether or not this connection ever
+/// read the key). Redirected tracking (<c>CLIENT TRACKING ... REDIRECT</c>) is not
+/// implemented — it exists for RESP2 clients that can't receive an unsolicited
+/// invalidation on an ordinary command connection at all and so need a second,
+/// dedicated pub/sub connection to receive it on; this client always negotiates RESP3,
+/// which delivers invalidations as an ordinary out-of-band push on the same
+/// connection, so there's nothing for a ReadUs-specific redirect target to do.
 /// </summary>
 public sealed class ClientSideCache : IAsyncDisposable
 {
     private readonly RedisConnection _connection;
+    private readonly TrackingMode _mode;
     private readonly ConcurrentDictionary<string, RedisResult> _cache = new();
     private readonly ConcurrentDictionary<string, byte> _pendingReads = new();
 
@@ -66,15 +72,22 @@ public sealed class ClientSideCache : IAsyncDisposable
         }
     }
 
-    private ClientSideCache(RedisConnection connection) => _connection = connection;
+    private ClientSideCache(RedisConnection connection, TrackingMode mode)
+    {
+        _connection = connection;
+        _mode = mode;
+    }
 
-    public static async Task<ClientSideCache> ConnectAsync(RedisConnectionOptions options, CancellationToken cancellationToken = default)
+    public static Task<ClientSideCache> ConnectAsync(RedisConnectionOptions options, CancellationToken cancellationToken = default) =>
+        ConnectAsync(options, TrackingMode.Default, cancellationToken);
+
+    public static async Task<ClientSideCache> ConnectAsync(RedisConnectionOptions options, TrackingMode mode, CancellationToken cancellationToken = default)
     {
         var connection = await RedisConnection.ConnectAsync(options, cancellationToken).ConfigureAwait(false);
-        var cache = new ClientSideCache(connection);
+        var cache = new ClientSideCache(connection, mode);
         connection.OnPush = cache.HandleInvalidation;
 
-        var reply = await connection.SendAsync("CLIENT"u8.ToArray(), ["TRACKING"u8.ToArray(), "ON"u8.ToArray()], cancellationToken).ConfigureAwait(false);
+        var reply = await connection.SendAsync("CLIENT"u8.ToArray(), mode.BuildClientTrackingArgs(), cancellationToken).ConfigureAwait(false);
         if (reply.IsError)
         {
             await connection.DisposeAsync().ConfigureAwait(false);
@@ -112,9 +125,23 @@ public sealed class ClientSideCache : IAsyncDisposable
     /// method's post-await completion and <see cref="HandleInvalidation"/>'s per-key
     /// handling atomic with respect to each other. Neither ever holds the lock across a
     /// network round trip.
+    ///
+    /// In <see cref="TrackingMode.Bcast"/> with explicit prefixes, a key outside every
+    /// registered prefix is rejected client-side before anything is sent — the same
+    /// "catch it before it's a problem" shape as CROSSSLOT (Cluster) and the
+    /// read-preference check (Cluster's <c>ExecuteAsync</c> overload): the server would
+    /// never invalidate that key for this connection, so caching it would be a value
+    /// this cache can never learn is stale.
     /// </summary>
     public async ValueTask<RedisResult> GetAsync(string key, CancellationToken cancellationToken = default)
     {
+        if (!_mode.CoversKey(key))
+        {
+            throw new ArgumentException(
+                $"'{key}' isn't covered by any of this cache's BCAST prefixes — reading it through this cache would cache a value this connection can never learn is stale.",
+                nameof(key));
+        }
+
         if (_cache.TryGetValue(key, out var cached))
         {
             return cached;

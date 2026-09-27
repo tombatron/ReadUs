@@ -873,11 +873,17 @@ should be easy to revisit rather than silently baked in:
     before clearing the cache, making the flush atomic against every
     in-flight read across every key at once, the same way one stripe makes
     one key's invalidation atomic against that key's read.
-- **Only default (non-`BCAST`) tracking mode is implemented.** `BCAST`
-  mode, key-prefix tracking, and redirected tracking (`CLIENT TRACKING
-  REDIRECT`) are mentioned only in passing by the project spec and are not
-  implemented; `ClientSideCache` assumes one dedicated connection tracks
-  exactly the keys it has personally read.
+- ~~**Only default (non-`BCAST`) tracking mode is implemented.**~~ `BCAST`
+  and key-prefix tracking are now implemented — see "Recorded during
+  implementation of BCAST tracking mode" below. Redirected tracking
+  (`CLIENT TRACKING ... REDIRECT`) remains deliberately unimplemented: it
+  exists for RESP2 clients, which have no way to receive an unsolicited
+  invalidation on an ordinary command connection and so need a second,
+  dedicated pub/sub connection to receive it on instead
+  (`__redis__:invalidate`). This client always negotiates RESP3, which
+  delivers invalidations as an ordinary out-of-band push on the same
+  connection — there is no gap a ReadUs-specific redirect target would
+  close.
 - ~~**Higher-level typed helpers (POCO mapping) are deliberately out of
   scope for this pass.**~~ Done in a later pass — see "Recorded during
   implementation of typed JSON helpers" below (`ReadUs.Extensions.Json`).
@@ -1257,3 +1263,48 @@ existing `ReadUs.SourceGenerators` project, alongside
   generator's *output* actually compiles and round-trips correctly
   against a real, disposable Testcontainers-managed server, including the
   missing-required-field throw and the null-nullable-fields-omitted paths.
+
+### Recorded during implementation of BCAST tracking mode
+
+- **The core race-closing machinery (the striped per-key locks,
+  `GetAsync`'s write-then-check-pending sequence,
+  `HandleInvalidation`'s atomic-per-key handling) needed zero changes.**
+  The insight that made this a small, contained addition rather than a
+  redesign: BCAST changes *which* keys can generate an invalidation for
+  this connection (any write under a registered prefix, not just keys
+  this connection has personally read) but not the *shape* of the race —
+  an invalidation for a key currently mid-read is exactly the same hazard
+  either way, and the wire format of the invalidation push itself
+  (`>2\r\n$10\r\ninvalidate\r\n...`) is identical in both modes,
+  including the null-payload "flush everything" case. Only the `CLIENT
+  TRACKING` setup command needed to become configurable
+  (`TrackingMode.BuildClientTrackingArgs`) — a small, additive `TrackingMode`
+  struct (`Default` / `Bcast(params string[] prefixes)`), not a
+  redesign of anything already built.
+- **A new client-side pre-flight check, in the same spirit as CROSSSLOT
+  and the Cluster read-preference validation**: in BCAST mode with one or
+  more explicit prefixes, `GetAsync` rejects a key that doesn't start
+  with any of them, with `ArgumentException`, before touching the
+  network. Reasoning: the server will never send an invalidation for that
+  key to this connection (it's outside every prefix this connection
+  subscribed to), so caching it anyway would create a value this cache
+  can never learn is stale — a real correctness hazard, not just a
+  usage nicety, so it's caught the same way the project already catches
+  CROSSSLOT and an invalid `ReadPreference`/command pairing: client-side,
+  before anything is sent, rather than left as a silent trap.
+- **BCAST with zero prefixes means "every key in the keyspace" (Redis's
+  own documented behavior), and `TrackingMode.CoversKey` treats it
+  identically to `Default` mode for the pre-flight check** — no
+  restriction, since there's no prefix to violate. Verified directly
+  (`BcastModeWithNoPrefixesCoversAnyKey`).
+- **No new way was added to verify from the *client* side that Redis
+  actually accepted and applied BCAST mode** (e.g. via `CLIENT
+  TRACKINGINFO`, which only reports on the calling connection's own
+  state and so isn't queryable from a separate admin connection).
+  Considered and deliberately not pursued for this pass: `ConnectAsync`
+  already throws `RedisConnectionException` if the server rejects the
+  `CLIENT TRACKING ON BCAST PREFIX ...` syntax, and the integration tests
+  prove the *behavior* end-to-end (reads, writes, and invalidations all
+  working correctly for a key within a registered prefix) — between
+  those two, there's no gap in confidence that would justify adding
+  `ClientSideCache` surface area purely for introspection.

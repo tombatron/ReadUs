@@ -143,4 +143,59 @@ public class ClientSideCacheTests(StandaloneRedisFixture fixture)
             Assert.NotEqual("v1", settledValue);
         }
     }
+
+    [Fact]
+    public async Task BcastModeCachesReadsAndInvalidatesWritesWithinItsPrefix()
+    {
+        var prefix = $"readus:test:bcast:{Guid.NewGuid():N}:";
+        await using var admin = await RedisClient.ConnectAsync(Options, connectionCount: 1);
+        await using var cache = await ClientSideCache.ConnectAsync(Options, TrackingMode.Bcast(prefix));
+
+        var key = prefix + "widget";
+        await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v1"u8.ToArray()]);
+
+        var first = await cache.GetAsync(key);
+        Assert.Equal("v1", first.AsString());
+        Assert.True(cache.TryGetCached(key, out _));
+
+        await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v2"u8.ToArray()]);
+
+        var evicted = false;
+        for (var i = 0; i < 50 && !evicted; i++)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(20));
+            evicted = !cache.TryGetCached(key, out _);
+        }
+
+        Assert.True(evicted, "Expected the BCAST invalidation push to evict the cache entry.");
+
+        var second = await cache.GetAsync(key);
+        Assert.Equal("v2", second.AsString());
+    }
+
+    [Fact]
+    public async Task BcastModeRejectsAKeyOutsideItsPrefixesClientSide()
+    {
+        var prefix = $"readus:test:bcast:{Guid.NewGuid():N}:";
+        await using var cache = await ClientSideCache.ConnectAsync(Options, TrackingMode.Bcast(prefix));
+
+        var outsideKey = $"readus:test:other:{Guid.NewGuid():N}";
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () => await cache.GetAsync(outsideKey));
+        Assert.Equal("key", ex.ParamName);
+    }
+
+    [Fact]
+    public async Task BcastModeWithNoPrefixesCoversAnyKey()
+    {
+        await using var admin = await RedisClient.ConnectAsync(Options, connectionCount: 1);
+        await using var cache = await ClientSideCache.ConnectAsync(Options, TrackingMode.Bcast());
+
+        var key = $"readus:test:bcast:nopfx:{Guid.NewGuid():N}";
+        await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v1"u8.ToArray()]);
+
+        var result = await cache.GetAsync(key);
+
+        Assert.Equal("v1", result.AsString());
+    }
 }
