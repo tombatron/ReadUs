@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net;
 using System.Text;
@@ -9,29 +8,24 @@ using ReadUs.Connections;
 using ReadUs.Diagnostics;
 using ReadUs.Generated;
 using ReadUs.Protocol;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
-/// Exercises Cluster support (project spec §5, §13 step 5) against a real Redis
-/// Cluster running locally (ports 7001-7003 — see the session's setup notes; a
-/// permanent Testcontainers-based cluster fixture is follow-up work, matching the same
-/// provisional caveat as the standalone tests): three masters, plus one replica on
-/// port 7004 replicating node 7001 (slots 0-5460), added specifically to exercise
-/// replica read routing (design doc §3.2) against a real replica rather than only the
-/// no-replica-available fallback/error paths.
+/// Exercises Cluster support (project spec §5, §13 step 5) against a real, disposable
+/// Testcontainers-managed Redis Cluster (project spec §9.2): three masters, plus one
+/// replica of node 1 (slots 0-5460), added specifically to exercise replica read
+/// routing (design doc §3.2) against a real replica rather than only the
+/// no-replica-available fallback/error paths. See <see cref="ClusterRedisFixture"/>.
 /// </summary>
-public class ClusterClientTests
+[Collection(ClusterRedisCollection.Name)]
+public class ClusterClientTests(ClusterRedisFixture fixture)
 {
-    private static readonly EndPoint[] SeedEndpoints =
-    [
-        new DnsEndPoint("127.0.0.1", 7001),
-        new DnsEndPoint("127.0.0.1", 7002),
-        new DnsEndPoint("127.0.0.1", 7003),
-    ];
+    private IReadOnlyList<EndPoint> SeedEndpoints => fixture.SeedEndpoints;
 
-    // Node 1 (port 7001) owns slots 0-5460 and has the one replica (port 7004) in this
-    // fixture; nodes 2 and 3 (7002/7003) have none.
+    // Node 1 owns slots 0-5460 and has the one replica in this fixture; nodes 2 and 3
+    // have none.
     private const int Node1RangeStart = 0;
     private const int Node1RangeEnd = 5460;
 
@@ -176,18 +170,17 @@ public class ClusterClientTests
     [Fact]
     public async Task QuarantinesARepeatedlyUnreachableNodeAndReintegratesItOnceItRecovers()
     {
-        // Node 3 (port 7003) owns slots 10923-16383 on this fixed 3-master cluster (see
-        // `CLUSTER NODES` in the session's setup notes). There's no single Redis admin
-        // command that both makes a cluster node fully unreachable *and* brings it back
-        // (unlike SentinelClientTests' `SENTINEL FAILOVER`), so this is the one test in
-        // this file that reaches for the container directly.
-        const string containerName = "readus-cluster-7003";
+        // Node 3 (index 2) owns slots 10923-16383 on this 3-master cluster. There's no
+        // single Redis admin command that both makes a cluster node fully unreachable
+        // *and* brings it back (unlike SentinelClientTests' `SENTINEL FAILOVER`), so
+        // this is the one test in this file that reaches for the container directly.
+        var node3 = fixture.Containers[2];
         var key = FindKeyInSlotRange(rangeStart: 10923, rangeEnd: 16383, out _);
         var keyBytes = Encoding.UTF8.GetBytes(key);
 
         await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
 
-        await RunDockerCommandAsync("stop", containerName);
+        await node3.StopAsync();
         try
         {
             // This client has never successfully connected to node 3, so this also
@@ -222,7 +215,7 @@ public class ClusterClientTests
         }
         finally
         {
-            await RunDockerCommandAsync("start", containerName);
+            await node3.StartAsync();
         }
 
         // The background prober reintegrates the node once its own PING succeeds again
@@ -314,7 +307,7 @@ public class ClusterClientTests
     public async Task RoundRobinReadPreferenceSendsTrafficToBothThePrimaryAndTheReplica()
     {
         await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = SeedEndpoints[0] }, connectionCount: 1);
-        await using var replicaAdmin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = new DnsEndPoint("127.0.0.1", 7004) }, connectionCount: 1);
+        await using var replicaAdmin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = fixture.ReplicaEndpoint }, connectionCount: 1);
         await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
 
         var key = FindRandomKeyInSlotRange(Node1RangeStart, Node1RangeEnd);
@@ -394,30 +387,6 @@ public class ClusterClientTests
         }
 
         throw new InvalidOperationException("total_commands_processed not found in INFO stats.");
-    }
-
-    private static async Task RunDockerCommandAsync(params string[] arguments)
-    {
-        var startInfo = new ProcessStartInfo("docker")
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        };
-
-        foreach (var argument in arguments)
-        {
-            startInfo.ArgumentList.Add(argument);
-        }
-
-        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start the docker process.");
-        await process.WaitForExitAsync();
-
-        if (process.ExitCode != 0)
-        {
-            var stderr = await process.StandardError.ReadToEndAsync();
-            throw new InvalidOperationException($"docker {string.Join(' ', arguments)} failed: {stderr}");
-        }
     }
 
     /// <summary>

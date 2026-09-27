@@ -1,25 +1,19 @@
-using System.Net;
 using System.Text;
 using ReadUs.Cluster;
 using ReadUs.Cluster.Routing;
 using ReadUs.Connections;
+using ReadUs.Tests.Integration.Fixtures;
 
 namespace ReadUs.Tests.Integration;
 
-/// <summary>Exercises <c>ExecuteBatchAsync</c> (project spec §5/§8's pipelining goal) on both the standalone and Cluster clients against real servers.</summary>
-public class BatchExecutionTests
+/// <summary>Exercises <c>ExecuteBatchAsync</c> (project spec §5/§8's pipelining goal) on both the standalone and Cluster clients against real, disposable Testcontainers-managed servers (project spec §9.2).</summary>
+[Collection(ClusterAndStandaloneRedisCollection.Name)]
+public class BatchExecutionTests(ClusterRedisFixture clusterFixture, StandaloneRedisFixture standaloneFixture)
 {
-    private static RedisConnectionOptions StandaloneOptions => new()
+    private RedisConnectionOptions StandaloneOptions => new()
     {
-        EndPoint = new DnsEndPoint("localhost", 6379),
+        EndPoint = standaloneFixture.EndPoint,
     };
-
-    private static readonly EndPoint[] ClusterSeedEndpoints =
-    [
-        new DnsEndPoint("127.0.0.1", 7001),
-        new DnsEndPoint("127.0.0.1", 7002),
-        new DnsEndPoint("127.0.0.1", 7003),
-    ];
 
     [Fact]
     public async Task StandaloneBatchPreservesOrderAndReturnsAllResults()
@@ -75,7 +69,7 @@ public class BatchExecutionTests
     [Fact]
     public async Task ClusterBatchSpanningMultipleShardsPreservesOrderAndRoutesEachCommandCorrectly()
     {
-        await using var cluster = await ClusterClient.ConnectAsync(ClusterSeedEndpoints);
+        await using var cluster = await ClusterClient.ConnectAsync(clusterFixture.SeedEndpoints);
 
         // Deliberately interleaved across all three shards' slot ranges, so a naive
         // implementation that only routed correctly for a single-node batch wouldn't
