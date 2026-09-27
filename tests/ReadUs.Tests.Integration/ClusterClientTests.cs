@@ -1,9 +1,11 @@
+using System.Diagnostics;
 using System.Net;
 using System.Text;
 using ReadUs.Cluster;
 using ReadUs.Cluster.Routing;
 using ReadUs.Connections;
 using ReadUs.Generated;
+using ReadUs.Protocol;
 
 namespace ReadUs.Tests.Integration;
 
@@ -157,6 +159,108 @@ public class ClusterClientTests
             await node2.ExecuteAsync("DEL"u8.ToArray(), [keyBytes]);
             await node1.ExecuteAsync("CLUSTER"u8.ToArray(), ["SETSLOT"u8.ToArray(), Encoding.ASCII.GetBytes(slot.ToString(System.Globalization.CultureInfo.InvariantCulture)), "NODE"u8.ToArray(), Encoding.ASCII.GetBytes(node1Id)]);
             await node2.ExecuteAsync("CLUSTER"u8.ToArray(), ["SETSLOT"u8.ToArray(), Encoding.ASCII.GetBytes(slot.ToString(System.Globalization.CultureInfo.InvariantCulture)), "NODE"u8.ToArray(), Encoding.ASCII.GetBytes(node1Id)]);
+        }
+    }
+
+    [Fact]
+    public async Task QuarantinesARepeatedlyUnreachableNodeAndReintegratesItOnceItRecovers()
+    {
+        // Node 3 (port 7003) owns slots 10923-16383 on this fixed 3-master cluster (see
+        // `CLUSTER NODES` in the session's setup notes). There's no single Redis admin
+        // command that both makes a cluster node fully unreachable *and* brings it back
+        // (unlike SentinelClientTests' `SENTINEL FAILOVER`), so this is the one test in
+        // this file that reaches for the container directly.
+        const string containerName = "readus-cluster-7003";
+        var key = FindKeyInSlotRange(rangeStart: 10923, rangeEnd: 16383, out _);
+        var keyBytes = Encoding.UTF8.GetBytes(key);
+
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+
+        await RunDockerCommandAsync("stop", containerName);
+        try
+        {
+            // This client has never successfully connected to node 3, so this also
+            // exercises retrying a node whose very first connection attempt failed, not
+            // just an already-open one going bad (GetOrCreateNodeClientAsync's cached-
+            // faulted-task eviction, design doc §3.1).
+            var sawConnectionFailure = false;
+            ClusterNodeQuarantinedException? quarantined = null;
+            for (var i = 0; i < 10 && quarantined is null; i++)
+            {
+                try
+                {
+                    await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes]);
+                }
+                catch (RedisConnectionException)
+                {
+                    sawConnectionFailure = true;
+                }
+                catch (ClusterNodeQuarantinedException ex)
+                {
+                    quarantined = ex;
+                }
+            }
+
+            Assert.True(sawConnectionFailure, "Expected at least one raw connection failure before quarantine kicked in.");
+            Assert.NotNull(quarantined);
+
+            // Quarantined: every further attempt fails fast with the same exception
+            // type rather than paying for another doomed connection attempt.
+            await Assert.ThrowsAsync<ClusterNodeQuarantinedException>(async () =>
+                await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes]));
+        }
+        finally
+        {
+            await RunDockerCommandAsync("start", containerName);
+        }
+
+        // The background prober reintegrates the node once its own PING succeeds again
+        // — poll rather than assume a fixed recovery time (container restart and
+        // rejoining the cluster both take a real, variable amount of time).
+        RedisResult? result = null;
+        for (var i = 0; i < 60 && result is null; i++)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            try
+            {
+                var candidate = await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes]);
+                if (!candidate.IsError)
+                {
+                    result = candidate;
+                }
+            }
+            catch
+            {
+                // Still quarantined, or the node hasn't finished rejoining the cluster
+                // yet. Keep polling.
+            }
+        }
+
+        Assert.NotNull(result);
+        Assert.True(result!.Value.IsNull, "Never actually written while the node was down, so a successful GET should just be a miss.");
+    }
+
+    private static async Task RunDockerCommandAsync(params string[] arguments)
+    {
+        var startInfo = new ProcessStartInfo("docker")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+
+        foreach (var argument in arguments)
+        {
+            startInfo.ArgumentList.Add(argument);
+        }
+
+        using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start the docker process.");
+        await process.WaitForExitAsync();
+
+        if (process.ExitCode != 0)
+        {
+            var stderr = await process.StandardError.ReadToEndAsync();
+            throw new InvalidOperationException($"docker {string.Join(' ', arguments)} failed: {stderr}");
         }
     }
 

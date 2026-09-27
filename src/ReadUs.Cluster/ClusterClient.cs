@@ -19,9 +19,10 @@ namespace ReadUs.Cluster;
 /// of the existing connection machinery, not a second one.
 ///
 /// Scope deferred out of this pass, per docs/design/state-machines.md §5: replica read
-/// routing (primary-only for now — the spec's own safest default), per-node health
-/// tracking/quarantine, and explicit per-node pipeline batching (concurrent calls still
-/// pipeline within each node's own Tier 1 pool, just not reassembled by this layer).
+/// routing (primary-only for now — the spec's own safest default), and explicit
+/// per-node pipeline batching (concurrent calls still pipeline within each node's own
+/// Tier 1 pool, just not reassembled by this layer). Per-node health tracking and
+/// quarantine (design doc §3.1) is implemented via <see cref="ClusterNodeHealthTracker"/>.
 /// </summary>
 public sealed class ClusterClient : IAsyncDisposable
 {
@@ -33,6 +34,7 @@ public sealed class ClusterClient : IAsyncDisposable
 
     private readonly Func<EndPoint, RedisConnectionOptions> _optionsFactory;
     private readonly ConcurrentDictionary<string, Task<RedisClient>> _nodeClients = new();
+    private readonly ClusterNodeHealthTracker _nodeHealth;
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly Task _refreshLoopTask;
     private volatile ClusterTopology _topology;
@@ -42,6 +44,7 @@ public sealed class ClusterClient : IAsyncDisposable
     {
         _topology = topology;
         _optionsFactory = optionsFactory;
+        _nodeHealth = new ClusterNodeHealthTracker(GetOrCreateNodeClientAsync);
         _refreshLoopTask = Task.Run(RefreshLoopAsync);
     }
 
@@ -107,6 +110,8 @@ public sealed class ClusterClient : IAsyncDisposable
             }
         }
 
+        await _nodeHealth.DisposeAsync().ConfigureAwait(false);
+
         _lifetimeCts.Dispose();
     }
 
@@ -117,15 +122,34 @@ public sealed class ClusterClient : IAsyncDisposable
         for (var attempt = 0; attempt < MaxRedirects; attempt++)
         {
             var targetEndPoint = askTarget ?? ResolveEndPoint(slot);
-            var client = await GetOrCreateNodeClientAsync(targetEndPoint).ConfigureAwait(false);
 
-            if (askTarget is not null)
+            if (_nodeHealth.IsQuarantined(targetEndPoint))
             {
-                // One-shot per the spec: ASKING is never persisted into the slot map.
-                await client.ExecuteAsync("ASKING"u8.ToArray(), [], cancellationToken).ConfigureAwait(false);
+                throw new ClusterNodeQuarantinedException(
+                    $"Node {targetEndPoint} is quarantined after repeated connection failures; a background probe is reintegrating it.");
             }
 
-            var reply = await client.ExecuteAsync(commandName, args, cancellationToken).ConfigureAwait(false);
+            RedisResult reply;
+            try
+            {
+                var client = await GetOrCreateNodeClientAsync(targetEndPoint).ConfigureAwait(false);
+
+                if (askTarget is not null)
+                {
+                    // One-shot per the spec: ASKING is never persisted into the slot map.
+                    await client.ExecuteAsync("ASKING"u8.ToArray(), [], cancellationToken).ConfigureAwait(false);
+                }
+
+                reply = await client.ExecuteAsync(commandName, args, cancellationToken).ConfigureAwait(false);
+            }
+            catch (RedisConnectionException)
+            {
+                _nodeHealth.RecordFailure(targetEndPoint);
+                throw;
+            }
+
+            _nodeHealth.RecordSuccess(targetEndPoint);
+
             if (!reply.IsError)
             {
                 return reply;
@@ -195,17 +219,23 @@ public sealed class ClusterClient : IAsyncDisposable
 
     private async Task RefreshTopologyAsync(CancellationToken cancellationToken)
     {
-        foreach (var master in _topology.Masters)
+        // Quarantined masters last — no reason to spend this refresh's first attempt on
+        // a node already known to be down.
+        var orderedMasters = _topology.Masters.OrderBy(m => _nodeHealth.IsQuarantined(m.EndPoint) ? 1 : 0);
+
+        foreach (var master in orderedMasters)
         {
             try
             {
                 var client = await GetOrCreateNodeClientAsync(master.EndPoint).ConfigureAwait(false);
                 var reply = await client.ExecuteAsync("CLUSTER"u8.ToArray(), ["SHARDS"u8.ToArray()], cancellationToken).ConfigureAwait(false);
                 _topology = ClusterTopology.Parse(reply);
+                _nodeHealth.RecordSuccess(master.EndPoint);
                 return;
             }
-            catch
+            catch (RedisConnectionException)
             {
+                _nodeHealth.RecordFailure(master.EndPoint);
                 // Try the next known master; if all of them are unreachable the stale
                 // topology is kept rather than discarded.
             }
@@ -241,12 +271,48 @@ public sealed class ClusterClient : IAsyncDisposable
             throw new RedisConnectionException("No known cluster master nodes.");
         }
 
-        var index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
-        return masters[index].EndPoint;
+        // Skip a quarantined master in favor of a healthy one — same skip-ahead shape
+        // as Tier 1's Rent(). If every master is quarantined, fall through and hand
+        // back the round-robin choice anyway; the caller fails fast via the
+        // IsQuarantined check in ExecuteWithRedirectsAsync rather than this blocking.
+        for (var i = 0; i < masters.Count; i++)
+        {
+            var index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
+            if (!_nodeHealth.IsQuarantined(masters[index].EndPoint))
+            {
+                return masters[index].EndPoint;
+            }
+        }
+
+        var fallbackIndex = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
+        return masters[fallbackIndex].EndPoint;
     }
 
-    private Task<RedisClient> GetOrCreateNodeClientAsync(EndPoint endPoint) =>
-        _nodeClients.GetOrAdd(endPoint.ToString()!, _ => RedisClient.ConnectAsync(_optionsFactory(endPoint)));
+    /// <summary>
+    /// Evicts and retries a cached-but-faulted client task rather than replaying the
+    /// same connection failure forever. Without this, a node that failed its *first*
+    /// connection attempt would stay permanently unreachable through this client even
+    /// after it recovers — <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey,Func{TKey,TValue})"/>
+    /// only invokes the factory once per key and caches whatever it returns, fault or
+    /// not. Needed for <see cref="ClusterNodeHealthTracker"/>'s reintegration probe to
+    /// mean anything: without eviction, its retries would just re-observe the same
+    /// stale fault instead of actually attempting a new connection.
+    /// </summary>
+    private Task<RedisClient> GetOrCreateNodeClientAsync(EndPoint endPoint)
+    {
+        var key = endPoint.ToString()!;
+
+        while (true)
+        {
+            var existing = _nodeClients.GetOrAdd(key, _ => RedisClient.ConnectAsync(_optionsFactory(endPoint)));
+            if (!existing.IsFaulted)
+            {
+                return existing;
+            }
+
+            ((ICollection<KeyValuePair<string, Task<RedisClient>>>)_nodeClients).Remove(new(key, existing));
+        }
+    }
 
     private static (int Slot, EndPoint EndPoint) ParseRedirect(string error)
     {

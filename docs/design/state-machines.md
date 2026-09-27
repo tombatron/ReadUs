@@ -347,6 +347,69 @@ own hazard analysis before being declared safe.
 
 ---
 
+## 3.1 Cluster Node Health Tracking (outline)
+
+Closes a gap left open, deliberately, by §3's original implementation (see
+the "Recorded during §13 step 5" entry in §5): a node that goes down
+surfaces as an ordinary `RedisConnectionException` from whatever call hit
+it, with no tracking of *repeated* failure and no distinct "this node is
+known-bad, stop sending it traffic" state. Written as an outline, in the
+same spirit as §3/§4, before implementation — this is new state-machine
+surface, not a bug fix to existing surface.
+
+States (per cluster node, keyed by its endpoint — independent of, and
+layered above, that node's own `RedisClient`/Tier 1 pool, which already
+self-heals its individual connections per §1; this machine is about whether
+the *cluster layer* keeps routing to a node at all):
+
+`Healthy -> Quarantined -> Healthy` (loops)
+
+- `Healthy -> Quarantined`: a fixed number of *consecutive*
+  `RedisConnectionException`s observed for that node (an ordinary Redis
+  error reply — `MOVED`/`ASK`/`TRYAGAIN`/`CLUSTERDOWN`/anything else — does
+  *not* count; the node responded, it's reachable, it's healthy). Any
+  intervening success resets the counter to zero.
+- While `Quarantined`: every call that would route to this node fails fast
+  with a distinct exception, *without* attempting the network — no caller
+  traffic is used to probe recovery. Reasoning: a slot-owning master has no
+  alternative target (replica-read routing is separately out of scope, §5),
+  so "retry the same dead node on every caller's timeline" is exactly the
+  wasted-latency behavior this machine exists to avoid. Reintegration is
+  the background prober's job, on its own schedule, not the foreground
+  path's.
+- `Quarantined -> Healthy`: a dedicated background prober (one per
+  quarantined node, started the moment it's quarantined) sends a bare
+  `PING` through that node's own `RedisClient` on an exponential
+  backoff-with-jitter schedule (mirrors Tier 1's own
+  `MultiplexedConnectionPool` reconnect loop exactly, both in shape and in
+  starting/max backoff constants). First successful `PING` clears the
+  state and the failure counter and the prober loop exits; a failed `PING`
+  just widens the backoff and tries again. Only the prober can transition a
+  node back to `Healthy` — an ordinary foreground caller's success while a
+  node happens to be quarantined only resets *that node's failure counter*
+  (harmless either way, since the counter is meaningless once
+  `Quarantined`), it does not itself clear quarantine.
+- The round-robin fallback used for keyless/admin commands (and for a slot
+  the local map doesn't cover) skips a quarantined master in favor of a
+  healthy one, the same skip-ahead shape as Tier 1's `Rent()`. If *every*
+  known master is quarantined, the fallback returns one anyway — matching
+  Tier 1's own "hand back a connection known to be dead so the caller fails
+  fast" fallback rather than blocking.
+- The periodic (and MOVED-triggered) full topology refresh tries known
+  masters in health order, quarantined ones last, so it doesn't spend its
+  one attempt-that-matters against a node already known to be down.
+
+Not covered by this machine, deliberately: per-node request-level circuit
+breaking with a half-open "let one trial call through" state (rejected in
+favor of the simpler hard fail-fast-plus-dedicated-prober shape above,
+which needs no shared state between foreground and background paths to
+reason about); ejecting/closing a quarantined node's already-open Tier 1
+pool connections (they're left alone — Tier 1's own health loop already
+manages them, and there's no correctness reason to force-close a
+connection that happens to still be usable for the prober's own `PING`).
+
+---
+
 ## 4. Sentinel Failover (outline)
 
 Full spec deferred to §13 step 5. Recorded now for the same reason as §3.
@@ -751,3 +814,55 @@ should be easy to revisit rather than silently baked in:
   scope for this pass.** The project spec frames these as optional/lowest
   priority within the convenience-layer step, behind DI, metrics, and
   client-side caching; not attempted here.
+
+### Recorded during implementation of §3.1 (Cluster node health tracking)
+
+- **Fixed a latent bug in `ClusterClient.GetOrCreateNodeClientAsync`
+  discovered while designing this feature, not caused by it**:
+  `ConcurrentDictionary.GetOrAdd` caches whatever `Task<RedisClient>` its
+  factory returns, fault included, and never re-invokes the factory for a
+  key it already has an entry for. A node that failed its *first-ever*
+  connection attempt was therefore permanently unreachable through a given
+  `ClusterClient` instance, even after it recovered — every subsequent
+  attempt just replayed the same cached exception. Fixed by checking
+  `IsFaulted` and evicting via `ICollection<KeyValuePair<,>>.Remove`'s
+  value-checked conditional removal (atomic against a concurrent
+  replacement) before retrying. Required for this phase's own
+  reintegration probe to mean anything — without it, a probe's retries
+  would just re-observe the stale fault instead of attempting a new
+  connection — but it's a real, independent correctness fix, not
+  incidental to the health-tracking feature.
+- **Chose a hard fail-fast circuit breaker over a half-open "let one trial
+  call through" design.** Considered and rejected explicitly (see design
+  doc §3.1's "not covered" note): a half-open state needs to coordinate a
+  single trial attempt between whatever concurrent foreground callers show
+  up and a background prober, which is real shared-state complexity for a
+  scenario (a cluster master, which has no alternate routing target) where
+  the background prober alone is sufficient and provably simpler to reason
+  about.
+- **Quarantine and reintegration are decided entirely by connection-level
+  failures/successes, never by Redis-level error replies.**
+  `MOVED`/`ASK`/`TRYAGAIN`/`CLUSTERDOWN`/an ordinary command error all mean
+  the node responded — the opposite of what quarantine is tracking — so
+  only a caught `RedisConnectionException` around the network round trip
+  feeds the tracker, matching the same distinction the project draws
+  everywhere else between transport failure and a RESP-level reply.
+- **The consecutive-failure threshold (3) and probe backoff constants
+  (200ms initial, 10s max, matching Tier 1's own reconnect loop exactly)
+  are fixed, not configurable yet** — same status, and same reasoning, as
+  `RedisConnection.UnblockReconciliationGrace`: simplest thing that let
+  this be written and tested, revisit once cluster-specific configuration
+  has a real home.
+- **Verified against a real node failure, not a simulated one**: the
+  integration test (`ClusterClientTests
+  .QuarantinesARepeatedlyUnreachableNodeAndReintegratesItOnceItRecovers`)
+  actually stops and restarts the `readus-cluster-7003` Docker container —
+  the one test in that file that reaches for the container directly,
+  since (unlike Sentinel's `SENTINEL FAILOVER`) there's no single Redis
+  admin command that both makes a cluster node fully unreachable and later
+  brings it back. Confirmed stable across repeated isolated runs and
+  passing as part of the full integration suite; the cluster's own
+  `cluster-require-full-coverage yes` setting means a longer outage would
+  eventually cascade to `CLUSTERDOWN` cluster-wide, but the test's
+  assertions all complete well inside Redis's own (much longer) node
+  failure-detection timeout, so that cascade never enters into it.

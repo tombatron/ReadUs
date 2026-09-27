@@ -18,3 +18,14 @@ public sealed class ClusterDownException(string message) : Exception(message)
 public sealed class ClusterTooManyRedirectsException(string message) : Exception(message)
 {
 }
+
+/// <summary>
+/// Thrown instead of even attempting a call, when the node it would route to has
+/// failed enough consecutive times to be quarantined (design doc §3.1) — a
+/// fail-fast so a repeatedly-unreachable node doesn't cost every caller a full
+/// connection-attempt's worth of latency. A background prober reintegrates the node
+/// on its own schedule; this exception says nothing about when that will happen.
+/// </summary>
+public sealed class ClusterNodeQuarantinedException(string message) : Exception(message)
+{
+}
