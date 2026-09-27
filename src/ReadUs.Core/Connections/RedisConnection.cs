@@ -76,6 +76,12 @@ public sealed class RedisConnection : IAsyncDisposable
     {
         var connection = new RedisConnection();
         await connection.OpenAsync(options, cancellationToken).ConfigureAwait(false);
+
+        if (options.PostConnectAsync is not null)
+        {
+            await options.PostConnectAsync(connection, cancellationToken).ConfigureAwait(false);
+        }
+
         return connection;
     }
 

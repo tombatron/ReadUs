@@ -9,8 +9,15 @@ namespace ReadUs.Connections;
 /// standalone node (project spec §13 step 2) and remote/managed Redis (§7): TLS with
 /// SNI and custom certificate validation, pluggable rotating-credential auth, and TCP
 /// keepalive for the cross-AZ/cross-region blips managed services treat as normal.
+///
+/// A <c>record</c> (not just a <c>class</c>) specifically so callers that need to layer
+/// one extra thing onto an otherwise-identical options instance — e.g. Cluster's replica
+/// read routing (design doc §3.2) composing a <see cref="PostConnectAsync"/> hook onto
+/// whatever the caller's own factory returned — can use a <c>with</c> expression instead
+/// of hand-copying every property (and silently going stale the next time one is added).
+/// Nothing in this codebase relies on reference equality for this type.
 /// </summary>
-public sealed class RedisConnectionOptions
+public sealed record RedisConnectionOptions
 {
     public required EndPoint EndPoint { get; init; }
 
@@ -49,4 +56,14 @@ public sealed class RedisConnectionOptions
     public TimeSpan TcpKeepAliveTime { get; init; } = TimeSpan.FromSeconds(30);
 
     public TimeSpan TcpKeepAliveInterval { get; init; } = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Runs once per physical connection, immediately after it reaches <see cref="ConnectionState.Ready"/>
+    /// — for every connection made with these options, not just the first: a pool's
+    /// self-healing reconnect goes through <see cref="RedisConnection.ConnectAsync"/> the
+    /// same way the initial connect did, so this fires again for the replacement
+    /// connection too. Null by default; Cluster's replica read routing is the first user
+    /// (issuing <c>READONLY</c> on every connection to a replica-designated node).
+    /// </summary>
+    public Func<RedisConnection, CancellationToken, ValueTask>? PostConnectAsync { get; init; }
 }

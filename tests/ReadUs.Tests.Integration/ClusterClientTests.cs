@@ -1,19 +1,24 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Net;
 using System.Text;
 using ReadUs.Cluster;
 using ReadUs.Cluster.Routing;
 using ReadUs.Connections;
+using ReadUs.Diagnostics;
 using ReadUs.Generated;
 using ReadUs.Protocol;
 
 namespace ReadUs.Tests.Integration;
 
 /// <summary>
-/// Exercises Cluster support (project spec §5, §13 step 5) against a real 3-master,
-/// no-replica Redis Cluster running locally (ports 7001-7003 — see the session's setup
-/// notes; a permanent Testcontainers-based cluster fixture is follow-up work, matching
-/// the same provisional caveat as the standalone tests).
+/// Exercises Cluster support (project spec §5, §13 step 5) against a real Redis
+/// Cluster running locally (ports 7001-7003 — see the session's setup notes; a
+/// permanent Testcontainers-based cluster fixture is follow-up work, matching the same
+/// provisional caveat as the standalone tests): three masters, plus one replica on
+/// port 7004 replicating node 7001 (slots 0-5460), added specifically to exercise
+/// replica read routing (design doc §3.2) against a real replica rather than only the
+/// no-replica-available fallback/error paths.
 /// </summary>
 public class ClusterClientTests
 {
@@ -23,6 +28,11 @@ public class ClusterClientTests
         new DnsEndPoint("127.0.0.1", 7002),
         new DnsEndPoint("127.0.0.1", 7003),
     ];
+
+    // Node 1 (port 7001) owns slots 0-5460 and has the one replica (port 7004) in this
+    // fixture; nodes 2 and 3 (7002/7003) have none.
+    private const int Node1RangeStart = 0;
+    private const int Node1RangeEnd = 5460;
 
     [Fact]
     public async Task HashSlotComputationMatchesTheLiveServersClusterKeyslot()
@@ -240,6 +250,118 @@ public class ClusterClientTests
         Assert.True(result!.Value.IsNull, "Never actually written while the node was down, so a successful GET should just be a miss.");
     }
 
+    [Fact]
+    public async Task PreferReplicaRoutesToTheReplicaWithoutFollowingAMovedRedirect()
+    {
+        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = SeedEndpoints[0] }, connectionCount: 1);
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+
+        var key = FindRandomKeyInSlotRange(Node1RangeStart, Node1RangeEnd);
+        var keyBytes = Encoding.UTF8.GetBytes(key);
+        await admin.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "from-primary"u8.ToArray()]);
+
+        var movedRedirects = 0;
+        using var listener = new MeterListener();
+        listener.InstrumentPublished = (instrument, l) =>
+        {
+            if (instrument.Meter.Name == ReadUsDiagnostics.MeterName)
+            {
+                l.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<long>((instrument, value, tags, _) =>
+        {
+            if (instrument.Name == "readus.cluster.redirects")
+            {
+                foreach (var tag in tags)
+                {
+                    if (tag is { Key: "kind", Value: "moved" })
+                    {
+                        Interlocked.Add(ref movedRedirects, (int)value);
+                    }
+                }
+            }
+        });
+        listener.Start();
+
+        // Replicas answer a plain (non-READONLY) read with MOVED — if this ever comes
+        // back with a moved-redirect recorded, READONLY wasn't actually issued on the
+        // connection and this "succeeded" only by transparently retrying on the
+        // primary, not by genuinely reading from the replica.
+        var result = await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes], ReadPreference.PreferReplica);
+
+        listener.Dispose();
+
+        Assert.Equal("from-primary", result.AsString());
+        Assert.Equal(0, movedRedirects);
+    }
+
+    [Fact]
+    public async Task ReplicaOnlyThrowsWhenTheTargetShardHasNoReplica()
+    {
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+
+        // Node 2's (7002) shard has no replica in this fixture.
+        var key = FindRandomKeyInSlotRange(rangeStart: 5461, rangeEnd: 10922);
+        var keyBytes = Encoding.UTF8.GetBytes(key);
+
+        await Assert.ThrowsAsync<RedisConnectionException>(async () =>
+            await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes], ReadPreference.ReplicaOnly));
+    }
+
+    [Fact]
+    public async Task RoundRobinReadPreferenceSendsTrafficToBothThePrimaryAndTheReplica()
+    {
+        await using var admin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = SeedEndpoints[0] }, connectionCount: 1);
+        await using var replicaAdmin = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = new DnsEndPoint("127.0.0.1", 7004) }, connectionCount: 1);
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+
+        var key = FindRandomKeyInSlotRange(Node1RangeStart, Node1RangeEnd);
+        var keyBytes = Encoding.UTF8.GetBytes(key);
+        await admin.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "v"u8.ToArray()]);
+
+        var primaryBefore = await TotalCommandsProcessedAsync(admin);
+        var replicaBefore = await TotalCommandsProcessedAsync(replicaAdmin);
+
+        for (var i = 0; i < 20; i++)
+        {
+            var result = await cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes], ReadPreference.RoundRobin);
+            Assert.Equal("v", result.AsString());
+        }
+
+        var primaryAfter = await TotalCommandsProcessedAsync(admin);
+        var replicaAfter = await TotalCommandsProcessedAsync(replicaAdmin);
+
+        Assert.True(primaryAfter > primaryBefore, "Expected round-robin to send at least some reads to the primary.");
+        Assert.True(replicaAfter > replicaBefore, "Expected round-robin to send at least some reads to the replica.");
+    }
+
+    [Fact]
+    public async Task NonPrimaryReadPreferenceOnAWriteCommandIsRejectedClientSide()
+    {
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+        var keyBytes = Encoding.UTF8.GetBytes($"readus:test:cluster:readpref:{Guid.NewGuid():N}");
+
+        var ex = await Assert.ThrowsAsync<ArgumentException>(async () =>
+            await cluster.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "v"u8.ToArray()], ReadPreference.PreferReplica));
+
+        Assert.Equal("readPreference", ex.ParamName);
+    }
+
+    private static async Task<long> TotalCommandsProcessedAsync(RedisClient client)
+    {
+        var info = (await client.ExecuteAsync("INFO"u8.ToArray(), ["stats"u8.ToArray()])).AsString();
+        foreach (var line in info.Split("\r\n"))
+        {
+            if (line.StartsWith("total_commands_processed:", StringComparison.Ordinal))
+            {
+                return long.Parse(line.AsSpan("total_commands_processed:".Length), System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        throw new InvalidOperationException("total_commands_processed not found in INFO stats.");
+    }
+
     private static async Task RunDockerCommandAsync(params string[] arguments)
     {
         var startInfo = new ProcessStartInfo("docker")
@@ -262,6 +384,27 @@ public class ClusterClientTests
             var stderr = await process.StandardError.ReadToEndAsync();
             throw new InvalidOperationException($"docker {string.Join(' ', arguments)} failed: {stderr}");
         }
+    }
+
+    /// <summary>
+    /// Same idea as <see cref="FindKeyInSlotRange"/> but randomized rather than
+    /// deterministic — for tests that set their own value and don't need the "never
+    /// used before" guarantee, so they don't collide with
+    /// <see cref="FollowsARealMovedRedirectAfterALiveSlotMigration"/>'s specific,
+    /// deterministically-derived key in the same slot range.
+    /// </summary>
+    private static string FindRandomKeyInSlotRange(int rangeStart, int rangeEnd)
+    {
+        for (var i = 0; i < 1_000_000; i++)
+        {
+            var candidate = $"readus:test:cluster:readpref:{Guid.NewGuid():N}";
+            if (HashSlot.Compute(Encoding.UTF8.GetBytes(candidate)) is var slot && slot >= rangeStart && slot <= rangeEnd)
+            {
+                return candidate;
+            }
+        }
+
+        throw new InvalidOperationException("Could not find a candidate key in the target slot range.");
     }
 
     private static string FindKeyInSlotRange(int rangeStart, int rangeEnd, out int slot)

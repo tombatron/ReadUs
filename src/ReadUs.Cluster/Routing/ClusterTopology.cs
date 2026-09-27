@@ -6,17 +6,16 @@ namespace ReadUs.Cluster.Routing;
 /// <summary>
 /// A snapshot of slot ownership, parsed from a <c>CLUSTER SHARDS</c> reply (project
 /// spec §5 — preferred over <c>CLUSTER SLOTS</c>/<c>CLUSTER NODES</c> for its richer,
-/// structured shape). Only master nodes are tracked for v0: read routing is
-/// primary-only, the spec's own safest default, so replica addresses aren't needed
-/// yet (see docs/design/state-machines.md §5 for what tracking them would take).
-/// Immutable — a topology refresh produces a new instance rather than mutating this
-/// one, so a caller mid-lookup never observes a half-updated map.
+/// structured shape). Tracks each shard's replicas alongside its master (design doc
+/// §3.2 — replica read routing). Immutable — a topology refresh produces a new
+/// instance rather than mutating this one, so a caller mid-lookup never observes a
+/// half-updated map.
 /// </summary>
 public sealed class ClusterTopology
 {
-    private readonly (int Start, int End, ClusterNode Master)[] _ranges;
+    private readonly (int Start, int End, ClusterNode Master, ClusterNode[] Replicas)[] _ranges;
 
-    private ClusterTopology(List<(int Start, int End, ClusterNode Master)> ranges)
+    private ClusterTopology(List<(int Start, int End, ClusterNode Master, ClusterNode[] Replicas)> ranges)
     {
         ranges.Sort((a, b) => a.Start.CompareTo(b.Start));
         _ranges = [.. ranges];
@@ -32,33 +31,42 @@ public sealed class ClusterTopology
     /// </summary>
     public ClusterTopology WithSlotOverride(int slot, ClusterNode newOwner)
     {
-        var newRanges = new List<(int, int, ClusterNode)>(_ranges.Length + 2);
+        var newRanges = new List<(int, int, ClusterNode, ClusterNode[])>(_ranges.Length + 2);
 
-        foreach (var (start, end, master) in _ranges)
+        foreach (var (start, end, master, replicas) in _ranges)
         {
             if (slot < start || slot > end)
             {
-                newRanges.Add((start, end, master));
+                newRanges.Add((start, end, master, replicas));
                 continue;
             }
 
             if (start < slot)
             {
-                newRanges.Add((start, slot - 1, master));
+                newRanges.Add((start, slot - 1, master, replicas));
             }
 
-            newRanges.Add((slot, slot, newOwner));
+            // The replicas for whichever shard now owns this slot aren't known from a
+            // bare MOVED reply (just the new primary's endpoint) — left empty until the
+            // next full background refresh fills them in, same tradeoff the original
+            // redirect design already made for the primary case.
+            newRanges.Add((slot, slot, newOwner, []));
 
             if (slot < end)
             {
-                newRanges.Add((slot + 1, end, master));
+                newRanges.Add((slot + 1, end, master, replicas));
             }
         }
 
         return new ClusterTopology(newRanges);
     }
 
-    public ClusterNode? FindOwner(int slot)
+    public ClusterNode? FindOwner(int slot) => FindRange(slot)?.Master;
+
+    /// <summary>The replicas of the shard owning <paramref name="slot"/> — empty if the slot isn't covered, or if the shard genuinely has none.</summary>
+    public IReadOnlyList<ClusterNode> FindReplicas(int slot) => FindRange(slot)?.Replicas ?? [];
+
+    private (int Start, int End, ClusterNode Master, ClusterNode[] Replicas)? FindRange(int slot)
     {
         int lo = 0, hi = _ranges.Length - 1;
         while (lo <= hi)
@@ -75,7 +83,7 @@ public sealed class ClusterTopology
             }
             else
             {
-                return range.Master;
+                return range;
             }
         }
 
@@ -85,7 +93,7 @@ public sealed class ClusterTopology
     /// <summary>Parses a <c>CLUSTER SHARDS</c> reply: an array of shard maps, each with a "slots" array (start/end pairs, possibly more than one pair per shard) and a "nodes" array of node maps.</summary>
     public static ClusterTopology Parse(RedisResult clusterShardsReply)
     {
-        var ranges = new List<(int, int, ClusterNode)>();
+        var ranges = new List<(int, int, ClusterNode, ClusterNode[])>();
 
         foreach (var shard in clusterShardsReply.AsItems())
         {
@@ -106,7 +114,7 @@ public sealed class ClusterTopology
                 }
             }
 
-            var master = FindMaster(nodes);
+            var (master, replicas) = ParseNodes(nodes);
             if (master is null)
             {
                 continue;
@@ -115,15 +123,18 @@ public sealed class ClusterTopology
             var slotItems = slots.AsItems();
             for (var i = 0; i + 1 < slotItems.Length; i += 2)
             {
-                ranges.Add(((int)slotItems[i].AsInt64(), (int)slotItems[i + 1].AsInt64(), master));
+                ranges.Add(((int)slotItems[i].AsInt64(), (int)slotItems[i + 1].AsInt64(), master, replicas));
             }
         }
 
         return new ClusterTopology(ranges);
     }
 
-    private static ClusterNode? FindMaster(RedisResult nodes)
+    private static (ClusterNode? Master, ClusterNode[] Replicas) ParseNodes(RedisResult nodes)
     {
+        ClusterNode? master = null;
+        var replicas = new List<ClusterNode>();
+
         foreach (var node in nodes.AsItems())
         {
             var fields = node.AsItems();
@@ -147,23 +158,27 @@ public sealed class ClusterTopology
                 }
             }
 
-            if (!isMaster)
-            {
-                continue;
-            }
-
             // "endpoint" is preferred when known; Redis reports it as an empty string
             // when it can't determine one, in which case "ip" is the documented
             // fallback.
             var host = string.IsNullOrEmpty(endpointHost) ? ip! : endpointHost;
-            return new ClusterNode
+            var clusterNode = new ClusterNode
             {
                 Id = id!,
                 EndPoint = new DnsEndPoint(host, (int)port),
-                IsMaster = true,
+                IsMaster = isMaster,
             };
+
+            if (isMaster)
+            {
+                master = clusterNode;
+            }
+            else
+            {
+                replicas.Add(clusterNode);
+            }
         }
 
-        return null;
+        return (master, [.. replicas]);
     }
 }

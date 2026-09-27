@@ -410,6 +410,91 @@ connection that happens to still be usable for the prober's own `PING`).
 
 ---
 
+## 3.2 Cluster Replica Read Routing (outline)
+
+Project spec §5: "Read routing policy should be configurable per call or
+per client: primary-only (default, safest), prefer-replica, replica-only,
+or a round-robin/latency-aware policy across primary+replicas for a
+shard." Also §10: read-preference overrides live behind "clearly separate,
+opt-in surface" — never change what an ordinary `ExecuteAsync` call does.
+
+**Surface**: a new `ExecuteAsync(commandName, args, ReadPreference, ct)`
+overload, opt-in per call. The existing `ExecuteAsync(commandName, args,
+ct)` is unchanged — it now just forwards to the new overload with
+`ReadPreference.PrimaryOnly`, so every existing caller and test keeps
+today's exact behavior with zero risk. No client-wide default is added
+this pass (spec says "per call *or* per client" — per-call alone already
+satisfies it; a client-wide default is easy to add later if wanted).
+
+**Client-side validation, same shape as CROSSSLOT (§3)**: a non-`PrimaryOnly`
+preference on a command that isn't read-only (`GeneratedCommandInfo
+.IsReadOnly`, from the vendored table — the same metadata `ExtractKeys`
+already uses) is rejected client-side with `ArgumentException` before
+anything is sent, rather than letting the server's own `-READONLY` error
+surface it after the fact.
+
+**Candidate selection per read preference**, given the shard (primary +
+its replicas) that owns the command's slot:
+
+- `PrimaryOnly`: the primary. Always. (No behavior change from before this
+  feature existed.)
+- `PreferReplica`: a healthy replica if the shard has one; falls back to
+  the primary if it doesn't, or if every replica is currently quarantined
+  (§3.1's tracker — replicas are tracked exactly like masters).
+- `ReplicaOnly`: a healthy replica, or throws `RedisConnectionException`
+  if none exists or all are quarantined — deliberately does *not* fall
+  back to the primary, since a caller who asked for replica-only
+  presumably has a reason (e.g. explicitly avoiding primary load) that a
+  silent fallback would violate.
+- `RoundRobin`: round-robins across {primary, all replicas} for that
+  shard, skipping quarantined candidates, reusing the same round-robin
+  counter and "just hand back a quarantined one anyway if every candidate
+  is quarantined" fallback shape as the existing keyless-command routing.
+
+**`READONLY`/`READWRITE` (spec's own requirement)**: a replica connection
+must have sent `READONLY` before Redis will serve reads from it. Managed
+via a new, general-purpose `RedisConnectionOptions.PostConnectAsync` hook
+(project spec §7 layer, not cluster-specific) that
+`RedisConnection.ConnectAsync` runs once per physical connection right
+after it reaches `Ready` — which means it fires for *every* connection
+made with those options, including a pool's self-healing reconnect
+replacement, not just the first. Cluster composes this hook (via a `with`
+expression — the reason `RedisConnectionOptions` became a `record` this
+pass) onto whichever options the caller's own factory returns, only for
+node endpoints this client is treating as a replica target; a plain
+master's options are never touched. This keeps `READONLY` entirely inside
+the dedicated-vs-pooled connection lifecycle, exactly as the spec asks —
+nothing about it is visible in the public API. `READWRITE` (undoing
+`READONLY`) is not needed: a replica-designated `RedisClient` here is
+*only* ever used for reads (the `IsReadOnly` gate above guarantees that),
+so there is never a reason to flip it back.
+
+**Topology**: `ClusterTopology` already discards replica nodes from
+`CLUSTER SHARDS` (see the original §13 step 5 "Recorded" entry) — this
+phase stops discarding them, tracking each shard's replica list alongside
+its master. A `MOVED`-triggered single-slot patch (`WithSlotOverride`)
+still only knows the new primary's endpoint, so the patched sub-range gets
+an empty replica list until the next full background refresh fills it in
+— the same "surgical patch now, fuller refresh in the background" tradeoff
+the original redirect design already made for the primary case.
+
+**Keyless commands** (an admin command, or a slot the local map doesn't
+cover) always stay primary-only-round-robin regardless of the requested
+`ReadPreference` — there's no single shard to pick a replica "for" in that
+case, so `ResolveEndPoint`'s existing masters-only fallback is left
+untouched rather than generalized to "any node, master or replica, across
+the whole cluster."
+
+Not covered by this pass, deliberately: a client-wide default read
+preference (see "Surface" above); latency-aware replica selection
+(`RoundRobin` is plain round-robin, not the "or latency-aware" alternative
+the spec offers — no latency signal exists to rank candidates by yet, and
+adding one speculatively without a benchmark showing it matters would
+contradict §8's own "don't add intrinsics/complexity speculatively"
+stance).
+
+---
+
 ## 4. Sentinel Failover (outline)
 
 Full spec deferred to §13 step 5. Recorded now for the same reason as §3.
@@ -866,3 +951,62 @@ should be easy to revisit rather than silently baked in:
   eventually cascade to `CLUSTERDOWN` cluster-wide, but the test's
   assertions all complete well inside Redis's own (much longer) node
   failure-detection timeout, so that cascade never enters into it.
+
+### Recorded during implementation of §3.2 (Cluster replica read routing)
+
+- **`RedisConnectionOptions` changed from a `class` to a `record`**,
+  specifically so this feature could layer a `READONLY`
+  `PostConnectAsync` hook onto whatever options a caller's own factory
+  returns via a `with` expression, rather than hand-copying every
+  property into a new instance (a helper that would silently go stale
+  the next time a property is added). Confirmed via grep before making
+  the change that nothing in the codebase relies on this type's
+  reference equality; the change is additive only (value equality,
+  `with` support, a generated `ToString()`) and required no other call
+  site to change.
+- **`RedisConnectionOptions.PostConnectAsync` is a new, general-purpose
+  hook in `ReadUs.Core`, not a Cluster-specific concept** — it runs once
+  per physical connection, right after `RedisConnection.ConnectAsync`
+  reaches `Ready`, for *every* connection made with those options,
+  including a pool's self-healing reconnect replacement. This is what
+  lets `READONLY` "manage this transparently as part of the
+  dedicated-vs-pooled connection lifecycle, don't leak it into the
+  public API" (the spec's own words) without `ReadUs.Core` needing to
+  know anything about Cluster or replicas — Cluster is just the first
+  caller of a seam that any other layer could use later.
+- **The permanent local test fixture grew a fourth node** (an actual
+  `docker run`, not a stop/start toggle like the quarantine test):
+  `readus-cluster-7004`, joined to the existing 3-master cluster via
+  `CLUSTER MEET` and made a real replica of node 1 (port 7001, slots
+  0-5460) via `CLUSTER REPLICATE`. Necessary because the fixture had been
+  "3-master, no-replica" since the original Cluster phase — there was no
+  way to exercise the replica happy path (an actual read served *from* a
+  replica) against real infrastructure without one. `ClusterClientTests`'
+  class-level doc comment now describes this; nodes 2 and 3 still have no
+  replica, which is exactly what
+  `ReplicaOnlyThrowsWhenTheTargetShardHasNoReplica` needs.
+- **Proving `READONLY` was actually issued (not just "the read didn't
+  throw") needed more than a happy-path assertion**: a replica that never
+  received `READONLY` still answers a read — with `MOVED`, which this
+  client's own redirect-following logic transparently retries against
+  the primary, silently masking a missing hook as a passing test.
+  `PreferReplicaRoutesToTheReplicaWithoutFollowingAMovedRedirect` instead
+  asserts on the `readus.cluster.redirects{kind=moved}` metric (already
+  built for the quarantine phase's diagnostics) being exactly zero for
+  that call — a real, mechanical proof rather than an assumption.
+- **A real, non-obvious test-authoring pitfall hit while writing this
+  phase's tests**: two new tests initially reused the existing
+  `FindKeyInSlotRange` helper against the *same* slot range (0-5460) that
+  `FollowsARealMovedRedirectAfterALiveSlotMigration` already depends on
+  for a deterministic, "guaranteed never used" key — but that helper is
+  deterministic *by design* (same range in, same key out), so the new
+  tests silently wrote a value into the exact key the older test assumes
+  is always empty. The older test failed consistently afterward, in
+  isolation, with no code changes anywhere near it — worth remembering
+  next time a "why did an unrelated test start failing" investigation
+  starts, since the instinct to suspect the new code first would have
+  been wrong here. Fixed by adding `FindRandomKeyInSlotRange` (GUID-based,
+  no determinism, no collision risk) for tests that set their own value
+  and don't need the "never used" guarantee; the stray value already
+  written into the shared cluster during debugging was deleted by hand
+  once identified.

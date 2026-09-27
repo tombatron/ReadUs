@@ -18,11 +18,12 @@ namespace ReadUs.Cluster;
 /// Tier 1/Tier 2 pools) is kept per discovered master node — routing is a layer on top
 /// of the existing connection machinery, not a second one.
 ///
-/// Scope deferred out of this pass, per docs/design/state-machines.md §5: replica read
-/// routing (primary-only for now — the spec's own safest default), and explicit
+/// Scope deferred out of this pass, per docs/design/state-machines.md §5: explicit
 /// per-node pipeline batching (concurrent calls still pipeline within each node's own
 /// Tier 1 pool, just not reassembled by this layer). Per-node health tracking and
-/// quarantine (design doc §3.1) is implemented via <see cref="ClusterNodeHealthTracker"/>.
+/// quarantine (design doc §3.1) is implemented via <see cref="ClusterNodeHealthTracker"/>;
+/// replica read routing (design doc §3.2) via the <see cref="ReadPreference"/> overload
+/// of <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], ReadPreference, CancellationToken)"/>.
 /// </summary>
 public sealed class ClusterClient : IAsyncDisposable
 {
@@ -77,12 +78,31 @@ public sealed class ClusterClient : IAsyncDisposable
         throw new RedisConnectionException("Could not discover cluster topology from any seed endpoint.", lastError!);
     }
 
-    /// <summary>The raw escape hatch (project spec §3), cluster-routed.</summary>
-    public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default)
+    /// <summary>The raw escape hatch (project spec §3), cluster-routed, always against the shard's primary.</summary>
+    public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default) =>
+        ExecuteAsync(commandName, args, ReadPreference.PrimaryOnly, cancellationToken);
+
+    /// <summary>
+    /// Same as <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>,
+    /// with an opt-in per-call read-routing override (design doc §3.2, project spec
+    /// §5/§10 — read-preference overrides are deliberately a separate, opt-in overload
+    /// rather than changing what the plain one does). Only valid for a command the
+    /// vendored table marks read-only; anything else throws <see cref="ArgumentException"/>
+    /// before a byte is sent, the same "catch it client-side" shape as the CROSSSLOT
+    /// check below.
+    /// </summary>
+    public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, ReadPreference readPreference, CancellationToken cancellationToken = default)
     {
+        if (readPreference != ReadPreference.PrimaryOnly && !IsReadOnlyCommand(commandName))
+        {
+            throw new ArgumentException(
+                $"'{Encoding.ASCII.GetString(commandName.Span)}' is not a read-only command; only ReadPreference.PrimaryOnly is valid for it.",
+                nameof(readPreference));
+        }
+
         var keys = ExtractKeys(commandName, args);
         var slot = ComputeSlot(keys);
-        return ExecuteWithRedirectsAsync(commandName, args, slot, cancellationToken);
+        return ExecuteWithRedirectsAsync(commandName, args, slot, readPreference, cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
@@ -115,13 +135,25 @@ public sealed class ClusterClient : IAsyncDisposable
         _lifetimeCts.Dispose();
     }
 
-    private async ValueTask<RedisResult> ExecuteWithRedirectsAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, int? slot, CancellationToken cancellationToken)
+    private async ValueTask<RedisResult> ExecuteWithRedirectsAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, int? slot, ReadPreference readPreference, CancellationToken cancellationToken)
     {
         EndPoint? askTarget = null;
 
         for (var attempt = 0; attempt < MaxRedirects; attempt++)
         {
-            var targetEndPoint = askTarget ?? ResolveEndPoint(slot);
+            EndPoint targetEndPoint;
+            bool isReplica;
+            if (askTarget is not null)
+            {
+                // A server-issued ASK/MOVED target is always a primary handling the
+                // slot (or its migration) — never influenced by read preference.
+                targetEndPoint = askTarget;
+                isReplica = false;
+            }
+            else
+            {
+                (targetEndPoint, isReplica) = ResolveEndPoint(slot, readPreference);
+            }
 
             if (_nodeHealth.IsQuarantined(targetEndPoint))
             {
@@ -132,7 +164,9 @@ public sealed class ClusterClient : IAsyncDisposable
             RedisResult reply;
             try
             {
-                var client = await GetOrCreateNodeClientAsync(targetEndPoint).ConfigureAwait(false);
+                var client = isReplica
+                    ? await GetOrCreateReplicaClientAsync(targetEndPoint).ConfigureAwait(false)
+                    : await GetOrCreateNodeClientAsync(targetEndPoint).ConfigureAwait(false);
 
                 if (askTarget is not null)
                 {
@@ -252,40 +286,111 @@ public sealed class ClusterClient : IAsyncDisposable
         _ = RefreshTopologyAsync(CancellationToken.None);
     }
 
-    private EndPoint ResolveEndPoint(int? slot)
+    private (EndPoint EndPoint, bool IsReplica) ResolveEndPoint(int? slot, ReadPreference readPreference)
     {
         if (slot.HasValue)
         {
+            if (readPreference != ReadPreference.PrimaryOnly)
+            {
+                var readTarget = ResolveReadEndPoint(slot.Value, readPreference);
+                if (readTarget is not null)
+                {
+                    return readTarget.Value;
+                }
+            }
+
             var owner = _topology.FindOwner(slot.Value);
             if (owner is not null)
             {
-                return owner.EndPoint;
+                return (owner.EndPoint, false);
             }
         }
 
         // No key (an admin command) or a slot our map doesn't cover (topology
         // mid-migration) — round-robin across known masters rather than fail outright.
+        // Read preference doesn't apply here: there's no single shard to pick a
+        // replica "for", so this always stays primary-only.
         var masters = _topology.Masters;
         if (masters.Count == 0)
         {
             throw new RedisConnectionException("No known cluster master nodes.");
         }
 
-        // Skip a quarantined master in favor of a healthy one — same skip-ahead shape
-        // as Tier 1's Rent(). If every master is quarantined, fall through and hand
-        // back the round-robin choice anyway; the caller fails fast via the
-        // IsQuarantined check in ExecuteWithRedirectsAsync rather than this blocking.
-        for (var i = 0; i < masters.Count; i++)
+        var index = PickHealthyRoundRobinIndex(masters);
+        if (index < 0)
         {
-            var index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
-            if (!_nodeHealth.IsQuarantined(masters[index].EndPoint))
+            // Every master is quarantined — hand back the round-robin choice anyway;
+            // the caller fails fast via the IsQuarantined check in
+            // ExecuteWithRedirectsAsync rather than this blocking.
+            index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
+        }
+
+        return (masters[index].EndPoint, false);
+    }
+
+    /// <summary>
+    /// Resolves a non-<see cref="ReadPreference.PrimaryOnly"/> preference against the
+    /// shard owning <paramref name="slot"/> (design doc §3.2). Null means "fall back to
+    /// the primary" — <see cref="ResolveEndPoint"/> handles that uniformly for both
+    /// <see cref="ReadPreference.PreferReplica"/> (no healthy replica) and an
+    /// unresolvable slot.
+    /// </summary>
+    private (EndPoint EndPoint, bool IsReplica)? ResolveReadEndPoint(int slot, ReadPreference readPreference)
+    {
+        var replicas = _topology.FindReplicas(slot);
+
+        if (readPreference == ReadPreference.RoundRobin)
+        {
+            var owner = _topology.FindOwner(slot);
+            if (owner is null)
             {
-                return masters[index].EndPoint;
+                return null;
+            }
+
+            var candidates = new ClusterNode[replicas.Count + 1];
+            candidates[0] = owner;
+            for (var i = 0; i < replicas.Count; i++)
+            {
+                candidates[i + 1] = replicas[i];
+            }
+
+            var index = PickHealthyRoundRobinIndex(candidates);
+            if (index < 0)
+            {
+                index = 0; // every candidate quarantined — fall back to the primary specifically.
+            }
+
+            return (candidates[index].EndPoint, index != 0);
+        }
+
+        var replicaIndex = PickHealthyRoundRobinIndex(replicas);
+        if (replicaIndex >= 0)
+        {
+            return (replicas[replicaIndex].EndPoint, true);
+        }
+
+        if (readPreference == ReadPreference.ReplicaOnly)
+        {
+            throw new RedisConnectionException(
+                $"No healthy replica is available for slot {slot} and ReadPreference.ReplicaOnly was specified.");
+        }
+
+        return null; // PreferReplica: caller falls back to the primary.
+    }
+
+    /// <summary>The index of the first non-quarantined candidate, starting from the shared round-robin cursor; -1 if every candidate is quarantined (or the list is empty).</summary>
+    private int PickHealthyRoundRobinIndex(IReadOnlyList<ClusterNode> candidates)
+    {
+        for (var i = 0; i < candidates.Count; i++)
+        {
+            var index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)candidates.Count);
+            if (!_nodeHealth.IsQuarantined(candidates[index].EndPoint))
+            {
+                return index;
             }
         }
 
-        var fallbackIndex = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
-        return masters[fallbackIndex].EndPoint;
+        return -1;
     }
 
     /// <summary>
@@ -313,6 +418,55 @@ public sealed class ClusterClient : IAsyncDisposable
             ((ICollection<KeyValuePair<string, Task<RedisClient>>>)_nodeClients).Remove(new(key, existing));
         }
     }
+
+    /// <summary>
+    /// Same eviction-on-fault behavior as <see cref="GetOrCreateNodeClientAsync"/>, but
+    /// for a node this client is treating as a replica read target: composes a
+    /// <c>READONLY</c> <see cref="RedisConnectionOptions.PostConnectAsync"/> hook onto
+    /// the caller's own options (design doc §3.2) so every physical connection this
+    /// client ever opens to that node — including a pool's self-healing reconnect
+    /// replacement — is marked read-only, transparently, with nothing about it visible
+    /// in the public API.
+    /// </summary>
+    private Task<RedisClient> GetOrCreateReplicaClientAsync(EndPoint endPoint)
+    {
+        var key = endPoint.ToString()!;
+
+        while (true)
+        {
+            var existing = _nodeClients.GetOrAdd(key, _ => RedisClient.ConnectAsync(WithReadOnlyPostConnect(_optionsFactory(endPoint))));
+            if (!existing.IsFaulted)
+            {
+                return existing;
+            }
+
+            ((ICollection<KeyValuePair<string, Task<RedisClient>>>)_nodeClients).Remove(new(key, existing));
+        }
+    }
+
+    private static RedisConnectionOptions WithReadOnlyPostConnect(RedisConnectionOptions options)
+    {
+        var previousHook = options.PostConnectAsync;
+        return options with
+        {
+            PostConnectAsync = async (connection, cancellationToken) =>
+            {
+                if (previousHook is not null)
+                {
+                    await previousHook(connection, cancellationToken).ConfigureAwait(false);
+                }
+
+                var reply = await connection.SendAsync("READONLY"u8.ToArray(), [], cancellationToken).ConfigureAwait(false);
+                if (reply.IsError)
+                {
+                    throw new RedisConnectionException($"READONLY failed on a replica connection: {reply.AsString()}");
+                }
+            },
+        };
+    }
+
+    private static bool IsReadOnlyCommand(ReadOnlyMemory<byte> commandName) =>
+        CommandsByWireName.TryGetValue(Encoding.ASCII.GetString(commandName.Span), out var info) && info.IsReadOnly;
 
     private static (int Slot, EndPoint EndPoint) ParseRedirect(string error)
     {
