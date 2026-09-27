@@ -604,3 +604,60 @@ should be easy to revisit rather than silently baked in:
   and `+switch-master` all worked correctly regardless — sentinels operate
   fine in-memory — but a longer-lived version of this fixture would want the
   mounted directory itself writable, not just the file.
+
+### Recorded during §13 step 6 implementation (managed/remote Redis)
+
+- **Credential-rotation scheduling lives on `RedisConnection` itself, one
+  self-rescheduling loop per connection**, rather than a shared
+  pool-level scheduler. Simplest thing that works correctly per-connection;
+  means N connections each independently call the provider on their own
+  clock rather than in a single coordinated batch. Fine at Tier 1/Tier 2
+  pool sizes (single digits to low tens of connections); would want
+  revisiting if pool sizes grew enough that N independent provider calls
+  every refresh interval became meaningfully wasteful (the provider is
+  expected to cache/dedupe internally per its own contract, so this is a
+  minor inefficiency, not a correctness issue).
+- **Re-auth failure faults the connection rather than retrying the refresh
+  itself.** This is deliberate, not a shortcut: it reuses the *existing*
+  fault-then-replace machinery (Tier 1's health loop, Tier 2's lazy
+  reconnect) to get "reconnect with new credentials" for free, exactly as
+  designed — a fresh connection re-authenticates from the provider from
+  scratch on its next connect. The tradeoff is that a single transient
+  refresh hiccup (not a real credential problem) costs a full reconnect
+  rather than a quick retry. Worth adding a bounded retry-before-fault if
+  that tradeoff ever shows up in practice.
+- **Tier 1's self-healing (`MultiplexedConnectionPool`'s background health
+  loop) has no equivalent health-check for "connected but degraded"** — it
+  only reacts to a connection actually reaching `Faulted`/`Closed`, not to
+  e.g. rising latency or repeated command-level errors on an otherwise-Ready
+  connection. Detecting "unhealthy but technically Ready" would need active
+  probing (periodic `PING` with a latency budget), which is a reasonable
+  next step but a distinctly bigger feature than reacting to a state the
+  connection already tracks about itself.
+- **`Rent()`'s all-slots-faulted fallback returns a connection it knows is
+  dead** (so `SendAsync` throws immediately) **rather than waiting for a
+  reconnect.** Chosen over blocking the caller: a fast, clear
+  `RedisConnectionException` is easier for application-level retry logic to
+  reason about than an unbounded wait with no cancellation path of its own
+  (the caller's own `CancellationToken` still governs the `SendAsync` call,
+  but there'd be nothing productive happening while waiting).
+- **TLS was validated with server-only authentication (a custom certificate
+  callback), not mutual TLS.** `RedisConnectionOptions.ClientCertificates`
+  exists and is wired into `SslClientAuthenticationOptions`, but no test
+  exercises a server that actually demands a client certificate — doing so
+  needs a CA-signed client cert and a server configured with
+  `tls-auth-clients yes`, which is more test-fixture machinery than this
+  pass's TLS work needed to prove the core mechanism.
+- **No AWS SigV4 or Azure Entra token implementation exists, deliberately**
+  — `IRedisCredentialsProvider` is the seam the project spec asks for
+  precisely so ReadUs never needs an AWS/Azure SDK dependency; the
+  integration tests validate the seam itself (a rotating ACL password
+  stands in for a rotating IAM/Entra token) rather than a specific cloud
+  provider's signing scheme, which is out of scope for this client.
+- **DNS re-resolution (§7's "don't cache a resolved IP for the lifetime of
+  the client") was already satisfied by the existing design, not new work
+  this phase** — every `RedisConnectionOptions.EndPoint` in use is a
+  `DnsEndPoint`, and `Socket.ConnectAsync(EndPoint)` re-resolves it fresh on
+  every call, including every reconnect through Tier 1's health loop or
+  Tier 2's lazy reconnect. Recorded here since it's a real §7 requirement,
+  even though nothing needed to change to satisfy it.

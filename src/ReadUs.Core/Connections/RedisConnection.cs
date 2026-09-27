@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO.Pipelines;
+using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
 using System.Text;
 using ReadUs.Protocol;
@@ -33,6 +35,15 @@ public sealed class RedisConnection : IAsyncDisposable
     /// </summary>
     private static readonly TimeSpan UnblockReconciliationGrace = TimeSpan.FromSeconds(2);
 
+    /// <summary>
+    /// How much of a rotating credential's remaining lifetime to burn through before
+    /// proactively refreshing it (project spec §7). Deferred decision: fixed for v0;
+    /// see design doc §5.
+    /// </summary>
+    private const double CredentialRefreshLifetimeFraction = 0.8;
+
+    private static readonly TimeSpan MinCredentialRefreshDelay = TimeSpan.FromSeconds(1);
+
     private readonly ConcurrentQueue<PendingRequest> _pending = new();
     private readonly ConcurrentQueue<PendingRequest> _requestPool = new();
     private readonly SemaphoreSlim _writeGate = new(1, 1);
@@ -42,6 +53,7 @@ public sealed class RedisConnection : IAsyncDisposable
     private PipeReader _reader = null!;
     private PipeWriter _writer = null!;
     private Task _readLoopTask = Task.CompletedTask;
+    private IRedisCredentialsProvider? _credentialsProvider;
 
     private int _state = (int)ConnectionState.Created;
 
@@ -131,6 +143,101 @@ public sealed class RedisConnection : IAsyncDisposable
     {
         await FaultAsync(new ObjectDisposedException(nameof(RedisConnection))).ConfigureAwait(false);
         await _readLoopTask.ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Re-authenticates an already-open, already-<c>Ready</c> connection using a fresh
+    /// credential from <see cref="RedisConnectionOptions.CredentialsProvider"/> —
+    /// project spec §7's "live re-AUTH on already-open connections where the server
+    /// supports it" path. Sent as an ordinary pipelined <c>AUTH</c> command through
+    /// <see cref="SendAsync"/> (docs/design/state-machines.md §1.3: re-authentication
+    /// is not a connection-state-machine transition, just another request in FIFO
+    /// order). Throws if no provider was configured, or if the server rejects the new
+    /// credential.
+    /// </summary>
+    public async ValueTask ReAuthenticateAsync(CancellationToken cancellationToken = default)
+    {
+        if (_credentialsProvider is null)
+        {
+            throw new InvalidOperationException("No credentials provider was configured for this connection.");
+        }
+
+        var credentials = await _credentialsProvider.GetCredentialsAsync(cancellationToken).ConfigureAwait(false);
+        await ReAuthenticateAsync(credentials, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async ValueTask ReAuthenticateAsync(RedisCredentials credentials, CancellationToken cancellationToken)
+    {
+        ReadOnlyMemory<byte>[] args =
+        [
+            Encoding.UTF8.GetBytes(credentials.Username ?? "default"),
+            Encoding.UTF8.GetBytes(credentials.Password),
+        ];
+
+        var reply = await SendAsync("AUTH"u8.ToArray(), args, cancellationToken).ConfigureAwait(false);
+        if (reply.IsError)
+        {
+            throw new RedisConnectionException($"Re-authentication failed: {reply.AsString()}");
+        }
+    }
+
+    /// <summary>
+    /// Self-rescheduling proactive refresh loop, started once after a successful
+    /// handshake with a provider that reported <see cref="RedisCredentials.ExpiresAt"/>.
+    /// If a refresh ever fails, faults the connection rather than leaving it running on
+    /// a credential the provider considers stale — whichever pool owns this connection
+    /// will replace it, and the replacement authenticates fresh via the provider
+    /// (project spec §7's "reconnect with new credentials" fallback falls out of the
+    /// existing fault-then-replace machinery for free, rather than needing its own
+    /// separate implementation).
+    /// </summary>
+    private async Task CredentialRefreshLoopAsync(DateTimeOffset expiresAt)
+    {
+        while (true)
+        {
+            var delay = ComputeCredentialRefreshDelay(expiresAt);
+            try
+            {
+                await Task.Delay(delay).ConfigureAwait(false);
+            }
+            catch
+            {
+                return;
+            }
+
+            if (State != ConnectionState.Ready)
+            {
+                return;
+            }
+
+            RedisCredentials credentials;
+            try
+            {
+                credentials = await _credentialsProvider!.GetCredentialsAsync(CancellationToken.None).ConfigureAwait(false);
+                await ReAuthenticateAsync(credentials, CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                await FaultAsync(new RedisConnectionException("Failed to refresh rotating credentials.", ex)).ConfigureAwait(false);
+                return;
+            }
+
+            if (credentials.ExpiresAt is not DateTimeOffset next)
+            {
+                // No further expiry info -- nothing left to schedule. The connection
+                // stays on this credential until a caller explicitly re-authenticates.
+                return;
+            }
+
+            expiresAt = next;
+        }
+    }
+
+    private static TimeSpan ComputeCredentialRefreshDelay(DateTimeOffset expiresAt)
+    {
+        var remaining = expiresAt - DateTimeOffset.UtcNow;
+        var refreshAfter = remaining * CredentialRefreshLifetimeFraction;
+        return refreshAfter < MinCredentialRefreshDelay ? MinCredentialRefreshDelay : refreshAfter;
     }
 
     /// <summary>
@@ -247,6 +354,7 @@ public sealed class RedisConnection : IAsyncDisposable
         SetState(ConnectionState.Connecting);
 
         _socket = new Socket(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+        ApplyKeepAlive(_socket, options);
 
         try
         {
@@ -262,16 +370,51 @@ public sealed class RedisConnection : IAsyncDisposable
             throw new RedisConnectionException("Failed to connect.", ex);
         }
 
-        // TLS (project spec §7) is not implemented yet — TlsHandshaking is skipped.
+        var networkStream = new NetworkStream(_socket, ownsSocket: true);
+
+        if (options.UseTls)
+        {
+            SetState(ConnectionState.TlsHandshaking);
+
+            var sslStream = new SslStream(networkStream, leaveInnerStreamOpen: false, options.CertificateValidationCallback);
+            try
+            {
+                var sslOptions = new SslClientAuthenticationOptions
+                {
+                    TargetHost = options.TlsTargetHost ?? InferTargetHost(options.EndPoint),
+                    ClientCertificates = options.ClientCertificates,
+                };
+                await sslStream.AuthenticateAsClientAsync(sslOptions, cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                SetState(ConnectionState.Faulted);
+                sslStream.Dispose();
+                SetState(ConnectionState.Closed);
+                throw new RedisConnectionException("TLS handshake failed.", ex);
+            }
+
+            _stream = sslStream;
+        }
+        else
+        {
+            _stream = networkStream;
+        }
+
         SetState(ConnectionState.ProtocolHandshake);
 
-        _stream = new NetworkStream(_socket, ownsSocket: true);
         _reader = PipeReader.Create(_stream);
         _writer = PipeWriter.Create(_stream);
 
+        RedisCredentials? credentials = null;
+
         try
         {
-            var helloArgs = BuildHelloArgs(options);
+            credentials = options.CredentialsProvider is not null
+                ? await options.CredentialsProvider.GetCredentialsAsync(cancellationToken).ConfigureAwait(false)
+                : null;
+
+            var helloArgs = BuildHelloArgs(options, credentials);
             RespCommandWriter.WriteCommand(_writer, "HELLO"u8, helloArgs);
             await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
 
@@ -311,18 +454,67 @@ public sealed class RedisConnection : IAsyncDisposable
         // keep running (and eventually fault itself via ReadLoopAsync's own catch)
         // long after ConnectAsync's token could legitimately fire or be disposed.
         _readLoopTask = Task.Run(ReadLoopAsync, CancellationToken.None);
+
+        if (options.CredentialsProvider is not null)
+        {
+            _credentialsProvider = options.CredentialsProvider;
+            if (credentials?.ExpiresAt is DateTimeOffset expiresAt)
+            {
+                _ = Task.Run(() => CredentialRefreshLoopAsync(expiresAt), CancellationToken.None);
+            }
+        }
     }
 
-    private static ReadOnlyMemory<byte>[] BuildHelloArgs(RedisConnectionOptions options)
+    private static void ApplyKeepAlive(Socket socket, RedisConnectionOptions options)
     {
+        if (!options.EnableTcpKeepAlive)
+        {
+            return;
+        }
+
+        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+
+        try
+        {
+            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, (int)options.TcpKeepAliveTime.TotalSeconds);
+            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, (int)options.TcpKeepAliveInterval.TotalSeconds);
+        }
+        catch (PlatformNotSupportedException)
+        {
+            // Best-effort: some platforms only expose the plain on/off KeepAlive option.
+        }
+    }
+
+    private static string InferTargetHost(EndPoint endPoint) => endPoint switch
+    {
+        DnsEndPoint dns => dns.Host,
+        IPEndPoint ip => ip.Address.ToString(),
+        _ => throw new RedisConnectionException($"Cannot infer a TLS target host from endpoint type '{endPoint.GetType()}'; set RedisConnectionOptions.TlsTargetHost explicitly."),
+    };
+
+    private static ReadOnlyMemory<byte>[] BuildHelloArgs(RedisConnectionOptions options, RedisCredentials? providerCredentials)
+    {
+        string versionArg = options.RespVersion.ToString(CultureInfo.InvariantCulture);
+
+        if (providerCredentials is RedisCredentials credentials)
+        {
+            return
+            [
+                Encoding.ASCII.GetBytes(versionArg),
+                Encoding.UTF8.GetBytes("AUTH"),
+                Encoding.UTF8.GetBytes(credentials.Username ?? "default"),
+                Encoding.UTF8.GetBytes(credentials.Password),
+            ];
+        }
+
         if (options.Password is null)
         {
-            return [Encoding.ASCII.GetBytes(options.RespVersion.ToString(CultureInfo.InvariantCulture))];
+            return [Encoding.ASCII.GetBytes(versionArg)];
         }
 
         return
         [
-            Encoding.ASCII.GetBytes(options.RespVersion.ToString(CultureInfo.InvariantCulture)),
+            Encoding.ASCII.GetBytes(versionArg),
             Encoding.UTF8.GetBytes("AUTH"),
             Encoding.UTF8.GetBytes(options.Username ?? "default"),
             Encoding.UTF8.GetBytes(options.Password),
