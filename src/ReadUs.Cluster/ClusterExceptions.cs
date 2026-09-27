@@ -5,25 +5,16 @@ namespace ReadUs.Cluster;
 /// to different slots (project spec §5) — a client bug the spec says to catch
 /// pre-flight rather than rely on the server's <c>CROSSSLOT</c> error.
 /// </summary>
-public sealed class ClusterCrossSlotException : Exception
+public sealed class ClusterCrossSlotException(string message) : Exception(message)
 {
-    public ClusterCrossSlotException(string message) : base(message)
-    {
-    }
 }
 
 /// <summary>Surfaced distinctly from ordinary connection failures (project spec §5) so callers can apply a longer backoff.</summary>
-public sealed class ClusterDownException : Exception
+public sealed class ClusterDownException(string message) : Exception(message)
 {
-    public ClusterDownException(string message) : base(message)
-    {
-    }
 }
 
 /// <summary>The redirect cap (MOVED/ASK/TRYAGAIN) was hit without the command completing — the slot map isn't stabilizing (project spec §5).</summary>
-public sealed class ClusterTooManyRedirectsException : Exception
+public sealed class ClusterTooManyRedirectsException(string message) : Exception(message)
 {
-    public ClusterTooManyRedirectsException(string message) : base(message)
-    {
-    }
 }

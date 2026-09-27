@@ -19,14 +19,14 @@ public static class HashSlot
     /// </summary>
     public static ReadOnlySpan<byte> ExtractHashTag(ReadOnlySpan<byte> key)
     {
-        int openBrace = key.IndexOf((byte)'{');
+        var openBrace = key.IndexOf((byte)'{');
         if (openBrace < 0)
         {
             return key;
         }
 
         var afterOpenBrace = key[(openBrace + 1)..];
-        int closeBrace = afterOpenBrace.IndexOf((byte)'}');
+        var closeBrace = afterOpenBrace.IndexOf((byte)'}');
 
         // closeBrace == 0 means "{}" — an empty tag — which also falls back to the
         // whole key, same as no closing brace being found at all (closeBrace < 0).

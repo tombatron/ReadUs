@@ -36,7 +36,7 @@ internal static class CommandTableParser
     {
         var root = JsonValue.Parse(json);
         var entry = root.EnumerateObject().First();
-        string name = entry.Key;
+        var name = entry.Key;
         var body = entry.Value;
 
         var flags = new HashSet<string>(body.GetProperty("command_flags").EnumerateArray().Select(f => f.AsString()));
@@ -71,7 +71,7 @@ internal static class CommandTableParser
     private static (IReadOnlyList<KeySpec> Specs, bool HasUnknown) ParseKeySpecs(JsonValue keySpecsNode)
     {
         var specs = new List<KeySpec>();
-        bool hasUnknown = false;
+        var hasUnknown = false;
 
         foreach (var spec in keySpecsNode.EnumerateArray())
         {
@@ -106,7 +106,7 @@ internal static class CommandTableParser
 
         foreach (var arg in argumentsNode.EnumerateArray())
         {
-            string type = arg.GetProperty("type").AsString();
+            var type = arg.GetProperty("type").AsString();
 
             switch (type)
             {
@@ -116,7 +116,7 @@ internal static class CommandTableParser
                     // members (e.g. BLMOVE's "wherefrom"/"whereto", each offering
                     // LEFT/RIGHT) that would collide as parameters once flattened to
                     // this same level.
-                    string oneofName = arg.HasProperty("name") ? arg.GetProperty("name").AsString() : string.Empty;
+                    var oneofName = arg.HasProperty("name") ? arg.GetProperty("name").AsString() : string.Empty;
                     foreach (var member in arg.GetProperty("arguments").EnumerateArray())
                     {
                         if (!TryResolveLeaf(member, forceOptional: true, out var flattenedMember, namePrefix: oneofName))
@@ -144,8 +144,8 @@ internal static class CommandTableParser
                         memberLeaves.Add(leaf);
                     }
 
-                    bool groupOptional = arg.HasProperty("optional") && arg.GetProperty("optional").AsBool();
-                    bool groupMultiple = arg.HasProperty("multiple") && arg.GetProperty("multiple").AsBool();
+                    var groupOptional = arg.HasProperty("optional") && arg.GetProperty("optional").AsBool();
+                    var groupMultiple = arg.HasProperty("multiple") && arg.GetProperty("multiple").AsBool();
 
                     if (!groupOptional && !groupMultiple)
                     {
@@ -183,7 +183,7 @@ internal static class CommandTableParser
 
     private static bool TryResolveLeaf(JsonValue arg, bool forceOptional, out CommandArgument argument, string? namePrefix = null)
     {
-        string type = arg.GetProperty("type").AsString();
+        var type = arg.GetProperty("type").AsString();
 
         ArgumentWireType? wireType = type switch
         {
@@ -200,14 +200,14 @@ internal static class CommandTableParser
             return false;
         }
 
-        string rawName = arg.GetProperty("name").AsString();
-        string name = string.IsNullOrEmpty(namePrefix) ? rawName : $"{namePrefix}-{rawName}";
+        var rawName = arg.GetProperty("name").AsString();
+        var name = string.IsNullOrEmpty(namePrefix) ? rawName : $"{namePrefix}-{rawName}";
 
         // A pure-token's literal keyword is usually explicit ("token": "NX"), but a
         // handful (e.g. SENTINEL SIMULATE-FAILURE's mode flags) omit it — Redis's own
         // convention there is that the keyword is just the argument's own name,
         // upper-cased (e.g. "crash-after-election" -> "CRASH-AFTER-ELECTION").
-        string? token = arg.HasProperty("token")
+        var token = arg.HasProperty("token")
             ? arg.GetProperty("token").AsString()
             : wireType == ArgumentWireType.PureToken ? rawName.ToUpperInvariant() : null;
 

@@ -46,7 +46,7 @@ internal static class NameHelpers
 
     public static string MethodName(CommandDefinition command)
     {
-        string prefix = command.Container is null ? string.Empty : PascalCaseWords(command.Container);
+        var prefix = command.Container is null ? string.Empty : PascalCaseWords(command.Container);
         return prefix + PascalCaseWords(command.Name) + "Async";
     }
 
@@ -70,24 +70,24 @@ internal static class NameHelpers
     /// <summary>A camelCase method parameter identifier, escaped with '@' if it would otherwise collide with a reserved keyword (e.g. Redis's own "event"/"float" argument names).</summary>
     public static string ParameterIdentifier(string redisArgumentName)
     {
-        string pascal = PascalCaseWords(redisArgumentName);
-        string camel = pascal.Length == 0 ? "value" : char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
+        var pascal = PascalCaseWords(redisArgumentName);
+        var camel = pascal.Length == 0 ? "value" : char.ToLowerInvariant(pascal[0]) + pascal.Substring(1);
         return ReservedKeywords.Contains(camel) ? "@" + camel : camel;
     }
 
     public static string SanitizeIdentifier(string name)
     {
         var sb = new StringBuilder(name.Length);
-        foreach (char c in name)
+        foreach (var c in name)
         {
             sb.Append(char.IsLetterOrDigit(c) ? c : '_');
         }
 
-        string result = sb.ToString();
+        var result = sb.ToString();
         return result.Length > 0 && char.IsDigit(result[0]) ? "_" + result : result;
     }
 
     /// <summary>Strips characters PascalCaseWords' '_'/'-' splitting doesn't already handle, before casing (e.g. a raw token containing other punctuation).</summary>
     private static string SanitizeForCasing(string value) =>
-        new(value.Where(c => char.IsLetterOrDigit(c) || c is '_' or '-').ToArray());
+        new([.. value.Where(c => char.IsLetterOrDigit(c) || c is '_' or '-')]);
 }

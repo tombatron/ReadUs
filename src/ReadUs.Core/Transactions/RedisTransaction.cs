@@ -1,7 +1,7 @@
-using ReadUs.Pooling;
-using ReadUs.Protocol;
 // CommandNames lives in the root ReadUs namespace (see CommandNames.cs).
 using ReadUs;
+using ReadUs.Pooling;
+using ReadUs.Protocol;
 
 namespace ReadUs.Transactions;
 

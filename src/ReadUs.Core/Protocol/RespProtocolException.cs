@@ -8,9 +8,6 @@ namespace ReadUs.Protocol;
 /// as <see cref="RespType.Error"/>/<see cref="RespType.BulkError"/> values, not
 /// exceptions from the reader).
 /// </summary>
-public sealed class RespProtocolException : Exception
+public sealed class RespProtocolException(string message) : Exception(message)
 {
-    public RespProtocolException(string message) : base(message)
-    {
-    }
 }

@@ -12,7 +12,7 @@ internal static class Crc16
     public static ushort Compute(ReadOnlySpan<byte> data)
     {
         ushort crc = 0;
-        foreach (byte b in data)
+        foreach (var b in data)
         {
             crc = (ushort)((crc << 8) ^ Table[((crc >> 8) ^ b) & 0xFF]);
         }
@@ -23,10 +23,10 @@ internal static class Crc16
     private static ushort[] BuildTable()
     {
         var table = new ushort[256];
-        for (int i = 0; i < 256; i++)
+        for (var i = 0; i < 256; i++)
         {
-            ushort crc = (ushort)(i << 8);
-            for (int bit = 0; bit < 8; bit++)
+            var crc = (ushort)(i << 8);
+            for (var bit = 0; bit < 8; bit++)
             {
                 crc = (crc & 0x8000) != 0 ? (ushort)((crc << 1) ^ 0x1021) : (ushort)(crc << 1);
             }

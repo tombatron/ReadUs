@@ -20,12 +20,9 @@ public class PipelineDepthBenchmarks
     public int Depth { get; set; }
 
     [GlobalSetup]
-    public async Task SetupAsync()
-    {
-        _client = await RedisClient.ConnectAsync(
+    public async Task SetupAsync() => _client = await RedisClient.ConnectAsync(
             new RedisConnectionOptions { EndPoint = new DnsEndPoint("localhost", 6379) },
             connectionCount: 4);
-    }
 
     [GlobalCleanup]
     public async Task CleanupAsync() => await _client.DisposeAsync();
@@ -34,7 +31,7 @@ public class PipelineDepthBenchmarks
     public async Task PipelinedPings()
     {
         var tasks = new Task[Depth];
-        for (int i = 0; i < Depth; i++)
+        for (var i = 0; i < Depth; i++)
         {
             tasks[i] = _client.PingAsync().AsTask();
         }

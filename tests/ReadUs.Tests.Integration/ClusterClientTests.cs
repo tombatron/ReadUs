@@ -33,7 +33,7 @@ public class ClusterClientTests
         {
             var keyBytes = Encoding.UTF8.GetBytes(key);
             var reply = await client.ExecuteAsync("CLUSTER"u8.ToArray(), ["KEYSLOT"u8.ToArray(), keyBytes]);
-            int serverSlot = (int)reply.AsInt64();
+            var serverSlot = (int)reply.AsInt64();
 
             Assert.Equal(serverSlot, HashSlot.Compute(keyBytes));
         }
@@ -46,7 +46,7 @@ public class ClusterClientTests
 
         // Round-trip a handful of keys through the raw escape hatch so the assertion
         // exercises real routing rather than just inspecting internal state.
-        for (int i = 0; i < 20; i++)
+        for (var i = 0; i < 20; i++)
         {
             var key = Encoding.UTF8.GetBytes($"readus:test:cluster:discover:{i}:{Guid.NewGuid():N}");
             var setResult = await cluster.ExecuteAsync("SET"u8.ToArray(), [key, "v"u8.ToArray()]);
@@ -61,7 +61,7 @@ public class ClusterClientTests
 
         // Random keys land across all three nodes' slot ranges over enough iterations,
         // proving per-key routing (not just "it works for one lucky node").
-        for (int i = 0; i < 30; i++)
+        for (var i = 0; i < 30; i++)
         {
             var key = Encoding.UTF8.GetBytes($"readus:test:cluster:roundtrip:{Guid.NewGuid():N}");
             var value = Encoding.UTF8.GetBytes($"value-{i}");
@@ -92,7 +92,7 @@ public class ClusterClientTests
     public async Task SameHashTagKeysAreAcceptedAsASingleSlotMultiKeyCommand()
     {
         await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
-        string tag = Guid.NewGuid().ToString("N");
+        var tag = Guid.NewGuid().ToString("N");
         var keyA = Encoding.UTF8.GetBytes($"{{{tag}}}:a");
         var keyB = Encoding.UTF8.GetBytes($"{{{tag}}}:b");
 
@@ -121,7 +121,7 @@ public class ClusterClientTests
 
         // Find a key that (a) hashes into node 1's current range and (b) has never
         // been used, so the slot is guaranteed empty and a real MIGRATE isn't needed.
-        var key = FindKeyInSlotRange(rangeStart: 0, rangeEnd: 5460, out int slot);
+        var key = FindKeyInSlotRange(rangeStart: 0, rangeEnd: 5460, out var slot);
         var keyBytes = Encoding.UTF8.GetBytes(key);
 
         await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
@@ -162,10 +162,10 @@ public class ClusterClientTests
 
     private static string FindKeyInSlotRange(int rangeStart, int rangeEnd, out int slot)
     {
-        for (int i = 0; i < 1_000_000; i++)
+        for (var i = 0; i < 1_000_000; i++)
         {
-            string candidate = $"readus:test:cluster:moved:{i:D7}";
-            int candidateSlot = HashSlot.Compute(Encoding.UTF8.GetBytes(candidate));
+            var candidate = $"readus:test:cluster:moved:{i:D7}";
+            var candidateSlot = HashSlot.Compute(Encoding.UTF8.GetBytes(candidate));
             if (candidateSlot >= rangeStart && candidateSlot <= rangeEnd)
             {
                 slot = candidateSlot;

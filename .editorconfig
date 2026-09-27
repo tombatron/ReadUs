@@ -1,6 +1,65 @@
 root = true
 
 [*.cs]
+# File-scoped namespaces everywhere — never block-scoped. Without this, the IDE falls
+# back to its own default (block-scoped) and flags every file in this repo as needing
+# conversion, backwards from the actual convention in use.
+csharp_style_namespace_declarations = file_scoped:warning
+
+# Expression-bodied members whenever the body is a single expression — methods,
+# constructors, properties, and local functions throughout this codebase are all
+# written this way (e.g. `public int Count => _cache.Count;`). Several of these
+# default to preferring block bodies when unconfigured, which fights the actual
+# convention the same way an unset namespace style did.
+csharp_style_expression_bodied_methods = true:warning
+csharp_style_expression_bodied_constructors = true:warning
+csharp_style_expression_bodied_properties = true:warning
+csharp_style_expression_bodied_local_functions = true:warning
+csharp_style_expression_bodied_accessors = true:warning
+csharp_style_expression_bodied_indexers = true:warning
+csharp_style_expression_bodied_operators = true:warning
+
+# `var` everywhere, including built-in types and cases where the type isn't apparent
+# from the right-hand side — this codebase never spells out a local's type explicitly.
+csharp_style_var_for_built_in_types = true:warning
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_elsewhere = true:warning
+
+# Never `this.`-qualify a member access — confirmed zero uses of `this.` anywhere in
+# src.
+dotnet_style_qualification_for_field = false:warning
+dotnet_style_qualification_for_property = false:warning
+dotnet_style_qualification_for_method = false:warning
+dotnet_style_qualification_for_event = false:warning
+
+# Every field that's never reassigned outside its constructor is marked `readonly`,
+# and every member's accessibility modifier is always written explicitly.
+dotnet_style_readonly_field = true:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+
+# `is null` / `is not null`, not `== null` / `!= null` (74 uses of the former, zero of
+# the latter) — and pattern matching generally, including `switch` expressions, over
+# `as`-with-null-check / `is`-with-cast idioms.
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:warning
+csharp_style_prefer_pattern_matching = true:warning
+csharp_style_pattern_matching_over_as_with_null_check = true:warning
+csharp_style_pattern_matching_over_is_with_cast_check = true:warning
+csharp_style_prefer_switch_expression = true:warning
+
+# Target-typed `new(...)` (478 uses vs. 33 spelled-out `new Type(...)`), collection
+# expressions (`[]` / `[.. spread]`), primary constructors, and UTF-8 string literals
+# (`"GET"u8` — 567 uses, this client's whole command-writing path leans on them) are
+# all idioms already in heavy use throughout this codebase.
+csharp_style_implicit_object_creation_when_type_is_apparent = true:warning
+dotnet_style_prefer_collection_expression = when_types_loosely_match:warning
+csharp_style_prefer_primary_constructors = true:warning
+csharp_style_prefer_utf8_string_literals = true:warning
+
+# System.* usings first (alphabetized), then everything else, all outside the
+# namespace declaration — every file in this repo follows this already.
+dotnet_sort_system_directives_first = true:warning
+csharp_using_directive_placement = outside_namespace:warning
+
 # CA1720: flags enum members like RespType.Integer / RespType.Double for "containing a
 # type name". Those are the wire protocol's own vocabulary (RESP "integer reply",
 # "double reply") — renaming them away from Redis's own terms would hurt readability

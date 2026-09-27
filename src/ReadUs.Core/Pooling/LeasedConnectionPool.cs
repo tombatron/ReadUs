@@ -54,7 +54,7 @@ public sealed class LeasedConnectionPool : IAsyncDisposable
         var controlPool = await MultiplexedConnectionPool.CreateAsync(options, controlPoolSize, cancellationToken).ConfigureAwait(false);
 
         var connections = new RedisConnection[size];
-        for (int i = 0; i < size; i++)
+        for (var i = 0; i < size; i++)
         {
             connections[i] = await RedisConnection.ConnectAsync(options, cancellationToken).ConfigureAwait(false);
         }

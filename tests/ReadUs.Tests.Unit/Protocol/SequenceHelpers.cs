@@ -22,7 +22,7 @@ internal static class SequenceHelpers
         var first = new Segment(chunks[0], 0);
         var last = first;
 
-        for (int i = 1; i < chunks.Length; i++)
+        for (var i = 1; i < chunks.Length; i++)
         {
             last = last.Append(chunks[i]);
         }

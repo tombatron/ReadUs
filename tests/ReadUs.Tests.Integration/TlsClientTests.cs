@@ -18,7 +18,7 @@ public class TlsClientTests
     [Fact]
     public async Task ConnectsOverTlsAndValidatesTheServerCertificateViaTheCustomCallback()
     {
-        bool callbackInvoked = false;
+        var callbackInvoked = false;
 
         var options = new RedisConnectionOptions
         {

@@ -70,7 +70,7 @@ public sealed class CommandTableGenerator : IIncrementalGenerator
                 continue;
             }
 
-            string fileName = "Generated." + NameHelpers.PascalCaseWords(group.Key) + ".g.cs";
+            var fileName = "Generated." + NameHelpers.PascalCaseWords(group.Key) + ".g.cs";
             context.AddSource(fileName, TypedMethodEmitter.EmitGroup(group.Key, list));
         }
     }

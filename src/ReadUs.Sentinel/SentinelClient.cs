@@ -121,7 +121,7 @@ public sealed class SentinelClient : IAsyncDisposable
     /// </summary>
     private async Task<EndPoint> DiscoverMasterAsync(CancellationToken cancellationToken)
     {
-        for (int attempt = 0; attempt < MaxDiscoveryAttempts; attempt++)
+        for (var attempt = 0; attempt < MaxDiscoveryAttempts; attempt++)
         {
             var endpoints = GetSentinelEndpointsSnapshot();
 
@@ -218,7 +218,7 @@ public sealed class SentinelClient : IAsyncDisposable
     {
         while (!_lifetimeCts.IsCancellationRequested)
         {
-            bool connected = false;
+            var connected = false;
 
             foreach (var endpoint in GetSentinelEndpointsSnapshot())
             {
@@ -278,7 +278,7 @@ public sealed class SentinelClient : IAsyncDisposable
             return;
         }
 
-        if (!int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out int newPort))
+        if (!int.TryParse(parts[4], NumberStyles.Integer, CultureInfo.InvariantCulture, out var newPort))
         {
             return;
         }
@@ -288,7 +288,7 @@ public sealed class SentinelClient : IAsyncDisposable
 
     private async Task SwitchMasterAsync(EndPoint newEndpoint, CancellationToken cancellationToken)
     {
-        string newKey = newEndpoint.ToString()!;
+        var newKey = newEndpoint.ToString()!;
         if (newKey == _masterEndpointKey)
         {
             return;
@@ -346,9 +346,9 @@ public sealed class SentinelClient : IAsyncDisposable
             long port = 0;
             var fields = entry.AsItems();
 
-            for (int i = 0; i + 1 < fields.Length; i += 2)
+            for (var i = 0; i + 1 < fields.Length; i += 2)
             {
-                string key = fields[i].AsString();
+                var key = fields[i].AsString();
                 if (key == "ip")
                 {
                     ip = fields[i + 1].AsString();

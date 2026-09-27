@@ -69,7 +69,7 @@ public class SentinelClientTests
         }
 
         RedisResult? role = null;
-        for (int i = 0; i < 60; i++)
+        for (var i = 0; i < 60; i++)
         {
             await Task.Delay(TimeSpan.FromSeconds(1));
 

@@ -51,15 +51,15 @@ internal static class TypedMethodEmitter
 
     private static void EmitMethod(StringBuilder sb, CommandDefinition command, TokenFieldCollector tokens)
     {
-        string methodName = NameHelpers.MethodName(command);
-        string wireNameField = tokens.GetOrAdd(command.WireCommandName);
+        var methodName = NameHelpers.MethodName(command);
+        var wireNameField = tokens.GetOrAdd(command.WireCommandName);
 
         var decls = new List<(string Declaration, bool Optional)>();
         var body = new List<string> { "var __wireArgs = new List<ReadOnlyMemory<byte>>();" };
 
         if (command.Container is not null)
         {
-            string subcommandField = tokens.GetOrAdd(command.Name);
+            var subcommandField = tokens.GetOrAdd(command.Name);
             body.Add($"__wireArgs.Add({subcommandField});");
         }
 
@@ -84,7 +84,7 @@ internal static class TypedMethodEmitter
             .Concat(decls.Where(d => d.Optional).Select(d => d.Declaration))
             .Append("CancellationToken cancellationToken = default");
 
-        string dispatch = command.IsBlocking ? "ExecuteBlockingAsync" : "ExecuteAsync";
+        var dispatch = command.IsBlocking ? "ExecuteBlockingAsync" : "ExecuteAsync";
 
         sb.AppendLine();
         sb.Append("    public static ValueTask<RedisResult> ").Append(methodName)
@@ -101,8 +101,8 @@ internal static class TypedMethodEmitter
 
     private static void EmitArgument(CommandArgument arg, TokenFieldCollector tokens, List<(string, bool)> decls, List<string> body)
     {
-        string paramName = NameHelpers.SanitizeIdentifier(NameHelpers.ParameterIdentifier(arg.Name));
-        string? tokenField = arg.Token is null ? null : tokens.GetOrAdd(arg.Token);
+        var paramName = NameHelpers.SanitizeIdentifier(NameHelpers.ParameterIdentifier(arg.Name));
+        var tokenField = arg.Token is null ? null : tokens.GetOrAdd(arg.Token);
 
         if (arg.WireType == ArgumentWireType.PureToken)
         {
@@ -111,7 +111,7 @@ internal static class TypedMethodEmitter
             return;
         }
 
-        string netType = NameHelpers.DotNetTypeName(arg.WireType);
+        var netType = NameHelpers.DotNetTypeName(arg.WireType);
 
         string Encode(string expr) => arg.WireType switch
         {
@@ -122,8 +122,8 @@ internal static class TypedMethodEmitter
 
         if (arg.Multiple)
         {
-            bool optional = arg.Optional;
-            string arrType = optional ? $"{netType}[]?" : $"{netType}[]";
+            var optional = arg.Optional;
+            var arrType = optional ? $"{netType}[]?" : $"{netType}[]";
             decls.Add(($"{arrType} {paramName}" + (optional ? " = null" : string.Empty), optional));
 
             var loopLines = new List<string>();
@@ -132,7 +132,7 @@ internal static class TypedMethodEmitter
                 loopLines.Add($"if ({paramName}.Length > 0) {{ __wireArgs.Add({tokenField}); }}");
             }
 
-            string perItemToken = tokenField is not null && arg.MultipleToken ? $"__wireArgs.Add({tokenField}); " : string.Empty;
+            var perItemToken = tokenField is not null && arg.MultipleToken ? $"__wireArgs.Add({tokenField}); " : string.Empty;
             loopLines.Add($"foreach (var item in {paramName}) {{ {perItemToken}__wireArgs.Add({Encode("item")}); }}");
 
             if (optional)
@@ -180,10 +180,10 @@ internal static class TypedMethodEmitter
 
     private static void EmitGroup(CommandArgumentGroup group, TokenFieldCollector tokens, List<(string, bool)> decls, List<string> body)
     {
-        string paramName = NameHelpers.SanitizeIdentifier(NameHelpers.ParameterIdentifier(group.Name));
-        string? tokenField = group.Token is null ? null : tokens.GetOrAdd(group.Token);
+        var paramName = NameHelpers.SanitizeIdentifier(NameHelpers.ParameterIdentifier(group.Name));
+        var tokenField = group.Token is null ? null : tokens.GetOrAdd(group.Token);
 
-        string tupleType = "(" + string.Join(", ", group.Members.Select(m =>
+        var tupleType = "(" + string.Join(", ", group.Members.Select(m =>
             $"{NameHelpers.DotNetTypeName(m.WireType)} {NameHelpers.TupleElementName(m.Name)}")) + ")";
 
         string EncodeMember(CommandArgument member, string accessor) => member.WireType switch
@@ -195,8 +195,8 @@ internal static class TypedMethodEmitter
 
         if (group.Multiple)
         {
-            bool optional = group.Optional;
-            string listType = optional ? $"IReadOnlyList<{tupleType}>?" : $"IReadOnlyList<{tupleType}>";
+            var optional = group.Optional;
+            var listType = optional ? $"IReadOnlyList<{tupleType}>?" : $"IReadOnlyList<{tupleType}>";
             decls.Add(($"{listType} {paramName}" + (optional ? " = null" : string.Empty), optional));
 
             var addLines = new List<string>();
@@ -205,12 +205,12 @@ internal static class TypedMethodEmitter
                 addLines.Add($"__wireArgs.Add({tokenField});");
             }
 
-            for (int i = 0; i < group.Members.Count; i++)
+            for (var i = 0; i < group.Members.Count; i++)
             {
                 addLines.Add($"__wireArgs.Add({EncodeMember(group.Members[i], $"item.Item{i + 1}")});");
             }
 
-            string loop = $"foreach (var item in {paramName}) {{ {string.Join(" ", addLines)} }}";
+            var loop = $"foreach (var item in {paramName}) {{ {string.Join(" ", addLines)} }}";
             body.Add(optional ? $"if ({paramName} is not null) {{ {loop} }}" : loop);
             return;
         }
@@ -225,7 +225,7 @@ internal static class TypedMethodEmitter
             innerLines.Add($"__wireArgs.Add({tokenField});");
         }
 
-        for (int i = 0; i < group.Members.Count; i++)
+        for (var i = 0; i < group.Members.Count; i++)
         {
             innerLines.Add($"__wireArgs.Add({EncodeMember(group.Members[i], $"{paramName}.Value.Item{i + 1}")});");
         }
@@ -244,14 +244,14 @@ internal static class TypedMethodEmitter
 
         public string GetOrAdd(string tokenValue)
         {
-            if (_fieldsByValue.TryGetValue(tokenValue, out string? existing))
+            if (_fieldsByValue.TryGetValue(tokenValue, out var existing))
             {
                 return existing;
             }
 
-            string baseName = NameHelpers.WireNameFieldName(NameHelpers.SanitizeIdentifier(tokenValue));
-            string name = baseName;
-            int suffix = 1;
+            var baseName = NameHelpers.WireNameFieldName(NameHelpers.SanitizeIdentifier(tokenValue));
+            var name = baseName;
+            var suffix = 1;
             while (!_usedNames.Add(name))
             {
                 name = baseName + (++suffix).ToString(System.Globalization.CultureInfo.InvariantCulture);

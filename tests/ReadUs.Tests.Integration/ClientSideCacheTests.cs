@@ -19,7 +19,7 @@ public class ClientSideCacheTests
         await using var admin = await RedisClient.ConnectAsync(Options, connectionCount: 1);
         await using var cache = await ClientSideCache.ConnectAsync(Options);
 
-        string key = $"readus:test:cache:{Guid.NewGuid():N}";
+        var key = $"readus:test:cache:{Guid.NewGuid():N}";
         await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v1"u8.ToArray()]);
 
         Assert.False(cache.TryGetCached(key, out _));
@@ -36,7 +36,7 @@ public class ClientSideCacheTests
         await using var admin = await RedisClient.ConnectAsync(Options, connectionCount: 1);
         await using var cache = await ClientSideCache.ConnectAsync(Options);
 
-        string key = $"readus:test:cache:{Guid.NewGuid():N}";
+        var key = $"readus:test:cache:{Guid.NewGuid():N}";
         await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v1"u8.ToArray()]);
 
         var first = await cache.GetAsync(key);
@@ -47,8 +47,8 @@ public class ClientSideCacheTests
 
         // The invalidation push is asynchronous — poll briefly rather than assuming an
         // exact delivery time.
-        bool evicted = false;
-        for (int i = 0; i < 50 && !evicted; i++)
+        var evicted = false;
+        for (var i = 0; i < 50 && !evicted; i++)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20));
             evicted = !cache.TryGetCached(key, out _);
@@ -66,15 +66,15 @@ public class ClientSideCacheTests
         await using var admin = await RedisClient.ConnectAsync(Options, connectionCount: 1);
         await using var cache = await ClientSideCache.ConnectAsync(Options);
 
-        string key = $"readus:test:cache:{Guid.NewGuid():N}";
+        var key = $"readus:test:cache:{Guid.NewGuid():N}";
         await admin.ExecuteAsync("SET"u8.ToArray(), [Encoding.UTF8.GetBytes(key), "v1"u8.ToArray()]);
         await cache.GetAsync(key);
         Assert.True(cache.TryGetCached(key, out _));
 
         await admin.ExecuteAsync("FLUSHALL"u8.ToArray(), []);
 
-        bool cleared = false;
-        for (int i = 0; i < 50 && !cleared; i++)
+        var cleared = false;
+        for (var i = 0; i < 50 && !cleared; i++)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(20));
             cleared = cache.Count == 0;
@@ -104,9 +104,9 @@ public class ClientSideCacheTests
         await using var admin = await RedisClient.ConnectAsync(Options, connectionCount: 4);
         await using var cache = await ClientSideCache.ConnectAsync(Options);
 
-        for (int i = 0; i < 50; i++)
+        for (var i = 0; i < 50; i++)
         {
-            string key = $"readus:test:cache:race:{i}:{Guid.NewGuid():N}";
+            var key = $"readus:test:cache:race:{i}:{Guid.NewGuid():N}";
             var keyBytes = Encoding.UTF8.GetBytes(key);
             await admin.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "v1"u8.ToArray()]);
 
@@ -120,7 +120,7 @@ public class ClientSideCacheTests
             // hitting the same server — that's real, expected latency, not a bug (see
             // the remarks above).
             string? settledValue = null;
-            for (int poll = 0; poll < 500; poll++)
+            for (var poll = 0; poll < 500; poll++)
             {
                 if (!cache.TryGetCached(key, out var cachedValue))
                 {
@@ -128,7 +128,7 @@ public class ClientSideCacheTests
                     break;
                 }
 
-                string asString = cachedValue.AsString();
+                var asString = cachedValue.AsString();
                 if (asString == "v2")
                 {
                     settledValue = asString;

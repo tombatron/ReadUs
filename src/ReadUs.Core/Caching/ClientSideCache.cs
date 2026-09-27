@@ -40,7 +40,7 @@ public sealed class ClientSideCache : IAsyncDisposable
     private static object[] CreateStripeLocks()
     {
         var locks = new object[StripeCount];
-        for (int i = 0; i < locks.Length; i++)
+        for (var i = 0; i < locks.Length; i++)
         {
             locks[i] = new object();
         }
@@ -120,7 +120,7 @@ public sealed class ClientSideCache : IAsyncDisposable
             return cached;
         }
 
-        object stripeLock = StripeLockFor(key);
+        var stripeLock = StripeLockFor(key);
 
         lock (stripeLock)
         {
@@ -192,7 +192,7 @@ public sealed class ClientSideCache : IAsyncDisposable
 
         foreach (var keyResult in fields[1].AsItems())
         {
-            string key = keyResult.AsString();
+            var key = keyResult.AsString();
             lock (StripeLockFor(key))
             {
                 _cache.TryRemove(key, out _);

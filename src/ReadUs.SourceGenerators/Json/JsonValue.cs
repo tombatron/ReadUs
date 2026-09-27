@@ -93,7 +93,7 @@ internal sealed class JsonValue
         private JsonValue ParseValue()
         {
             SkipWhitespace();
-            char c = _text[_pos];
+            var c = _text[_pos];
             return c switch
             {
                 '{' => ParseObject(),
@@ -120,13 +120,13 @@ internal sealed class JsonValue
             while (true)
             {
                 SkipWhitespace();
-                string key = ParseString();
+                var key = ParseString();
                 SkipWhitespace();
                 Expect(':');
                 var value = ParseValue();
                 result[key] = value;
                 SkipWhitespace();
-                char next = _text[_pos++];
+                var next = _text[_pos++];
                 if (next == '}')
                 {
                     break;
@@ -156,7 +156,7 @@ internal sealed class JsonValue
             {
                 result.Add(ParseValue());
                 SkipWhitespace();
-                char next = _text[_pos++];
+                var next = _text[_pos++];
                 if (next == ']')
                 {
                     break;
@@ -179,7 +179,7 @@ internal sealed class JsonValue
             var sb = new StringBuilder();
             while (true)
             {
-                char c = _text[_pos++];
+                var c = _text[_pos++];
                 if (c == '"')
                 {
                     break;
@@ -191,7 +191,7 @@ internal sealed class JsonValue
                     continue;
                 }
 
-                char escape = _text[_pos++];
+                var escape = _text[_pos++];
                 switch (escape)
                 {
                     case '"': sb.Append('"'); break;
@@ -203,7 +203,7 @@ internal sealed class JsonValue
                     case 'r': sb.Append('\r'); break;
                     case 't': sb.Append('\t'); break;
                     case 'u':
-                        string hex = _text.Substring(_pos, 4);
+                        var hex = _text.Substring(_pos, 4);
                         _pos += 4;
                         sb.Append((char)int.Parse(hex, NumberStyles.HexNumber, CultureInfo.InvariantCulture));
                         break;
@@ -217,7 +217,7 @@ internal sealed class JsonValue
 
         private JsonValue ParseNumber()
         {
-            int start = _pos;
+            var start = _pos;
             if (Peek() == '-')
             {
                 _pos++;
@@ -228,7 +228,7 @@ internal sealed class JsonValue
                 _pos++;
             }
 
-            string token = _text.Substring(start, _pos - start);
+            var token = _text.Substring(start, _pos - start);
             return new JsonValue(JsonKind.Number, number: double.Parse(token, CultureInfo.InvariantCulture));
         }
 

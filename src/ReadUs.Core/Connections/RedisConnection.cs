@@ -84,7 +84,7 @@ public sealed class RedisConnection : IAsyncDisposable
         ThrowIfNotReady();
 
         var pending = RentPendingRequest();
-        long startTimestamp = Stopwatch.GetTimestamp();
+        var startTimestamp = Stopwatch.GetTimestamp();
         await WriteAndEnqueueAsync(pending, commandName, args, cancellationToken).ConfigureAwait(false);
 
         using var registration = cancellationToken.CanBeCanceled
@@ -121,7 +121,7 @@ public sealed class RedisConnection : IAsyncDisposable
         ThrowIfNotReady();
 
         var pending = RentPendingRequest();
-        long startTimestamp = Stopwatch.GetTimestamp();
+        var startTimestamp = Stopwatch.GetTimestamp();
         await WriteAndEnqueueAsync(pending, commandName, args, cancellationToken).ConfigureAwait(false);
 
         using var registration = cancellationToken.CanBeCanceled
@@ -504,7 +504,7 @@ public sealed class RedisConnection : IAsyncDisposable
 
     private static ReadOnlyMemory<byte>[] BuildHelloArgs(RedisConnectionOptions options, RedisCredentials? providerCredentials)
     {
-        string versionArg = options.RespVersion.ToString(CultureInfo.InvariantCulture);
+        var versionArg = options.RespVersion.ToString(CultureInfo.InvariantCulture);
 
         if (providerCredentials is RedisCredentials credentials)
         {

@@ -83,7 +83,7 @@ public class MetricsTests
         {
             await pool.Rent().DisposeAsync();
 
-            for (int i = 0; i < 50 && Volatile.Read(ref reconnectCount) == 0; i++)
+            for (var i = 0; i < 50 && Volatile.Read(ref reconnectCount) == 0; i++)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(100));
             }

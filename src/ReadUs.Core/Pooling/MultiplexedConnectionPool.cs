@@ -48,7 +48,7 @@ public sealed class MultiplexedConnectionPool : IAsyncDisposable, IControlChanne
         }
 
         var connections = new RedisConnection[size];
-        for (int i = 0; i < size; i++)
+        for (var i = 0; i < size; i++)
         {
             connections[i] = await RedisConnection.ConnectAsync(options, cancellationToken).ConfigureAwait(false);
         }
@@ -64,11 +64,11 @@ public sealed class MultiplexedConnectionPool : IAsyncDisposable, IControlChanne
     /// </summary>
     public RedisConnection Rent()
     {
-        int start = (int)((uint)Interlocked.Increment(ref _nextIndex) % (uint)_connections.Length);
+        var start = (int)((uint)Interlocked.Increment(ref _nextIndex) % (uint)_connections.Length);
 
-        for (int i = 0; i < _connections.Length; i++)
+        for (var i = 0; i < _connections.Length; i++)
         {
-            int index = (start + i) % _connections.Length;
+            var index = (start + i) % _connections.Length;
             var candidate = Volatile.Read(ref _connections[index]);
             if (candidate.State == ConnectionState.Ready)
             {
@@ -111,7 +111,7 @@ public sealed class MultiplexedConnectionPool : IAsyncDisposable, IControlChanne
         {
             while (!_lifetimeCts.IsCancellationRequested)
             {
-                for (int i = 0; i < _connections.Length; i++)
+                for (var i = 0; i < _connections.Length; i++)
                 {
                     var connection = Volatile.Read(ref _connections[i]);
                     if (connection.State is ConnectionState.Faulted or ConnectionState.Closed)

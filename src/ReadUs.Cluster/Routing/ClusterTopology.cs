@@ -22,7 +22,7 @@ public sealed class ClusterTopology
         _ranges = [.. ranges];
     }
 
-    public IReadOnlyList<ClusterNode> Masters => _ranges.Select(r => r.Master).Distinct().ToList();
+    public IReadOnlyList<ClusterNode> Masters => [.. _ranges.Select(r => r.Master).Distinct()];
 
     /// <summary>
     /// Patches ownership of a single slot (a <c>MOVED</c> reply's slot) without waiting
@@ -63,7 +63,7 @@ public sealed class ClusterTopology
         int lo = 0, hi = _ranges.Length - 1;
         while (lo <= hi)
         {
-            int mid = lo + ((hi - lo) / 2);
+            var mid = lo + ((hi - lo) / 2);
             var range = _ranges[mid];
             if (slot < range.Start)
             {
@@ -93,9 +93,9 @@ public sealed class ClusterTopology
             RedisResult slots = default;
             RedisResult nodes = default;
 
-            for (int i = 0; i < shardFields.Length; i += 2)
+            for (var i = 0; i < shardFields.Length; i += 2)
             {
-                string key = shardFields[i].AsString();
+                var key = shardFields[i].AsString();
                 if (key == "slots")
                 {
                     slots = shardFields[i + 1];
@@ -113,7 +113,7 @@ public sealed class ClusterTopology
             }
 
             var slotItems = slots.AsItems();
-            for (int i = 0; i + 1 < slotItems.Length; i += 2)
+            for (var i = 0; i + 1 < slotItems.Length; i += 2)
             {
                 ranges.Add(((int)slotItems[i].AsInt64(), (int)slotItems[i + 1].AsInt64(), master));
             }
@@ -131,11 +131,11 @@ public sealed class ClusterTopology
             string? ip = null;
             string? endpointHost = null;
             long port = 0;
-            bool isMaster = false;
+            var isMaster = false;
 
-            for (int i = 0; i < fields.Length; i += 2)
+            for (var i = 0; i < fields.Length; i += 2)
             {
-                string key = fields[i].AsString();
+                var key = fields[i].AsString();
                 var value = fields[i + 1];
                 switch (key)
                 {
@@ -155,7 +155,7 @@ public sealed class ClusterTopology
             // "endpoint" is preferred when known; Redis reports it as an empty string
             // when it can't determine one, in which case "ip" is the documented
             // fallback.
-            string host = string.IsNullOrEmpty(endpointHost) ? ip! : endpointHost;
+            var host = string.IsNullOrEmpty(endpointHost) ? ip! : endpointHost;
             return new ClusterNode
             {
                 Id = id!,

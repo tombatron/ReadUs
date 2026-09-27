@@ -40,7 +40,7 @@ public static class RespFrameReader
     {
         result = default;
 
-        if (!reader.TryRead(out byte prefix))
+        if (!reader.TryRead(out var prefix))
         {
             return false;
         }
@@ -88,7 +88,7 @@ public static class RespFrameReader
         }
 
         var span = ToSpan(line);
-        if (!Utf8Parser.TryParse(span, out long value, out int consumed) || consumed != span.Length)
+        if (!Utf8Parser.TryParse(span, out long value, out var consumed) || consumed != span.Length)
         {
             throw new RespProtocolException("Malformed integer value.");
         }
@@ -145,7 +145,7 @@ public static class RespFrameReader
         {
             value = double.NaN;
         }
-        else if (!Utf8Parser.TryParse(span, out value, out int consumed) || consumed != span.Length)
+        else if (!Utf8Parser.TryParse(span, out value, out var consumed) || consumed != span.Length)
         {
             throw new RespProtocolException("Malformed double value.");
         }
@@ -181,7 +181,7 @@ public static class RespFrameReader
             return false;
         }
 
-        long length = ParseLengthLine(lengthLine);
+        var length = ParseLengthLine(lengthLine);
 
         if (length == -1)
         {
@@ -203,7 +203,7 @@ public static class RespFrameReader
         reader.Sequence.Slice(reader.Position, length).CopyTo(bytes);
         reader.Advance(length);
 
-        if (!reader.TryRead(out byte cr) || cr != (byte)'\r' || !reader.TryRead(out byte lf) || lf != (byte)'\n')
+        if (!reader.TryRead(out var cr) || cr != (byte)'\r' || !reader.TryRead(out var lf) || lf != (byte)'\n')
         {
             throw new RespProtocolException("Bulk value missing terminating CRLF.");
         }
@@ -221,7 +221,7 @@ public static class RespFrameReader
             return false;
         }
 
-        long count = ParseLengthLine(lengthLine);
+        var count = ParseLengthLine(lengthLine);
 
         if (count == -1)
         {
@@ -234,10 +234,10 @@ public static class RespFrameReader
             throw new RespProtocolException("Negative aggregate length.");
         }
 
-        int itemCount = checked((int)count);
+        var itemCount = checked((int)count);
         var items = itemCount == 0 ? [] : new RedisResult[itemCount];
 
-        for (int i = 0; i < itemCount; i++)
+        for (var i = 0; i < itemCount; i++)
         {
             if (!TryParseValue(ref reader, out items[i]))
             {
@@ -258,7 +258,7 @@ public static class RespFrameReader
             return false;
         }
 
-        long pairCount = ParseLengthLine(lengthLine);
+        var pairCount = ParseLengthLine(lengthLine);
 
         if (pairCount == -1)
         {
@@ -271,10 +271,10 @@ public static class RespFrameReader
             throw new RespProtocolException("Negative map length.");
         }
 
-        int itemCount = checked((int)(pairCount * 2));
+        var itemCount = checked((int)(pairCount * 2));
         var items = itemCount == 0 ? [] : new RedisResult[itemCount];
 
-        for (int i = 0; i < itemCount; i++)
+        for (var i = 0; i < itemCount; i++)
         {
             if (!TryParseValue(ref reader, out items[i]))
             {
@@ -290,7 +290,7 @@ public static class RespFrameReader
     private static long ParseLengthLine(in ReadOnlySequence<byte> line)
     {
         var span = ToSpan(line);
-        if (!Utf8Parser.TryParse(span, out long value, out int consumed) || consumed != span.Length)
+        if (!Utf8Parser.TryParse(span, out long value, out var consumed) || consumed != span.Length)
         {
             throw new RespProtocolException("Malformed length header.");
         }

@@ -78,7 +78,7 @@ public sealed class ClusterClient : IAsyncDisposable
     public ValueTask<RedisResult> ExecuteAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default)
     {
         var keys = ExtractKeys(commandName, args);
-        int? slot = ComputeSlot(keys);
+        var slot = ComputeSlot(keys);
         return ExecuteWithRedirectsAsync(commandName, args, slot, cancellationToken);
     }
 
@@ -114,7 +114,7 @@ public sealed class ClusterClient : IAsyncDisposable
     {
         EndPoint? askTarget = null;
 
-        for (int attempt = 0; attempt < MaxRedirects; attempt++)
+        for (var attempt = 0; attempt < MaxRedirects; attempt++)
         {
             var targetEndPoint = askTarget ?? ResolveEndPoint(slot);
             var client = await GetOrCreateNodeClientAsync(targetEndPoint).ConfigureAwait(false);
@@ -131,7 +131,7 @@ public sealed class ClusterClient : IAsyncDisposable
                 return reply;
             }
 
-            string error = reply.AsString();
+            var error = reply.AsString();
 
             if (error.StartsWith("MOVED ", StringComparison.Ordinal))
             {
@@ -241,7 +241,7 @@ public sealed class ClusterClient : IAsyncDisposable
             throw new RedisConnectionException("No known cluster master nodes.");
         }
 
-        int index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
+        var index = (int)((uint)Interlocked.Increment(ref _roundRobinCounter) % (uint)masters.Count);
         return masters[index].EndPoint;
     }
 
@@ -251,10 +251,10 @@ public sealed class ClusterClient : IAsyncDisposable
     private static (int Slot, EndPoint EndPoint) ParseRedirect(string error)
     {
         var parts = error.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        int slot = int.Parse(parts[1], CultureInfo.InvariantCulture);
-        int colonIndex = parts[2].LastIndexOf(':');
-        string host = parts[2][..colonIndex];
-        int port = int.Parse(parts[2][(colonIndex + 1)..], CultureInfo.InvariantCulture);
+        var slot = int.Parse(parts[1], CultureInfo.InvariantCulture);
+        var colonIndex = parts[2].LastIndexOf(':');
+        var host = parts[2][..colonIndex];
+        var port = int.Parse(parts[2][(colonIndex + 1)..], CultureInfo.InvariantCulture);
         return (slot, new DnsEndPoint(host, port));
     }
 
@@ -279,23 +279,23 @@ public sealed class ClusterClient : IAsyncDisposable
     {
         var keys = new List<ReadOnlyMemory<byte>>();
 
-        string name = Encoding.ASCII.GetString(commandName.Span);
+        var name = Encoding.ASCII.GetString(commandName.Span);
         if (!CommandsByWireName.TryGetValue(name, out var info))
         {
             return keys;
         }
 
-        int totalWireLength = 1 + args.Length;
+        var totalWireLength = 1 + args.Length;
         foreach (var spec in info.KeySpecs)
         {
-            int lastWirePosition = spec.LastKeyPosition >= 0
+            var lastWirePosition = spec.LastKeyPosition >= 0
                 ? spec.FirstKeyPosition + spec.LastKeyPosition
                 : totalWireLength + spec.LastKeyPosition;
-            int step = spec.KeyStep <= 0 ? 1 : spec.KeyStep;
+            var step = spec.KeyStep <= 0 ? 1 : spec.KeyStep;
 
-            for (int wirePosition = spec.FirstKeyPosition; wirePosition <= lastWirePosition; wirePosition += step)
+            for (var wirePosition = spec.FirstKeyPosition; wirePosition <= lastWirePosition; wirePosition += step)
             {
-                int argIndex = wirePosition - 1;
+                var argIndex = wirePosition - 1;
                 if (argIndex >= 0 && argIndex < args.Length)
                 {
                     keys.Add(args[argIndex]);
@@ -313,8 +313,8 @@ public sealed class ClusterClient : IAsyncDisposable
             return null;
         }
 
-        int slot = HashSlot.Compute(keys[0].Span);
-        for (int i = 1; i < keys.Count; i++)
+        var slot = HashSlot.Compute(keys[0].Span);
+        for (var i = 1; i < keys.Count; i++)
         {
             if (HashSlot.Compute(keys[i].Span) != slot)
             {

@@ -29,7 +29,7 @@ public class MultiplexedConnectionPoolHealingTests
         // Skip-ahead: every call right after the fault must still succeed by landing on
         // the other, healthy connection — round-robin's turn landing on the faulted
         // slot must not surface as a failure to the caller.
-        for (int i = 0; i < 20; i++)
+        for (var i = 0; i < 20; i++)
         {
             var result = await pool.ExecuteAsync("PING"u8.ToArray(), []);
             Assert.Equal("PONG", result.AsString());
@@ -40,7 +40,7 @@ public class MultiplexedConnectionPoolHealingTests
         // that happened to survive).
         await Task.Delay(TimeSpan.FromSeconds(3));
 
-        for (int i = 0; i < 20; i++)
+        for (var i = 0; i < 20; i++)
         {
             var result = await pool.ExecuteAsync("PING"u8.ToArray(), []);
             Assert.Equal("PONG", result.AsString());

@@ -39,7 +39,7 @@ public static class RespCommandWriter
         var span = writer.GetSpan(16);
         span[0] = prefix;
 
-        if (!Utf8Formatter.TryFormat(number, span[1..], out int written))
+        if (!Utf8Formatter.TryFormat(number, span[1..], out var written))
         {
             throw new InvalidOperationException("Unreachable: header buffer too small for a 32-bit count.");
         }

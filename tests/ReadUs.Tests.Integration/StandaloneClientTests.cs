@@ -66,9 +66,9 @@ public class StandaloneClientTests
         await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 4);
 
         var tasks = new Task[200];
-        for (int i = 0; i < tasks.Length; i++)
+        for (var i = 0; i < tasks.Length; i++)
         {
-            int index = i;
+            var index = i;
             tasks[index] = Task.Run(async () =>
             {
                 var key = Encoding.UTF8.GetBytes($"readus:test:concurrent:{index}:{Guid.NewGuid():N}");

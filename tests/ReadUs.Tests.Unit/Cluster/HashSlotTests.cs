@@ -19,16 +19,16 @@ public class HashSlotTests
         // sides share the same bug. Also anchors that reference implementation itself
         // to the standard XMODEM check value (0x31C3 for "123456789"), confirming
         // ReadUs uses the exact variant Redis's own src/crc16.c does (project spec §5).
-        ushort referenceCrc = ComputeCrc16Xmodem("123456789"u8);
+        var referenceCrc = ComputeCrc16Xmodem("123456789"u8);
         Assert.Equal(0x31C3, referenceCrc);
 
-        int expectedSlot = referenceCrc % HashSlot.Count;
+        var expectedSlot = referenceCrc % HashSlot.Count;
         Assert.Equal(expectedSlot, HashSlot.Compute("123456789"u8));
 
-        foreach (string key in new[] { "foo", "user1000", "readus", "{tag}key" })
+        foreach (var key in new[] { "foo", "user1000", "readus", "{tag}key" })
         {
             var bytes = Encoding.UTF8.GetBytes(key);
-            int expected = ComputeCrc16Xmodem(HashSlot.ExtractHashTag(bytes)) % HashSlot.Count;
+            var expected = ComputeCrc16Xmodem(HashSlot.ExtractHashTag(bytes)) % HashSlot.Count;
             Assert.Equal(expected, HashSlot.Compute(bytes));
         }
     }
@@ -38,8 +38,8 @@ public class HashSlotTests
     [InlineData("{user1000}.followers")]
     public void KeysSharingAHashTagMapToTheSameSlotAsTheBareTag(string taggedKey)
     {
-        int taggedSlot = HashSlot.Compute(Encoding.UTF8.GetBytes(taggedKey));
-        int bareSlot = HashSlot.Compute("user1000"u8);
+        var taggedSlot = HashSlot.Compute(Encoding.UTF8.GetBytes(taggedKey));
+        var bareSlot = HashSlot.Compute("user1000"u8);
 
         Assert.Equal(bareSlot, taggedSlot);
     }
@@ -50,7 +50,7 @@ public class HashSlotTests
         // "foo{}{bar}": the first '{' is immediately followed by '}' — an empty tag —
         // so per the spec this must fall back to the whole key, not "" or "{bar}".
         var key = "foo{}{bar}"u8;
-        int slot = HashSlot.Compute(key);
+        var slot = HashSlot.Compute(key);
 
         Assert.Equal(HashSlot.Compute(key), slot); // self-consistent
         Assert.NotEqual(HashSlot.Compute("bar"u8), slot);
@@ -86,9 +86,9 @@ public class HashSlotTests
     [Fact]
     public void SlotIsAlwaysWithinRange()
     {
-        for (int i = 0; i < 1000; i++)
+        for (var i = 0; i < 1000; i++)
         {
-            int slot = HashSlot.Compute(Encoding.UTF8.GetBytes($"key-{i}"));
+            var slot = HashSlot.Compute(Encoding.UTF8.GetBytes($"key-{i}"));
             Assert.InRange(slot, 0, HashSlot.Count - 1);
         }
     }
@@ -98,10 +98,10 @@ public class HashSlotTests
         // A second, independent implementation (not calling into Crc16 itself) so this
         // test can't pass merely because both sides share the same bug.
         ushort crc = 0;
-        foreach (byte b in data)
+        foreach (var b in data)
         {
             crc ^= (ushort)(b << 8);
-            for (int i = 0; i < 8; i++)
+            for (var i = 0; i < 8; i++)
             {
                 crc = (crc & 0x8000) != 0 ? (ushort)((crc << 1) ^ 0x1021) : (ushort)(crc << 1);
             }
