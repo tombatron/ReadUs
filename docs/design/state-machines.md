@@ -635,16 +635,9 @@ should be easy to revisit rather than silently baked in:
 
 ### Recorded during §13 step 5 implementation (Cluster support)
 
-- **Replica read routing is not implemented.** `ClusterTopology` only tracks
-  each shard's master (project spec §5's own "primary-only, safest" default
-  policy) — `CLUSTER SHARDS` already reports replicas too, so adding
-  prefer-replica/replica-only/round-robin routing later is a matter of
-  tracking the rest of each shard's `nodes` array, not re-discovering it.
-- **No per-node health tracking, quarantine, or ejection.** A node that goes
-  down surfaces as an ordinary `RedisConnectionException` from whatever call
-  hit it; there's no background health-checker ejecting a repeatedly-failing
-  node's connections or reintegrating one that recovers. §5 asks for this
-  explicitly — deferred, not forgotten.
+- ~~**Replica read routing is not implemented.**~~ Done — see §3.2.
+- ~~**No per-node health tracking, quarantine, or ejection.**~~ Done — see
+  §3.1.
 - **No explicit per-node pipeline batching.** Concurrent calls through
   `ClusterClient.ExecuteAsync` still pipeline within whatever node's Tier 1
   pool they land on, but there's no batch API that fans a single logical
@@ -653,15 +646,14 @@ should be easy to revisit rather than silently baked in:
   destination-node, not per-call"). Worth building once there's a
   non-cluster batch API to extend in parallel — right now there isn't one
   for the standalone client either.
-- **`ConcurrentDictionary<string, Task<RedisClient>>.GetOrAdd` can race under
-  contention**: two callers discovering the same new node for the first time
-  simultaneously can each start a connect, with the loser's `RedisClient`
-  silently discarded (never returned, never disposed) rather than reused.
-  Rare (only matters the first time a given node is contacted) and not a
-  correctness bug — `RedisClient`/`RedisConnection` clean up their own
-  sockets on GC finalization paths notwithstanding, this is still a minor
-  resource-efficiency gap. A `SemaphoreSlim`-per-key or `Lazy<Task<T>>`
-  wrapper would close it if it ever shows up in practice.
+- ~~**`ConcurrentDictionary<string, Task<RedisClient>>.GetOrAdd` can race
+  under contention**~~ Fixed (see "Recorded during implementation of §3.2"
+  below — done alongside replica read routing since that work already
+  touched `GetOrCreateNodeClientAsync` and added a second caller of the
+  same pattern, `GetOrCreateReplicaClientAsync`): `_nodeClients` now stores
+  `Lazy<Task<RedisClient>>`, exactly the fix this bullet already named as
+  the option, closing the discard-and-leak race for good rather than
+  leaving it as a "matters if it ever shows up" gap.
 - **Key extraction for the raw `ExecuteAsync` escape hatch only looks at
   top-level (non-subcommand) `CommandMetadata` entries.** Subcommands
   (`CLIENT`/`CLUSTER`/`SENTINEL`/...) never carry keys in the vendored table,
@@ -1010,3 +1002,23 @@ should be easy to revisit rather than silently baked in:
   and don't need the "never used" guarantee; the stray value already
   written into the shared cluster during debugging was deleted by hand
   once identified.
+- **Also closed, while touching this exact code**: the `GetOrAdd`-can-race
+  gap the original §13 step 5 "Recorded" list already named and already
+  suggested the fix for (`Lazy<Task<T>>`). Replica routing added a second
+  caller of the same "get-or-connect" pattern (`GetOrCreateReplicaClientAsync`,
+  alongside the existing `GetOrCreateNodeClientAsync`), which was reason
+  enough to fix it properly rather than duplicate the same latent race into
+  a second call site. `_nodeClients` is now
+  `ConcurrentDictionary<string, Lazy<Task<RedisClient>>>`; both callers
+  share one `GetOrCreateClientAsync(EndPoint, Func<EndPoint,
+  RedisConnectionOptions>)` helper parameterized by which options factory
+  to use (plain vs. the `READONLY`-wrapped one). `Lazy<T>`'s
+  `ExecutionAndPublication` mode guarantees at most one caller ever
+  actually evaluates the factory and opens a connection, regardless of how
+  many concurrently race `GetOrAdd` for the same not-yet-contacted node —
+  eliminating the discard-and-leak entirely rather than just making it
+  less likely. Verified with a real concurrent-load integration test
+  (`ConcurrentFirstContactWithANewNodeOnlyEverConnectsOnce`): a custom
+  options factory counts its own invocations per endpoint, and 30
+  concurrent commands racing first contact with a node still show exactly
+  one connection attempt.

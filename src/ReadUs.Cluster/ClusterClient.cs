@@ -34,7 +34,17 @@ public sealed class ClusterClient : IAsyncDisposable
     private static readonly Dictionary<string, GeneratedCommandInfo> CommandsByWireName = BuildCommandLookup();
 
     private readonly Func<EndPoint, RedisConnectionOptions> _optionsFactory;
-    private readonly ConcurrentDictionary<string, Task<RedisClient>> _nodeClients = new();
+
+    // Lazy<Task<RedisClient>>, not a bare Task<RedisClient>: ConcurrentDictionary.GetOrAdd
+    // can invoke its factory more than once under contention, discarding every result
+    // but the winner — for a bare Task<RedisClient> factory that means two concurrent
+    // first-contacts of the same new node could each open a real RedisClient (its own
+    // Tier 1/Tier 2 pool of live sockets), with the loser silently leaked, never
+    // disposed. Lazy<T> makes the *dictionary* race harmless the same way (only one
+    // constructed Lazy wrapper is ever kept) and additionally guarantees, via its own
+    // ExecutionAndPublication mode, that only one caller across any number of
+    // concurrent GetOrAdd calls ever actually evaluates the factory and connects.
+    private readonly ConcurrentDictionary<string, Lazy<Task<RedisClient>>> _nodeClients = new();
     private readonly ClusterNodeHealthTracker _nodeHealth;
     private readonly CancellationTokenSource _lifetimeCts = new();
     private readonly Task _refreshLoopTask;
@@ -117,11 +127,11 @@ public sealed class ClusterClient : IAsyncDisposable
         {
         }
 
-        foreach (var clientTask in _nodeClients.Values)
+        foreach (var lazyClientTask in _nodeClients.Values)
         {
             try
             {
-                var client = await clientTask.ConfigureAwait(false);
+                var client = await lazyClientTask.Value.ConfigureAwait(false);
                 await client.DisposeAsync().ConfigureAwait(false);
             }
             catch
@@ -393,54 +403,56 @@ public sealed class ClusterClient : IAsyncDisposable
         return -1;
     }
 
+    private Task<RedisClient> GetOrCreateNodeClientAsync(EndPoint endPoint) =>
+        GetOrCreateClientAsync(endPoint, _optionsFactory);
+
     /// <summary>
-    /// Evicts and retries a cached-but-faulted client task rather than replaying the
-    /// same connection failure forever. Without this, a node that failed its *first*
+    /// Same as <see cref="GetOrCreateNodeClientAsync"/>, but for a node this client is
+    /// treating as a replica read target: composes a <c>READONLY</c>
+    /// <see cref="RedisConnectionOptions.PostConnectAsync"/> hook onto the caller's own
+    /// options (design doc §3.2) so every physical connection this client ever opens to
+    /// that node — including a pool's self-healing reconnect replacement — is marked
+    /// read-only, transparently, with nothing about it visible in the public API.
+    /// </summary>
+    private Task<RedisClient> GetOrCreateReplicaClientAsync(EndPoint endPoint) =>
+        GetOrCreateClientAsync(endPoint, ep => WithReadOnlyPostConnect(_optionsFactory(ep)));
+
+    /// <summary>
+    /// Evicts and retries a cached-but-faulted client rather than replaying the same
+    /// connection failure forever. Without this, a node that failed its *first*
     /// connection attempt would stay permanently unreachable through this client even
-    /// after it recovers — <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey,Func{TKey,TValue})"/>
-    /// only invokes the factory once per key and caches whatever it returns, fault or
-    /// not. Needed for <see cref="ClusterNodeHealthTracker"/>'s reintegration probe to
-    /// mean anything: without eviction, its retries would just re-observe the same
-    /// stale fault instead of actually attempting a new connection.
+    /// after it recovers. Needed for <see cref="ClusterNodeHealthTracker"/>'s
+    /// reintegration probe to mean anything: without eviction, its retries would just
+    /// re-observe the same stale fault instead of actually attempting a new connection.
+    ///
+    /// Stores a <see cref="Lazy{T}"/>, not a bare <c>Task&lt;RedisClient&gt;</c>, so two
+    /// concurrent first-contacts of the same new node can't each open a real
+    /// <see cref="RedisClient"/> (its own Tier 1/Tier 2 pool of live sockets) only to
+    /// have <see cref="ConcurrentDictionary{TKey,TValue}"/> silently discard and leak
+    /// one of them — <see cref="LazyThreadSafetyMode.ExecutionAndPublication"/>
+    /// guarantees at most one caller ever actually evaluates the factory and connects,
+    /// regardless of how many concurrently call <c>GetOrAdd</c> for the same key.
     /// </summary>
-    private Task<RedisClient> GetOrCreateNodeClientAsync(EndPoint endPoint)
+    private Task<RedisClient> GetOrCreateClientAsync(EndPoint endPoint, Func<EndPoint, RedisConnectionOptions> optionsFactory)
     {
         var key = endPoint.ToString()!;
 
         while (true)
         {
-            var existing = _nodeClients.GetOrAdd(key, _ => RedisClient.ConnectAsync(_optionsFactory(endPoint)));
-            if (!existing.IsFaulted)
+            var lazy = _nodeClients.GetOrAdd(
+                key,
+                static (_, state) => new Lazy<Task<RedisClient>>(
+                    () => RedisClient.ConnectAsync(state.OptionsFactory(state.EndPoint)),
+                    LazyThreadSafetyMode.ExecutionAndPublication),
+                (EndPoint: endPoint, OptionsFactory: optionsFactory));
+
+            var task = lazy.Value;
+            if (!task.IsFaulted)
             {
-                return existing;
+                return task;
             }
 
-            ((ICollection<KeyValuePair<string, Task<RedisClient>>>)_nodeClients).Remove(new(key, existing));
-        }
-    }
-
-    /// <summary>
-    /// Same eviction-on-fault behavior as <see cref="GetOrCreateNodeClientAsync"/>, but
-    /// for a node this client is treating as a replica read target: composes a
-    /// <c>READONLY</c> <see cref="RedisConnectionOptions.PostConnectAsync"/> hook onto
-    /// the caller's own options (design doc §3.2) so every physical connection this
-    /// client ever opens to that node — including a pool's self-healing reconnect
-    /// replacement — is marked read-only, transparently, with nothing about it visible
-    /// in the public API.
-    /// </summary>
-    private Task<RedisClient> GetOrCreateReplicaClientAsync(EndPoint endPoint)
-    {
-        var key = endPoint.ToString()!;
-
-        while (true)
-        {
-            var existing = _nodeClients.GetOrAdd(key, _ => RedisClient.ConnectAsync(WithReadOnlyPostConnect(_optionsFactory(endPoint))));
-            if (!existing.IsFaulted)
-            {
-                return existing;
-            }
-
-            ((ICollection<KeyValuePair<string, Task<RedisClient>>>)_nodeClients).Remove(new(key, existing));
+            ((ICollection<KeyValuePair<string, Lazy<Task<RedisClient>>>>)_nodeClients).Remove(new(key, lazy));
         }
     }
 

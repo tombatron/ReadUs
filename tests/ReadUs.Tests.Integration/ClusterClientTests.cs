@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net;
@@ -346,6 +347,39 @@ public class ClusterClientTests
             await cluster.ExecuteAsync("SET"u8.ToArray(), [keyBytes, "v"u8.ToArray()], ReadPreference.PreferReplica));
 
         Assert.Equal("readPreference", ex.ParamName);
+    }
+
+    [Fact]
+    public async Task ConcurrentFirstContactWithANewNodeOnlyEverConnectsOnce()
+    {
+        // Design doc §5's "Recorded during §13 step 5" list: ConcurrentDictionary.GetOrAdd
+        // can invoke its factory more than once under contention, which for a bare
+        // Task<RedisClient> factory meant two concurrent first-contacts of the same new
+        // node could each open a real RedisClient (its own live socket pool), with the
+        // loser silently leaked. Fixed via a Lazy<Task<RedisClient>> wrapper. Proven here
+        // by counting how many times the options factory itself gets invoked for the
+        // node under real concurrent load, right after ClusterClient.ConnectAsync — at
+        // that point only a transient seed connection exists, so a burst of commands
+        // all landing on the same not-yet-contacted node genuinely races first contact.
+        var connectionAttempts = new ConcurrentDictionary<string, int>();
+        RedisConnectionOptions CountingOptionsFactory(EndPoint endpoint)
+        {
+            connectionAttempts.AddOrUpdate(endpoint.ToString()!, 1, (_, count) => count + 1);
+            return new RedisConnectionOptions { EndPoint = endpoint };
+        }
+
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints, CountingOptionsFactory);
+
+        var tasks = new Task[30];
+        for (var i = 0; i < tasks.Length; i++)
+        {
+            var keyBytes = Encoding.UTF8.GetBytes(FindRandomKeyInSlotRange(rangeStart: 5461, rangeEnd: 10922));
+            tasks[i] = cluster.ExecuteAsync("GET"u8.ToArray(), [keyBytes]).AsTask();
+        }
+
+        await Task.WhenAll(tasks);
+
+        Assert.Equal(1, connectionAttempts.GetValueOrDefault(SeedEndpoints[1].ToString()!));
     }
 
     private static async Task<long> TotalCommandsProcessedAsync(RedisClient client)
