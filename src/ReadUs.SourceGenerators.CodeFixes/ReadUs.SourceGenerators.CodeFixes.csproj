@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <!--
+    A CodeFixProvider needs Microsoft.CodeAnalysis.Workspaces (CodeFixProvider, CodeAction,
+    Document all live there), but ReadUs.SourceGenerators hosts actual source generators,
+    which must stay loadable in constrained compiler-only hosts where the Workspaces
+    assembly isn't available (RS1038) - referencing Workspaces from that same assembly
+    risks the whole assembly, generators included, failing to load in that scenario. Kept
+    as its own project for exactly that reason, matching the standard analyzer+codefix
+    split every Roslyn sample project uses.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ReadUs.SourceGenerators\ReadUs.SourceGenerators.csproj" />
+  </ItemGroup>
+
+</Project>

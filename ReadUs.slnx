@@ -11,6 +11,7 @@
     <Project Path="src/ReadUs.Extensions.OpenTelemetry/ReadUs.Extensions.OpenTelemetry.csproj" />
     <Project Path="src/ReadUs.Sentinel/ReadUs.Sentinel.csproj" />
     <Project Path="src/ReadUs.SourceGenerators/ReadUs.SourceGenerators.csproj" />
+    <Project Path="src/ReadUs.SourceGenerators.CodeFixes/ReadUs.SourceGenerators.CodeFixes.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/ReadUs.Tests.Fuzz/ReadUs.Tests.Fuzz.csproj" />

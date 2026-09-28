@@ -1631,3 +1631,83 @@ existed — so a real interface would have been dishonest about what
   alone, against three separate live Testcontainers-managed topologies —
   not just "it compiles against the interface," which would prove nothing
   about whether the three implementations actually agree on behavior.
+
+### Recorded during implementation of the string-argument analyzer/code fix
+
+Prompted by a question about why every example in this project's own docs
+writes `"key"u8.ToArray()` instead of a plain string: the raw escape hatch
+(`IRedisClient.ExecuteAsync`/`ExecuteBlockingAsync`) only takes
+`ReadOnlyMemory<byte>`, correct for the zero-allocation goal but clunky for
+a literal command. Added a `string`-based overload (`StringCommandExtensions`,
+`src/ReadUs.Core/StringCommandExtensions.cs`) plus a Roslyn analyzer/code
+fix that nudges an all-literal call at that overload toward the byte-based
+form — convenient by default, one step from optimal wherever the compiler
+can actually verify the rewrite is safe.
+
+- **The overload lives only on the raw escape hatch, as `IRedisClient`
+  extension methods — not threaded through the ~412 generated typed
+  methods.** Doubling `SetAsync`/`GetAsync`/etc. with string-taking twins
+  would be a far bigger, more invasive change for a tradeoff (an
+  unconditional runtime UTF-8 encode) this project has deliberately
+  avoided everywhere else. Living on `IRedisClient` means `RedisClient`/
+  `ClusterClient`/`SentinelClient` all get it from one implementation —
+  the same reuse `RedisScript.EvaluateAsync` already gets from the
+  interface.
+- **Shape matches the byte overload exactly (`string commandName, string[]? args = null`), not `params string[] args`** —
+  deliberately, so the code fix is a pure per-literal rewrite with no
+  argument-list restructuring: overload resolution re-picks the byte-based
+  overload automatically once every argument's compile-time type changes
+  from `string`/`string[]` to `byte[]`/`ReadOnlyMemory<byte>[]`.
+- **A real architectural mistake, caught by the build itself, not
+  planning**: the analyzer and code fix were originally both going into
+  the existing `ReadUs.SourceGenerators` project, reusing the analyzer
+  reference every consumer already has. Adding
+  `Microsoft.CodeAnalysis.CSharp.Workspaces` (which `CodeFixProvider`
+  needs) to that assembly triggered `RS1038` — a real warning, not a
+  nitpick: that assembly also hosts actual source generators, which must
+  stay loadable in constrained compiler-only hosts where the Workspaces
+  assembly isn't available, and a Workspaces reference there risks the
+  *whole* assembly, generators included, failing to load in that
+  scenario — silently breaking command-table generation, not just the new
+  feature. Fixed by splitting the code fix into its own project
+  (`ReadUs.SourceGenerators.CodeFixes`), the standard Roslyn
+  analyzer/codefix pairing pattern; the `DiagnosticAnalyzer` itself has no
+  Workspaces dependency and stayed in `ReadUs.SourceGenerators`.
+- **The analyzer flags a call only when every string argument is a
+  compile-time literal — nothing partial.** A call with any non-literal
+  string argument (a variable, interpolation, concatenation) isn't
+  touched at all; partial-literal rewriting is a real but lower-value
+  case this analyzer bails out of cleanly rather than attempting a
+  general solver, the same scope discipline `HashModelParser`/
+  `CommandTableGenerator` already apply elsewhere in this project.
+- **A real bug in the code fix, caught by its own test, not by review**:
+  the first version rewrote only the literal expressions in place and
+  left a single-argument call (`client.ExecuteAsync("PING")`, relying on
+  the string overload's `args = null` default) with only one argument
+  after rewriting the command name — but the byte-based overload's `args`
+  parameter has no default, so `client.ExecuteAsync("PING"u8.ToArray())`
+  alone doesn't compile (`CS1503`). `StringLiteralArgsAnalyzerTests`
+  caught this immediately, since it asserts the *exact* fixed source
+  (compiled, not just diffed) rather than only "no diagnostic remains."
+  Fixed by having the code fix append an explicit `[]` whenever the
+  original call omitted `args` entirely.
+- **The Roslyn testing SDK's `XUnitVerifier` (`Microsoft.CodeAnalysis.Testing.Verifiers.XUnit`,
+  latest published version 1.1.2) is marked obsolete upstream and, in
+  practice, binary-incompatible with the modern `xunit.assert` package
+  this project already uses elsewhere** — calling it threw
+  `MissingMethodException` on a mismatched `Xunit.Sdk.EqualException`
+  constructor the moment a test actually needed to compare a diagnostic
+  message, not at compile time. Switched to
+  `Microsoft.CodeAnalysis.Testing.DefaultVerifier` (test-framework-agnostic,
+  not obsolete, no such dependency) instead, dropping the `.XUnit`-suffixed
+  testing packages entirely in favor of their base equivalents.
+- **Same pre-NuGet analyzer-propagation gap already documented for
+  `ReadUs.Extensions.Hashes`, confirmed to apply here too**: a project
+  only gets this analyzer running against its own code with its own
+  direct `OutputItemType="Analyzer"` reference to `ReadUs.SourceGenerators`
+  — a plain `ProjectReference` to `ReadUs.Core` does not transitively
+  propagate `ReadUs.Core`'s own analyzer reference downstream. Resolves
+  itself for free once these packages are actually published to NuGet (the
+  `analyzers/dotnet/cs/*.dll` convention auto-wires for every consumer);
+  not worth solving before that, just documented plainly in
+  `docs/guides/getting-started.md`.

@@ -6,3 +6,4 @@ READUSHASH001 | ReadUs.Hashes | Error | HashModelParser, [RedisHashModel] type m
 READUSHASH002 | ReadUs.Hashes | Error | HashModelParser, [RedisHashModel] type must not be nested
 READUSHASH003 | ReadUs.Hashes | Error | HashModelParser, unsupported property type for a [RedisHashModel] type
 READUSHASH004 | ReadUs.Hashes | Error | HashModelParser, [RedisHashModel] type has no usable constructor
+READUS001 | ReadUs.Performance | Info | StringLiteralArgsAnalyzer, ExecuteAsync/ExecuteBlockingAsync string overload called with only compile-time literal arguments

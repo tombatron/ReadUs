@@ -90,6 +90,31 @@ var reply = await client.ExecuteAsync(
     args: []);
 ```
 
+A `string`-based overload of the same escape hatch also exists, for the
+common case of a literal, known-text command, at the cost of a runtime
+UTF-8 encode on every call:
+
+```csharp
+var reply = await client.ExecuteAsync("SET", ["key", "value"]);
+```
+
+A companion Roslyn analyzer flags a call like this one — every argument a
+compile-time string literal — with an IDE suggestion (not a build
+warning) to switch to the byte-based form above, and a one-click code fix
+does the rewrite for you. **This analyzer only runs against your own code
+if your project has its own direct analyzer reference to
+`ReadUs.SourceGenerators`** (the same non-obvious, pre-NuGet-publish setup
+step [Hash mapping](hash-and-json-mapping.md) needs) — a plain
+`ProjectReference` to `ReadUs.Core` alone does not bring it along:
+
+```xml
+<ItemGroup>
+  <ProjectReference Include="path/to/ReadUs.SourceGenerators.csproj"
+                     OutputItemType="Analyzer"
+                     ReferenceOutputAssembly="false" />
+</ItemGroup>
+```
+
 ## See also
 
 - [Architecture](architecture.md) — how the pools, protocol layer, and

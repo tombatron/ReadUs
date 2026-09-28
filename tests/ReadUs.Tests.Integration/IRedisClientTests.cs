@@ -39,6 +39,20 @@ public class IRedisClientTestsStandalone(StandaloneRedisFixture fixture)
 
         Assert.Equal("hello", result);
     }
+
+    [Fact]
+    public async Task StringOverloadRoundTripsAndAcceptsNoArgs()
+    {
+        await using var client = await RedisClient.ConnectAsync(new RedisConnectionOptions { EndPoint = fixture.EndPoint }, connectionCount: 1);
+
+        var pingReply = await client.ExecuteAsync("PING");
+        Assert.Equal("PONG", pingReply.AsString());
+
+        var key = $"readus:test:stringoverload:{Guid.NewGuid():N}";
+        await client.ExecuteAsync("SET", [key, "hello"]);
+        var getReply = await client.ExecuteAsync("GET", [key]);
+        Assert.Equal("hello", getReply.AsString());
+    }
 }
 
 [Collection(ClusterRedisCollection.Name)]
