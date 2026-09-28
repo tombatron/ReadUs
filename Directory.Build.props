@@ -9,7 +9,6 @@
     <Deterministic>true</Deterministic>
     <Authors>Tommy Hanks</Authors>
     <NeutralLanguage>en-US</NeutralLanguage>
-    <!-- TODO: confirm/update once the GitHub repo actually exists under its final owner/name. -->
     <RepositoryUrl>https://github.com/tombatron/ReadUs</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
