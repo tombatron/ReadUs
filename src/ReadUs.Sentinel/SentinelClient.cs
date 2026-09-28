@@ -23,7 +23,7 @@ namespace ReadUs.Sentinel;
 /// queries every known sentinel and requires a strict majority of *responders* to agree
 /// (project spec §6's explicit call-out: "don't just trust the first responder").
 /// </summary>
-public sealed class SentinelClient : IAsyncDisposable
+public sealed class SentinelClient : IRedisClient
 {
     private const int MaxDiscoveryAttempts = 5;
     private static readonly TimeSpan DiscoveryRetryBackoff = TimeSpan.FromMilliseconds(500);

@@ -6,13 +6,14 @@ using ReadUs.Protocol;
 namespace ReadUs.Scripting;
 
 /// <summary>
-/// Executes a command against whichever client type a caller adapts to this shape —
-/// <c>RedisClient</c>/<c>ClusterClient</c>/<c>SentinelClient</c> all already expose an
-/// <c>ExecuteAsync</c> method matching it exactly. Deliberately a delegate, not a new
-/// shared interface: that's the separately-scoped, still-not-built <c>IRedisClient</c>
-/// unification (project spec §10, docs/design/state-machines.md §5) — this keeps
-/// <see cref="RedisScript"/> usable against all three client types today without
-/// pre-empting that decision.
+/// The low-level shape <see cref="RedisScript.EvaluateAsync(RedisCommandExecutor, ReadOnlyMemory{byte}[], ReadOnlyMemory{byte}[], CancellationToken)"/>
+/// actually needs — kept as a plain delegate rather than taking
+/// <see cref="IRedisClient"/> directly, so <see cref="RedisScript"/> itself stays
+/// decoupled from any particular client abstraction. <c>Scripting.RedisScriptClientExtensions.EvaluateAsync</c>
+/// is the one adapter from <see cref="IRedisClient"/>'s <c>ExecuteAsync</c> onto this
+/// shape that every caller actually uses; see its own remarks and
+/// docs/design/state-machines.md, "Recorded during implementation of IRedisClient
+/// unification," for why it used to be three separate adapters.
 /// </summary>
 public delegate ValueTask<RedisResult> RedisCommandExecutor(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken);
 

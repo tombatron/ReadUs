@@ -8,6 +8,7 @@ using ReadUs.Diagnostics;
 using ReadUs.Generated;
 using ReadUs.Protocol;
 using ReadUs.PubSub;
+using ReadUs.Transactions;
 
 namespace ReadUs.Cluster;
 
@@ -26,7 +27,7 @@ namespace ReadUs.Cluster;
 /// replica read routing (design doc §3.2) via the <see cref="ReadPreference"/> overload
 /// of <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], ReadPreference, CancellationToken)"/>.
 /// </summary>
-public sealed class ClusterClient : IAsyncDisposable
+public sealed class ClusterClient : IRedisClient
 {
     private const int MaxRedirects = 16;
     private static readonly TimeSpan TryAgainBackoff = TimeSpan.FromMilliseconds(50);
@@ -160,6 +161,50 @@ public sealed class ClusterClient : IAsyncDisposable
     }
 
     /// <summary>
+    /// The raw escape hatch for <c>BLOCKING</c>-flagged commands (project spec §3/§4),
+    /// cluster-routed through the same redirect handling the plain
+    /// <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>
+    /// overload uses, leasing a Tier 2 connection on whichever node the command finally
+    /// lands on. Always <see cref="ReadPreference.PrimaryOnly"/> — every blocking
+    /// command in the vendored table is a write (it removes or moves an element), never
+    /// read-only, so there's no replica-eligible case to route to.
+    /// </summary>
+    public ValueTask<RedisResult> ExecuteBlockingAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken = default)
+    {
+        var keys = ExtractKeys(commandName, args);
+        var slot = ComputeSlot(keys);
+        return ExecuteWithRedirectsAsync(commandName, args, slot, ReadPreference.PrimaryOnly, static (client, cmd, a, ct) => client.ExecuteBlockingAsync(cmd, a, ct), cancellationToken);
+    }
+
+    /// <summary>
+    /// Cluster-routed transactions (project spec §4/§10) — deliberately not part of
+    /// <see cref="IRedisClient"/> (see that interface's own remarks): unlike
+    /// <see cref="RedisClient.BeginTransactionAsync"/>/<c>SentinelClient.BeginTransactionAsync</c>,
+    /// which need no routing key since there's only ever one node, a Cluster
+    /// transaction must pick the key's owning node *before* <c>WATCH</c> even runs —
+    /// <see cref="RedisTransaction"/> leases its connection immediately at
+    /// <see cref="RedisTransaction.StartAsync"/>, so there's no later point to defer
+    /// that choice to. Resolves <paramref name="key"/>'s owning node the same way
+    /// <see cref="CreateShardSubscriberAsync"/> resolves a shard channel's, then
+    /// delegates straight to that node's own <see cref="RedisClient.BeginTransactionAsync"/>
+    /// — an ordinary <see cref="RedisTransaction"/>, no Cluster-specific wrapper type.
+    /// No client-side validation that this transaction's later <c>WATCH</c>/queued
+    /// commands stay within <paramref name="key"/>'s slot — the server's own
+    /// slot-ownership enforcement rejects a key the connected node doesn't own,
+    /// matching this project's existing precedent of not duplicating that kind of
+    /// server-side protection client-side beyond the single-call CROSSSLOT check
+    /// <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>
+    /// already does.
+    /// </summary>
+    public async Task<RedisTransaction> BeginTransactionAsync(ReadOnlyMemory<byte> key, CancellationToken cancellationToken = default)
+    {
+        var slot = HashSlot.Compute(key.Span);
+        var owner = _topology.FindOwner(slot) ?? throw new RedisConnectionException($"No known node owns slot {slot}.");
+        var client = await GetOrCreateNodeClientAsync(owner.EndPoint).ConfigureAwait(false);
+        return await client.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Cluster sharded pub/sub (project spec §5/§10): unlike ordinary <c>PUBLISH</c>
     /// (cluster-bus-propagated, delivered regardless of which node a subscriber
     /// connects to), <c>SSUBSCRIBE</c>/<c>SPUBLISH</c> delivery is shard-local — a
@@ -208,7 +253,28 @@ public sealed class ClusterClient : IAsyncDisposable
         _lifetimeCts.Dispose();
     }
 
-    private async ValueTask<RedisResult> ExecuteWithRedirectsAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, int? slot, ReadPreference readPreference, CancellationToken cancellationToken)
+    private ValueTask<RedisResult> ExecuteWithRedirectsAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, int? slot, ReadPreference readPreference, CancellationToken cancellationToken) =>
+        ExecuteWithRedirectsAsync(commandName, args, slot, readPreference, static (client, cmd, a, ct) => client.ExecuteAsync(cmd, a, ct), cancellationToken);
+
+    /// <summary>
+    /// <paramref name="execute"/> is the final per-node call this loop makes once a
+    /// target node is resolved and healthy — parameterized so the entire MOVED/ASK/
+    /// TRYAGAIN/CLUSTERDOWN/quarantine handling below is shared, unmodified, between an
+    /// ordinary command (<see cref="RedisClient.ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>)
+    /// and a <c>BLOCKING</c>-flagged one
+    /// (<see cref="RedisClient.ExecuteBlockingAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>,
+    /// used by this type's own <see cref="ExecuteBlockingAsync"/>) — a blocking command
+    /// sent to the wrong node still gets an immediate <c>MOVED</c> before it ever
+    /// blocks, so it needs exactly the same redirect-then-retry behavior as any other
+    /// command, just leasing a Tier 2 connection on whichever node it finally lands on.
+    /// </summary>
+    private async ValueTask<RedisResult> ExecuteWithRedirectsAsync(
+        ReadOnlyMemory<byte> commandName,
+        ReadOnlyMemory<byte>[] args,
+        int? slot,
+        ReadPreference readPreference,
+        Func<RedisClient, ReadOnlyMemory<byte>, ReadOnlyMemory<byte>[], CancellationToken, ValueTask<RedisResult>> execute,
+        CancellationToken cancellationToken)
     {
         EndPoint? askTarget = null;
 
@@ -247,7 +313,7 @@ public sealed class ClusterClient : IAsyncDisposable
                     await client.ExecuteAsync("ASKING"u8.ToArray(), [], cancellationToken).ConfigureAwait(false);
                 }
 
-                reply = await client.ExecuteAsync(commandName, args, cancellationToken).ConfigureAwait(false);
+                reply = await execute(client, commandName, args, cancellationToken).ConfigureAwait(false);
             }
             catch (RedisConnectionException)
             {

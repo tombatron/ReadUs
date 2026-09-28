@@ -1388,9 +1388,10 @@ Project spec §10 named a general-purpose Pub/Sub API
 shape from the start — unlike every other scoped-out item in this §5, it was
 never recorded here as a deliberate deferral. It was simply missed until a
 later audit (prompted by a smaller, separate ask to unify
-`RedisClient`/`ClusterClient`/`SentinelClient` behind a shared `IRedisClient`,
-itself still not built — see that audit's own note below) went looking for
-what else §10 asked for and never got.
+`RedisClient`/`ClusterClient`/`SentinelClient` behind a shared `IRedisClient`
+— built later, see "Recorded during implementation of IRedisClient
+unification" near the end of this document) went looking for what else §10
+asked for and never got.
 
 - **A real RESP3 protocol wrinkle is the whole reason this needed a
   dedicated type rather than just calling the command-table generator's
@@ -1459,15 +1460,16 @@ what else §10 asked for and never got.
   with an exception) and calls `CreateSubscriberAsync` again.
 - **The audit that found this gap in the first place also confirmed
   `IRedisClient` (spec §10's "same shape for standalone, Cluster, and
-  Sentinel-discovered connections") still doesn't exist** —
-  `RedisClient`/`ClusterClient`/`SentinelClient` still each independently
-  duplicate the same facade surface, as already noted in this document's
-  §13 step 5 Sentinel section. Still real, still not this phase's scope
-  (deferred again, this time in favor of Pub/Sub and Scripting, at the
-  user's explicit direction) — `RedisScript`'s per-client adapters (see
-  "Recorded during implementation of Scripting" below) are a second
-  independent motivation for eventually building it, not a reason it got
-  built here.
+  Sentinel-discovered connections") didn't exist yet at this point** —
+  `RedisClient`/`ClusterClient`/`SentinelClient` each independently
+  duplicated the same facade surface, as already noted in this document's
+  §13 step 5 Sentinel section. Deferred again here, this time in favor of
+  Pub/Sub and Scripting, at the user's explicit direction — `RedisScript`'s
+  per-client adapters (see "Recorded during implementation of Scripting"
+  below) turned out to be a second independent motivation for building it,
+  and it was in fact built immediately afterward; see "Recorded during
+  implementation of IRedisClient unification" near the end of this
+  document.
 
 ### Recorded during implementation of Scripting
 
@@ -1541,3 +1543,91 @@ rather than passed as loose object arrays."
   `hashlib` (not by re-deriving it from this same implementation) caught it
   immediately. Fixed to the tool-confirmed value before the test was ever
   reported as passing.
+
+### Recorded during implementation of IRedisClient unification
+
+The item both the Pub/Sub and Scripting sections above forward-referenced as
+"still doesn't exist": project spec §10's "a top-level `IRedisClient`...
+abstraction with the same shape for standalone, Cluster, and
+Sentinel-discovered connections." Investigating it directly (rather than
+just writing the interface) surfaced that `ClusterClient` was missing
+`ExecuteBlockingAsync` entirely — no cluster-aware blocking-command support
+existed — so a real interface would have been dishonest about what
+`ClusterClient` could actually do until that was fixed first.
+
+- **The interface is deliberately narrow: `ExecuteAsync`, `ExecuteBlockingAsync`,
+  `ExecuteBatchAsync`, `IAsyncDisposable` — nothing else.** Spec §10 draws
+  this line itself: "Cluster/Sentinel-*specific* concerns... live behind
+  clearly separate, opt-in surface." Two real members stay off the
+  interface on exactly that basis, not by oversight: `ClusterClient`'s
+  `ReadPreference`-overloaded `ExecuteAsync` (a Cluster-only concept), and
+  `BeginTransactionAsync`. The second needed real thought, not just a
+  category call: `RedisClient`/`SentinelClient`'s existing
+  `BeginTransactionAsync(CancellationToken)` has no routing key because
+  there's only ever one node, but a Cluster transaction fundamentally must
+  pick a node — via a routing key — before `WATCH` even runs, since
+  `RedisTransaction` leases its connection immediately at `StartAsync`
+  (project spec §4). The two shapes genuinely don't unify: forcing a
+  meaningless key parameter onto the single-node types is worse than not
+  unifying, and having `ClusterClient`'s interface-mandated no-key overload
+  throw `NotSupportedException` is worse still (an interface member that
+  throws by design violates Liskov substitution — exactly the kind of
+  "looks uniform, isn't" trap spec §10 is trying to prevent by calling for
+  separate opt-in surface in the first place). Kept as a concrete,
+  Cluster-only method instead:
+  `ClusterClient.BeginTransactionAsync(ReadOnlyMemory<byte> key, CancellationToken)`.
+- **`ClusterClient.ExecuteBlockingAsync` reuses the existing redirect loop
+  rather than duplicating it** — `ExecuteWithRedirectsAsync`'s single
+  hardcoded `client.ExecuteAsync(...)` call became a parameter
+  (`Func<RedisClient, ReadOnlyMemory<byte>, ReadOnlyMemory<byte>[], CancellationToken, ValueTask<RedisResult>>`),
+  so the entire MOVED/ASK/TRYAGAIN/CLUSTERDOWN/quarantine handling is
+  shared, unmodified, between an ordinary command and a blocking one. This
+  is correct, not just convenient: a blocking command sent to the wrong
+  node still gets an immediate `MOVED` before it ever blocks (routing
+  happens before the block starts), so it needs exactly the same
+  redirect-then-retry behavior as anything else — the only difference is
+  which of `RedisClient`'s two methods finally gets called once a healthy
+  target node is resolved. Always `ReadPreference.PrimaryOnly`: every
+  blocking command in the vendored table is a write (it removes or moves an
+  element), never read-only, so there's no replica-eligible case to route
+  to in the first place.
+- **`ClusterClient.BeginTransactionAsync(key, ct)` resolves the node and
+  hands back an ordinary `RedisTransaction`, no Cluster-specific wrapper
+  type** — same "reuse the existing routing knowledge" pattern as
+  `CreateShardSubscriberAsync` (`HashSlot.Compute` + `_topology.FindOwner`),
+  then delegates straight to that node's own `RedisClient.BeginTransactionAsync`.
+  Deliberately no client-side validation that the transaction's later
+  `WATCH`/queued commands all stay within the resolved key's slot — tracking
+  every key touched across several independent calls would be a materially
+  bigger feature, and the server's own slot-ownership enforcement already
+  rejects a key the connected node doesn't own, matching this project's
+  existing precedent (the CROSSSLOT check) of only validating client-side
+  what a single call can see, not re-implementing every server-side
+  protection ahead of the server.
+- **Finishing the interface let a real piece of duplication collapse**:
+  `RedisScript`'s three near-identical per-client adapter extension methods
+  (`RedisScriptClientExtensions`/`ClusterScriptingExtensions`/
+  `SentinelScriptingExtensions`, from the Scripting phase, built as three
+  separate adapters specifically because `IRedisClient` didn't exist yet)
+  became one — `RedisScriptClientExtensions.EvaluateAsync(this RedisScript, IRedisClient, ...)`
+  — with the two Cluster/Sentinel-specific files deleted outright.
+  `RedisScript.EvaluateAsync` itself still takes the lower-level
+  `RedisCommandExecutor` delegate, not `IRedisClient` directly, so
+  `RedisScript` stays decoupled from any particular client abstraction; the
+  one surviving adapter is the seam between the two. Every existing
+  Scripting test (`ScriptingTests`, `ClusterScriptingTests`) passed
+  unchanged after the collapse — no test code needed to change, since they
+  already called `script.EvaluateAsync(client, ...)` and overload
+  resolution picked the new single adapter transparently.
+- **`IRedisClientTests` is split into three collection-scoped classes, one
+  per fixture type** (`IRedisClientTestsStandalone`/`...Cluster`/
+  `...Sentinel`), each calling the same shared
+  `IRedisClientTests.SetAndGetAsync(IRedisClient, key)` helper — an xUnit
+  test class belongs to exactly one `[Collection]`, so three fixture types
+  means three classes, matching how this suite already splits other
+  cross-cutting concerns. This is the actual proof of the whole feature:
+  identical code, unmodified, running against a real `RedisClient`, a real
+  `ClusterClient`, and a real `SentinelClient` through the interface type
+  alone, against three separate live Testcontainers-managed topologies —
+  not just "it compiles against the interface," which would prove nothing
+  about whether the three implementations actually agree on behavior.

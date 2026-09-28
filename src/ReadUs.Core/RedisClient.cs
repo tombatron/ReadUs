@@ -18,7 +18,7 @@ namespace ReadUs;
 /// the vendored command table (project spec §13 step 4) — see the
 /// <c>ReadUs.Generated</c> namespace and codegen/redis-commands/SOURCE.md.
 /// </summary>
-public sealed class RedisClient : IAsyncDisposable
+public sealed class RedisClient : IRedisClient
 {
     private readonly MultiplexedConnectionPool _multiplexedPool;
     private readonly LeasedConnectionPool _leasedPool;

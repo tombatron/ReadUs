@@ -427,6 +427,53 @@ public class ClusterClientTests(ClusterRedisFixture fixture)
         Assert.Equal(1, connectionAttempts.GetValueOrDefault(SeedEndpoints[1].ToString()!));
     }
 
+    [Fact]
+    public async Task ExecuteBlockingAsyncBlocksOnTheCorrectNodeAndReturnsThePushedValue()
+    {
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+
+        var key = Encoding.UTF8.GetBytes(FindRandomKeyInSlotRange(Node1RangeStart, Node1RangeEnd));
+
+        var blockTask = cluster.ExecuteBlockingAsync("BLPOP"u8.ToArray(), [key, "5"u8.ToArray()]).AsTask();
+
+        // Give the blocking call time to actually reach the server and start waiting
+        // before pushing — proves this is a real block-then-unblock, not a race where
+        // the value was already there before BLPOP ran.
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
+        var pushResult = await cluster.ExecuteAsync("LPUSH"u8.ToArray(), [key, "hello"u8.ToArray()]);
+        Assert.Equal(1, pushResult.AsInt64());
+
+        var reply = await blockTask.WaitAsync(TimeSpan.FromSeconds(10));
+        var items = reply.AsItems();
+        Assert.Equal(2, items.Length);
+        Assert.Equal(Encoding.UTF8.GetString(key), items[0].AsString());
+        Assert.Equal("hello", items[1].AsString());
+    }
+
+    [Fact]
+    public async Task BeginTransactionAsyncRoutesToTheKeysOwningNodeAndCommitsCorrectly()
+    {
+        await using var cluster = await ClusterClient.ConnectAsync(SeedEndpoints);
+
+        var key = Encoding.UTF8.GetBytes(FindRandomKeyInSlotRange(Node1RangeStart, Node1RangeEnd));
+
+        await using (var transaction = await cluster.BeginTransactionAsync(key))
+        {
+            await transaction.WatchAsync([key]);
+            await transaction.MultiAsync();
+            await transaction.QueueAsync("SET"u8.ToArray(), [key, "committed"u8.ToArray()]);
+            var execResult = await transaction.ExecAsync();
+            Assert.False(execResult.IsNull);
+        }
+
+        // Read back through the ordinary routed path — if the transaction had landed
+        // on a node that doesn't own this key's slot, the server's own slot-ownership
+        // enforcement would have rejected the SET, and this GET (correctly routed)
+        // would come back empty instead of the committed value.
+        var getResult = await cluster.ExecuteAsync("GET"u8.ToArray(), [key]);
+        Assert.Equal("committed", getResult.AsString());
+    }
+
     private static async Task<long> TotalCommandsProcessedAsync(RedisClient client)
     {
         var info = (await client.ExecuteAsync("INFO"u8.ToArray(), ["stats"u8.ToArray()])).AsString();
