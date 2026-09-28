@@ -1468,3 +1468,76 @@ what else §10 asked for and never got.
   "Recorded during implementation of Scripting" below) are a second
   independent motivation for eventually building it, not a reason it got
   built here.
+
+### Recorded during implementation of Scripting
+
+The other half of the same missed-not-deferred spec §10 item as Pub/Sub:
+`EVAL`/`EVALSHA`/`FUNCTION` support "with automatic script-cache-miss
+fallback" and "a typed wrapper so a script's declared keys/args are checked
+rather than passed as loose object arrays."
+
+- **No protocol wrinkle here, unlike Pub/Sub** — `EVAL`/`EVALSHA`/
+  `FCALL`/`FUNCTION LOAD` etc. already have working generated typed methods
+  on `RedisClient` (`ReadUs.Generated.ScriptingCommands`), ordinary
+  request/reply commands with no RESP3 push involved. `RedisScript`'s real
+  value is purely the ergonomic layer spec §10 actually asked for: a
+  self-computed SHA1 (`SHA1.HashData` over the script's UTF-8 bytes,
+  `Convert.ToHexStringLower` — no round trip via `SCRIPT LOAD` needed to
+  learn it) and automatic `EVALSHA`→`NOSCRIPT`→`EVAL` fallback.
+- **Deliberately no client-side "is this script loaded" cache.** The
+  server's own script cache can be evicted independently of this client
+  (`SCRIPT FLUSH`, a restart), so a client-side "definitely loaded"
+  assumption could go stale in a way that would silently break every call
+  after that point. Optimistic-`EVALSHA` + catch-`NOSCRIPT` is the only
+  version of this that can't go stale — matches how StackExchange.Redis's
+  own `LuaScript` handles the identical tension. Verified for real, not just
+  argued: `EvaluatingAgainAfterAServerSideScriptFlushStillSucceeds`
+  (`ScriptingTests`) issues a genuine `SCRIPT FLUSH` against the live server
+  between two calls of the same `RedisScript` and confirms the second call
+  still succeeds via the fallback.
+- **`RedisCommandExecutor`, a delegate, not a new shared interface**, is
+  what lets one `RedisScript.EvaluateAsync` work against all three client
+  types via three one-line adapter extension methods
+  (`RedisScriptClientExtensions`/`ClusterScriptingExtensions`/
+  `SentinelScriptingExtensions`) — deliberately not reaching for the
+  still-deferred `IRedisClient` unification to solve this narrower problem;
+  see the Pub/Sub section above for why that's a separate, not-yet-built
+  piece of work. `RedisClient`/`ClusterClient`/`SentinelClient` all already
+  expose an `ExecuteAsync` matching the delegate's shape exactly, so the
+  adapters are pure method-group conversions.
+- **`FUNCTION`/`FCALL` deliberately got no equivalent wrapper.** Unlike a
+  script, a function is explicitly loaded once (already-generated
+  `FunctionLoadAsync`) and then called by name (already-generated
+  `FcallAsync`/`FcallRoAsync`) — there's no cache-miss/fallback wrinkle at
+  all to automate, so a bespoke wrapper would just be a no-op pass-through
+  restating what the generated surface already does. Not built, matching
+  spec §8's "don't add complexity speculatively" stance, cited for the same
+  kind of call elsewhere in this document.
+- **Cluster routing is correct but not optimal for a keyed script call, and
+  that's an accepted, pre-existing pattern, not new scope.** `EVAL`/
+  `EVALSHA`'s keys are staticaly resolvable in principle (`numkeys` plus a
+  fixed-position key list), but the command-table generator currently marks
+  them `HasUnknownKeys = true` — confirmed directly in the generated
+  `CommandMetadata.g.cs` (`KeySpecs = new GeneratedKeySpec[] { }` for both).
+  A Cluster script call therefore round-robins to an arbitrary master on
+  the first attempt rather than routing by key, exactly the same situation
+  already accepted and documented for `SORT` (§13 step 5's Cluster
+  section): a wrong first guess surfaces as an ordinary `MOVED` reply,
+  which `ClusterClient`'s existing redirect-following already handles
+  transparently. `ClusterScriptingTests.EvaluatingAScriptWithAKeySucceedsRegardlessOfWhichNodeItFirstRoutesTo`
+  proves the whole round trip still succeeds end-to-end against a real
+  Cluster fixture, redirect included — correct, just not routed optimally
+  on the first try. Teaching the generator `EVAL`'s `numkeys`-relative key
+  spec shape (rather than the simple first/last/step form it supports
+  today) would close this properly; not attempted here, since it's a
+  generator change orthogonal to this phase's actual scope.
+- **A hand-recalled SHA1 test vector turned out to be wrong when actually
+  checked** — worth remembering as a small, concrete instance of the
+  project's own "verify, don't trust recall" discipline (already invoked
+  for the Toxiproxy JSON shapes during the fault-injection phase).
+  `RedisScriptTests.Sha1MatchesTheStandardTestVector` originally asserted
+  against a from-memory value for SHA1("abc") that was one trailing hex
+  digit short; cross-checking independently via both `sha1sum` and Python's
+  `hashlib` (not by re-deriving it from this same implementation) caught it
+  immediately. Fixed to the tool-confirmed value before the test was ever
+  reported as passing.
