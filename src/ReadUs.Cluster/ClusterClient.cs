@@ -7,6 +7,7 @@ using ReadUs.Connections;
 using ReadUs.Diagnostics;
 using ReadUs.Generated;
 using ReadUs.Protocol;
+using ReadUs.PubSub;
 
 namespace ReadUs.Cluster;
 
@@ -156,6 +157,25 @@ public sealed class ClusterClient : IAsyncDisposable
         }
 
         return Task.WhenAll(pending);
+    }
+
+    /// <summary>
+    /// Cluster sharded pub/sub (project spec §5/§10): unlike ordinary <c>PUBLISH</c>
+    /// (cluster-bus-propagated, delivered regardless of which node a subscriber
+    /// connects to), <c>SSUBSCRIBE</c>/<c>SPUBLISH</c> delivery is shard-local — a
+    /// message published to a shard channel only reaches subscribers connected to a
+    /// node owning that channel's hash slot. Resolves the owning node the same way
+    /// <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>
+    /// resolves a keyed command's target, then opens a dedicated
+    /// <see cref="RedisSubscriber"/> directly against it — reusing this client's own
+    /// topology and <see cref="_optionsFactory"/> rather than making the caller resolve
+    /// the node themselves.
+    /// </summary>
+    public Task<RedisSubscriber> CreateShardSubscriberAsync(string shardChannel, CancellationToken cancellationToken = default)
+    {
+        var slot = HashSlot.Compute(Encoding.UTF8.GetBytes(shardChannel));
+        var owner = _topology.FindOwner(slot) ?? throw new RedisConnectionException($"No known node owns slot {slot} for shard channel '{shardChannel}'.");
+        return RedisSubscriber.ConnectAsync(_optionsFactory(owner.EndPoint), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

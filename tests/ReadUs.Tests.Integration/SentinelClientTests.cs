@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using ReadUs.Connections;
 using ReadUs.Protocol;
+using ReadUs.PubSub;
 using ReadUs.Sentinel;
 using ReadUs.Tests.Integration.Fixtures;
 
@@ -91,5 +92,34 @@ public class SentinelClientTests(SentinelRedisFixture fixture)
         await sentinel.ExecuteAsync("SET"u8.ToArray(), [key, "still-works"u8.ToArray()]);
         var getResult = await sentinel.ExecuteAsync("GET"u8.ToArray(), [key]);
         Assert.Equal("still-works", getResult.AsString());
+    }
+
+    [Fact]
+    public async Task CreateSubscriberAsyncTargetsTheCurrentMasterAndReceivesAPublishedMessage()
+    {
+        await using var sentinel = await SentinelClient.ConnectAsync(SentinelEndpoints, ServiceName);
+        await using var subscriber = await sentinel.CreateSubscriberAsync();
+
+        var channel = $"readus:test:sentinel:pubsub:{Guid.NewGuid():N}";
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        var received = new TaskCompletionSource<RedisPubSubMessage>();
+        var consumeTask = Task.Run(async () =>
+        {
+            await foreach (var message in subscriber.SubscribeAsync(channel, cts.Token))
+            {
+                received.SetResult(message);
+                break;
+            }
+        }, cts.Token);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(200), cts.Token);
+
+        await sentinel.ExecuteAsync("PUBLISH"u8.ToArray(), [Encoding.UTF8.GetBytes(channel), "hello"u8.ToArray()], cts.Token);
+
+        var result = await received.Task.WaitAsync(cts.Token);
+        Assert.Equal("hello", result.Payload.AsString());
+
+        await consumeTask;
     }
 }

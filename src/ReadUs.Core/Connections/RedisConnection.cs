@@ -364,6 +364,39 @@ public sealed class RedisConnection : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Writes a command under the same write gate as <see cref="WriteAndEnqueueAsync"/>,
+    /// but enqueues no <see cref="PendingRequest"/> — for the small set of
+    /// subscription-state commands (<c>SUBSCRIBE</c>/<c>PSUBSCRIBE</c>/<c>SSUBSCRIBE</c>
+    /// and their <c>UN</c>/<c>PUN</c>/<c>SUN</c> counterparts) whose confirmation arrives
+    /// as an out-of-band RESP3 Push frame (project spec §1: RESP3 is always negotiated),
+    /// not as the ordinary correlated reply every other command gets. Enqueuing a
+    /// <see cref="PendingRequest"/> for one of these would leave it stuck forever, since
+    /// <see cref="DispatchReply"/> hands a Push frame to <see cref="OnPush"/> and returns
+    /// without ever dequeuing <see cref="_pending"/>. Internal: a specialized primitive
+    /// for <c>ReadUs.PubSub.RedisSubscriber</c>, not a general escape hatch — anything
+    /// expecting a normal correlated reply must use <see cref="SendAsync"/>.
+    /// </summary>
+    internal async ValueTask SendSubscriptionCommandAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken)
+    {
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ThrowIfNotReady();
+            RespCommandWriter.WriteCommand(_writer, commandName.Span, args);
+            await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await FaultAsync(ex).ConfigureAwait(false);
+            throw;
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
     private async Task OpenAsync(RedisConnectionOptions options, CancellationToken cancellationToken)
     {
         SetState(ConnectionState.Connecting);
@@ -599,6 +632,17 @@ public sealed class RedisConnection : IAsyncDisposable
     /// </summary>
     public Action<RedisResult>? OnPush { get; set; }
 
+    /// <summary>
+    /// Invoked exactly once, from <see cref="FaultAsync"/>, the moment this connection
+    /// transitions to <see cref="ConnectionState.Faulted"/> — a minimal seam in the same
+    /// spirit as <see cref="OnPush"/>, for a consumer that has state of its own tied to
+    /// this connection's lifetime and needs to know the instant it dies rather than
+    /// discovering it lazily on the next call (e.g. <c>ReadUs.PubSub.RedisSubscriber</c>,
+    /// whose open <c>await foreach</c> subscriptions would otherwise hang forever with no
+    /// signal that nothing will ever arrive again).
+    /// </summary>
+    public Action<Exception>? OnFaulted { get; set; }
+
     private void DispatchReply(RedisResult result)
     {
         if (result.Type == RespType.Push)
@@ -647,6 +691,8 @@ public sealed class RedisConnection : IAsyncDisposable
         }
 
         await CloseAsync().ConfigureAwait(false);
+
+        OnFaulted?.Invoke(cause);
     }
 
     private async ValueTask CloseAsync()

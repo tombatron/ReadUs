@@ -1379,3 +1379,92 @@ first attempt at reinventing one.
   budget this file's own race test already uses for the identical
   reason (see its own remarks) — confirmed stable across four repeated
   full-suite runs afterward.
+
+### Recorded during implementation of Pub/Sub
+
+Project spec §10 named a general-purpose Pub/Sub API
+(`SUBSCRIBE`/`PSUBSCRIBE`/cluster-sharded `SSUBSCRIBE`, "an
+`IAsyncEnumerable<RedisMessage>`-style subscription API") as part of the API
+shape from the start — unlike every other scoped-out item in this §5, it was
+never recorded here as a deliberate deferral. It was simply missed until a
+later audit (prompted by a smaller, separate ask to unify
+`RedisClient`/`ClusterClient`/`SentinelClient` behind a shared `IRedisClient`,
+itself still not built — see that audit's own note below) went looking for
+what else §10 asked for and never got.
+
+- **A real RESP3 protocol wrinkle is the whole reason this needed a
+  dedicated type rather than just calling the command-table generator's
+  already-emitted `PubsubCommands.SubscribeAsync`/etc. extension methods.**
+  Since ReadUs always negotiates RESP3 (project spec §1), the server sends a
+  `SUBSCRIBE`/`PSUBSCRIBE`/`SSUBSCRIBE` confirmation (and their
+  `UN`/`PUN`/`SUN` counterparts) as an out-of-band Push frame, not as the
+  ordinary correlated reply `RedisConnection.SendAsync` expects. The
+  generated `SubscribeAsync` extension method calls the ordinary
+  `ExecuteAsync` path and would hang forever if actually used to subscribe —
+  `DispatchReply` hands a Push frame to `OnPush` and returns without ever
+  dequeuing the matching `PendingRequest`. Left in place regardless (it's
+  still a technically-correct low-level escape hatch for hand-rolled push
+  handling) rather than removed, but noting this plainly so it isn't
+  mistaken for a working way to subscribe, or for dead code, later.
+- **`RedisConnection` grew two small additions to make `RedisSubscriber`
+  possible without weakening any existing invariant**: `SendSubscriptionCommandAsync`
+  (internal) writes a command under the same `_writeGate` as ordinary
+  traffic but enqueues no `PendingRequest`, and `OnFaulted` (public, mirrors
+  the existing minimal `OnPush` seam) fires once when the connection faults,
+  so a consumer with its own state tied to the connection's lifetime (here,
+  every open subscription's `Channel<T>`) learns about the fault immediately
+  rather than discovering it lazily — or never, if nothing else would ever
+  call back in. Without `OnFaulted`, a `RedisSubscriber` whose dedicated
+  connection died would leave any open `await foreach` hanging forever, with
+  nothing left to ever write to its channel again — exactly the H1/H2 "never
+  leave a caller waiting forever" invariant this project already enforces
+  for blocking-command cancellation.
+- **Deterministic unsubscribe via `try`/`finally` around the async
+  iterator's `yield return` loop**, not an explicit `UnsubscribeAsync`
+  method a caller has to remember to call. Breaking out of an `await
+  foreach`, cancelling it, or disposing the enumerator early all run the
+  `finally` block, which sends the matching `UNSUBSCRIBE`/`PUNSUBSCRIBE`/
+  `SUNSUBSCRIBE` with `CancellationToken.None` — deliberately not the
+  caller's own (possibly already-cancelled) token, since the caller
+  cancelling enumeration is often *why* the cleanup is running in the first
+  place, and the unsubscribe should still be attempted regardless. Matches
+  the "owns its lifetime, cleans up on scope exit" shape `RedisTransaction`
+  and `ConnectionLease` already use.
+- **Cluster sharded pub/sub needed one real piece of new routing, not just
+  a pass-through.** Ordinary `PUBLISH` is cluster-bus-propagated (delivered
+  cluster-wide regardless of which node a subscriber connects to), but
+  `SSUBSCRIBE`/`SPUBLISH` delivery is shard-local — a message only reaches
+  subscribers connected to a node owning the shard channel's hash slot.
+  `ClusterClient.CreateShardSubscriberAsync` computes the slot via the
+  existing `HashSlot.Compute`, resolves the owning node via the client's own
+  `_topology.FindOwner`, and opens a `RedisSubscriber` directly against it —
+  reusing existing routing knowledge rather than duplicating slot math.
+  Verified end-to-end against a real Cluster fixture (not just "SSUBSCRIBE
+  doesn't error"): `SPUBLISH` already carries a proper key spec
+  (`FirstKeyPosition = 1`) in the vendored command table, so
+  `ClusterClient.ExecuteAsync`'s existing per-key routing sends it to the
+  same node the subscriber resolved to, and the test's fast completion time
+  (a couple hundred milliseconds, not a redirect-chase's multiple round
+  trips) is itself evidence the routing landed correctly on the first try.
+- **Two documented non-goals, matching existing precedent rather than
+  silently under-building**: no auto-reconnect after a fault (identical
+  scope limit to `ClientSideCache`) — a caller must open a fresh
+  `RedisSubscriber` and re-subscribe; and `SentinelClient.CreateSubscriberAsync`
+  opens against the *current* master and does not follow a later failover —
+  unlike `SentinelClient.ExecuteAsync`, which always reads the live
+  `_masterClient` reference at call time, a subscription is one dedicated
+  physical connection handed to the caller up front, with no way for a
+  later `SwitchMasterAsync` to migrate it. A caller needing failover
+  resilience detects the fault (the subscription's `await foreach` ends
+  with an exception) and calls `CreateSubscriberAsync` again.
+- **The audit that found this gap in the first place also confirmed
+  `IRedisClient` (spec §10's "same shape for standalone, Cluster, and
+  Sentinel-discovered connections") still doesn't exist** —
+  `RedisClient`/`ClusterClient`/`SentinelClient` still each independently
+  duplicate the same facade surface, as already noted in this document's
+  §13 step 5 Sentinel section. Still real, still not this phase's scope
+  (deferred again, this time in favor of Pub/Sub and Scripting, at the
+  user's explicit direction) — `RedisScript`'s per-client adapters (see
+  "Recorded during implementation of Scripting" below) are a second
+  independent motivation for eventually building it, not a reason it got
+  built here.

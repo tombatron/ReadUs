@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using ReadUs.Connections;
 using ReadUs.Protocol;
+using ReadUs.PubSub;
 using ReadUs.Transactions;
 
 namespace ReadUs.Sentinel;
@@ -39,6 +40,7 @@ public sealed class SentinelClient : IAsyncDisposable
 
     private volatile RedisClient _masterClient = null!;
     private volatile string _masterEndpointKey = string.Empty;
+    private volatile EndPoint _masterEndpoint = null!;
 
     private Task _pollLoopTask = Task.CompletedTask;
     private Task _pubSubSupervisorTask = Task.CompletedTask;
@@ -82,6 +84,21 @@ public sealed class SentinelClient : IAsyncDisposable
     public Task<RedisTransaction> BeginTransactionAsync(CancellationToken cancellationToken = default) =>
         _masterClient.BeginTransactionAsync(cancellationToken);
 
+    /// <summary>
+    /// Opens a <see cref="RedisSubscriber"/> against the *currently* known master.
+    /// Deliberately does not follow a subsequent failover — unlike
+    /// <see cref="ExecuteAsync(ReadOnlyMemory{byte}, ReadOnlyMemory{byte}[], CancellationToken)"/>,
+    /// which always reads the live <see cref="_masterClient"/> reference at call time,
+    /// this opens one dedicated physical connection up front and hands it to the
+    /// caller; a later <see cref="SwitchMasterAsync"/> has no way to migrate an
+    /// already-open subscription onto the new master's connection. A caller that needs
+    /// subscriptions to survive failover must detect the disconnect (the subscription's
+    /// <c>await foreach</c> ends with an exception, per <see cref="RedisSubscriber"/>'s
+    /// own fault handling) and call this again.
+    /// </summary>
+    public Task<RedisSubscriber> CreateSubscriberAsync(CancellationToken cancellationToken = default) =>
+        RedisSubscriber.ConnectAsync(_masterOptionsFactory(_masterEndpoint), cancellationToken);
+
     public async ValueTask DisposeAsync()
     {
         await _lifetimeCts.CancelAsync().ConfigureAwait(false);
@@ -112,6 +129,7 @@ public sealed class SentinelClient : IAsyncDisposable
         var masterEndpoint = await DiscoverMasterAsync(cancellationToken).ConfigureAwait(false);
         _masterClient = await RedisClient.ConnectAsync(_masterOptionsFactory(masterEndpoint), cancellationToken: cancellationToken).ConfigureAwait(false);
         _masterEndpointKey = masterEndpoint.ToString()!;
+        _masterEndpoint = masterEndpoint;
 
         _pollLoopTask = Task.Run(PollLoopAsync, CancellationToken.None);
         _pubSubSupervisorTask = Task.Run(PubSubSupervisorLoopAsync, CancellationToken.None);
@@ -309,6 +327,7 @@ public sealed class SentinelClient : IAsyncDisposable
             var newClient = await RedisClient.ConnectAsync(_masterOptionsFactory(newEndpoint), cancellationToken: cancellationToken).ConfigureAwait(false);
             var oldClient = Interlocked.Exchange(ref _masterClient, newClient);
             _masterEndpointKey = newKey;
+            _masterEndpoint = newEndpoint;
 
             await oldClient.DisposeAsync().ConfigureAwait(false);
         }
