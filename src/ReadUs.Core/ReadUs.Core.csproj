@@ -9,10 +9,21 @@
     <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Core</PackageId>
+    <Version>0.1.0</Version>
+    <Description>A from-scratch, low-allocation .NET Redis client: RESP3, Tier 1/Tier 2 connection pooling, blocking commands, transactions, and a zero-reflection source-generated command surface. Standalone-server support; see ReadUs.Cluster/ReadUs.Sentinel for Cluster/Sentinel.</Description>
+    <PackageTags>redis;resp3;database;cache</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\ReadUs.SourceGenerators\ReadUs.SourceGenerators.csproj"
                        OutputItemType="Analyzer"
                        ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

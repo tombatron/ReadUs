@@ -8,6 +8,8 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <!-- Comparison baseline only (ComparativeGetSetBenchmarks/ComparativePipelineDepthBenchmarks) - never referenced by any shipped ReadUs package. -->
+    <PackageReference Include="StackExchange.Redis" Version="2.9.25" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -16,4 +16,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Extensions.DependencyInjection</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Microsoft.Extensions.DependencyInjection registration helpers for ReadUs's RedisClient, ClusterClient, and SentinelClient.</Description>
+    <PackageTags>redis;dependencyinjection;database;cache</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

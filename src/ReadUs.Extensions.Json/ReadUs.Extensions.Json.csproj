@@ -10,4 +10,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Extensions.Json</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Whole-value JSON POCO helpers for ReadUs (SetJsonAsync/GetJsonAsync over SET/GET), using System.Text.Json source-generated JsonTypeInfo&lt;T&gt; only - zero reflection.</Description>
+    <PackageTags>redis;json;database;cache</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

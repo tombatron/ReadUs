@@ -14,4 +14,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Extensions.OpenTelemetry</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Wires ReadUs's BCL System.Diagnostics.Metrics instrumentation into an application's own OpenTelemetry MeterProviderBuilder. ReadUs.Core itself takes no OpenTelemetry dependency; referencing this package (and only it) is what actually costs anything.</Description>
+    <PackageTags>redis;opentelemetry;metrics;database;cache</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

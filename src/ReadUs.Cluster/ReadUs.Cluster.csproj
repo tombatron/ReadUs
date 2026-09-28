@@ -10,4 +10,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Cluster</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Redis Cluster support for ReadUs: hash-slot routing, MOVED/ASK/TRYAGAIN/CLUSTERDOWN handling, per-node health tracking and quarantine, replica read routing, cluster-routed transactions and blocking commands, and sharded pub/sub.</Description>
+    <PackageTags>redis;cluster;database;cache</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

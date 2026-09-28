@@ -10,4 +10,15 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Sentinel</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Redis Sentinel support for ReadUs: quorum-of-responders master discovery, pub/sub + polling failover detection, and automatic reconnect to the current master.</Description>
+    <PackageTags>redis;sentinel;database;cache</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>

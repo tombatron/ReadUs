@@ -13,4 +13,15 @@
                        ReferenceOutputAssembly="false" />
   </ItemGroup>
 
+  <PropertyGroup>
+    <PackageId>ReadUs.Extensions.Hashes</PackageId>
+    <Version>0.1.0</Version>
+    <Description>Zero-reflection Redis Hash mapping for ReadUs: a Roslyn incremental source generator maps [RedisHashModel] POCOs directly to/from HSET/HGETALL fields at compile time.</Description>
+    <PackageTags>redis;hash;sourcegenerator;database;cache</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
 </Project>
