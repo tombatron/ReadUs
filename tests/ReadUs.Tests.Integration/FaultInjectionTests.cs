@@ -71,6 +71,43 @@ public class FaultInjectionTests(ToxiproxyFixture fixture)
     }
 
     [Fact]
+    public async Task AbruptResetDuringAConcurrentBatchFailsEveryPendingCallerCleanly()
+    {
+        // Direct fault-path coverage for design doc Invariant I8 (write-queue
+        // stranding): a real connection death while a large batch of commands is in
+        // flight must fail every single one of them with a clear exception — never a
+        // hang — regardless of exactly which internal queue (not-yet-written, or
+        // already-claimed-and-written) each one happened to be sitting in the instant
+        // the connection died.
+        await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1);
+
+        var before = await client.ExecuteAsync("PING"u8.ToArray(), []);
+        Assert.Equal("PONG", before.AsString());
+
+        await fixture.AddToxicAsync("reset-batch", "reset_peer", "downstream", new { timeout = 0 });
+        try
+        {
+            const int concurrency = 200;
+            var tasks = new Task[concurrency];
+            for (var i = 0; i < concurrency; i++)
+            {
+                tasks[i] = Task.Run(async () =>
+                    await Assert.ThrowsAsync<RedisConnectionException>(async () =>
+                        await client.ExecuteAsync("PING"u8.ToArray(), [])));
+            }
+
+            // The bound itself is the assertion that matters most here: if any single
+            // caller were left hanging (a lost item somewhere between the write queue
+            // and the fault drain), this would time out instead of completing.
+            await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(20));
+        }
+        finally
+        {
+            await fixture.RemoveToxicAsync("reset-batch");
+        }
+    }
+
+    [Fact]
     public async Task ARequestSplitIntoOneByteNetworkFragmentsStillParsesCorrectly()
     {
         await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1);

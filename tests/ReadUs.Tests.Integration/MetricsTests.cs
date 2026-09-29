@@ -53,6 +53,12 @@ public class MetricsTests(StandaloneRedisFixture fixture)
         Assert.Contains(measurements, m => m.Instrument == "readus.command.duration");
         Assert.Contains(measurements, m => m.Instrument == "readus.commands.executed" && Equals(m.Value, 1L));
 
+        // One PING, sent alone (nothing else concurrently queued), is its own batch of
+        // exactly one — the write loop's normal case, not just the concurrent-batching
+        // one docs/benchmarks.md measures.
+        Assert.Contains(measurements, m => m.Instrument == "readus.connection.flushes" && Equals(m.Value, 1L));
+        Assert.Contains(measurements, m => m.Instrument == "readus.connection.flush.batchsize" && Equals(m.Value, 1L));
+
         // DisposeAsync faults the connection (project spec's own documented shutdown
         // path) — that must show up too, including the active-count decrement.
         Assert.Contains(measurements, m => m.Instrument == "readus.connections.faulted" && Equals(m.Value, 1L));

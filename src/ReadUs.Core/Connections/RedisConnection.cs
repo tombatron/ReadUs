@@ -48,13 +48,40 @@ public sealed class RedisConnection : IAsyncDisposable
 
     private readonly ConcurrentQueue<PendingRequest> _pending = new();
     private readonly ConcurrentQueue<PendingRequest> _requestPool = new();
-    private readonly SemaphoreSlim _writeGate = new(1, 1);
+
+    /// <summary>
+    /// Work accepted for writing but not yet on the wire (design doc Invariant I8).
+    /// <see cref="PendingRequest"/> is null for a subscription-state command (design
+    /// doc §2/Pub/Sub §10) — its confirmation arrives via an out-of-band push, not a
+    /// FIFO-correlated reply, so there is nothing to enqueue into <see cref="_pending"/>
+    /// for it.
+    /// </summary>
+    private readonly ConcurrentQueue<(ReadOnlyMemory<byte> CommandName, ReadOnlyMemory<byte>[] Args, PendingRequest? Pending)> _writeQueue = new();
+
+    /// <summary>Wakes <see cref="WriteLoopAsync"/>. Unbounded max count (the single-arg constructor) so concurrent <see cref="SemaphoreSlim.Release()"/> calls from many producers never throw; a few redundant wakeups this can cause are a harmless, bounded inefficiency, not a correctness concern.</summary>
+    private readonly SemaphoreSlim _flushSignal = new(0);
+
+    /// <summary>
+    /// Guards the narrow "move one item from <see cref="_writeQueue"/> into
+    /// <see cref="_pending"/>" step (design doc Invariant I8) — without this, an item
+    /// dequeued from <see cref="_writeQueue"/> but not yet re-enqueued into
+    /// <see cref="_pending"/> is observable in *neither* queue for a few CPU
+    /// instructions, a real window a concurrently-running <see cref="FaultAsync"/>
+    /// (triggered independently by, say, the read loop) can land in and miss it
+    /// entirely — found via a genuine, reproducible hang under real concurrent fault
+    /// injection, not by inspection. Held only for that one synchronous move, never
+    /// across <c>WriteCommand</c>'s full batch or <c>FlushAsync</c>, so it costs
+    /// nothing close to what the original single write-gate-across-the-flush design
+    /// did.
+    /// </summary>
+    private readonly Lock _writeQueueMoveLock = new();
 
     private Socket _socket = null!;
     private Stream _stream = null!;
     private PipeReader _reader = null!;
     private PipeWriter _writer = null!;
     private Task _readLoopTask = Task.CompletedTask;
+    private Task _writeLoopTask = Task.CompletedTask;
     private IRedisCredentialsProvider? _credentialsProvider;
 
     private int _state = (int)ConnectionState.Created;
@@ -158,6 +185,7 @@ public sealed class RedisConnection : IAsyncDisposable
     {
         await FaultAsync(new ObjectDisposedException(nameof(RedisConnection))).ConfigureAwait(false);
         await _readLoopTask.ConfigureAwait(false);
+        await _writeLoopTask.ConfigureAwait(false);
     }
 
     /// <summary>
@@ -332,68 +360,157 @@ public sealed class RedisConnection : IAsyncDisposable
 
     private static byte[] EncodeClientId(long clientId) => Encoding.ASCII.GetBytes(clientId.ToString(CultureInfo.InvariantCulture));
 
-    private async ValueTask WriteAndEnqueueAsync(PendingRequest pending, ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken)
+    /// <summary>
+    /// Accepts a command for writing and returns immediately — the actual write and
+    /// flush happen on <see cref="WriteLoopAsync"/> (design doc Invariant I7), not on
+    /// this caller's own execution context. This is safe for every caller today: both
+    /// <see cref="SendAsync"/> and <see cref="SendBlockingAsync"/> only actually need to
+    /// wait for the eventual *reply* (via <paramref name="pending"/>'s own
+    /// <see cref="ValueTask{TResult}"/>), never specifically for "the flush completed" —
+    /// they were always really waiting on the reply, so returning here before the flush
+    /// happens changes nothing observable to them.
+    /// </summary>
+    private ValueTask WriteAndEnqueueAsync(PendingRequest pending, ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken)
     {
-        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfNotReady();
+        _writeQueue.Enqueue((commandName, args, pending));
+        _flushSignal.Release();
+        CompleteIfStrandedByARaceWithFaultAsync(pending);
+        return default;
+    }
+
+    /// <summary>
+    /// Closes a narrow race (design doc Invariant I8) between this call's own
+    /// <see cref="ThrowIfNotReady"/> check and its <see cref="_writeQueue"/> enqueue:
+    /// <see cref="FaultAsync"/> only ever drains <see cref="_writeQueue"/> once (it's
+    /// idempotent — a second call is a no-op), so an item enqueued strictly *after*
+    /// that one-time drain already ran would otherwise sit there forever with nothing
+    /// left to ever complete it. Re-checking <see cref="State"/> immediately after
+    /// enqueueing and self-completing if it's no longer <see cref="ConnectionState.Ready"/>
+    /// closes this for every interleaving: either this check observes the fault (and
+    /// completes the request itself), or it doesn't — meaning the fault transition
+    /// (which always happens strictly before <see cref="FaultAsync"/>'s own drain)
+    /// hadn't happened yet at the time of this check, which happened strictly after
+    /// the enqueue above, so <see cref="FaultAsync"/>'s drain is guaranteed to run
+    /// strictly after the enqueue too and will catch it instead. Calling
+    /// <see cref="PendingRequest.TryCompleteWithException"/> here even if
+    /// <see cref="FaultAsync"/>'s drain also independently reaches the same item is
+    /// safe and cannot double-complete anything (Invariant I3) — whichever call gets
+    /// there first wins, and the other is a harmless no-op.
+    /// </summary>
+    private void CompleteIfStrandedByARaceWithFaultAsync(PendingRequest pending)
+    {
+        if (State != ConnectionState.Ready)
         {
-            ThrowIfNotReady();
-            RespCommandWriter.WriteCommand(_writer, commandName.Span, args);
-            _pending.Enqueue(pending);
-            await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            // Any failure here — including a cancelled write, not just an I/O error —
-            // faults the whole connection, never just this request: RespCommandWriter
-            // may have already written partial command bytes into the pipe, which
-            // desyncs RESP framing for every other request sharing this connection's
-            // FIFO reply order. There is no such thing as a safely-cancelled write.
-            //
-            // `pending` may already be queued above and will be failed by the fault
-            // drain (Invariant I4). It is deliberately NOT returned to the free-list
-            // here: nobody will call GetResult() on it, so its ManualResetValueTaskSourceCore
-            // is never reset, and pooling it unreset would hand the next renter a
-            // source that's already completed. Let it be collected instead.
-            await FaultAsync(ex).ConfigureAwait(false);
-            throw;
-        }
-        finally
-        {
-            _writeGate.Release();
+            pending.TryCompleteWithException(new RedisConnectionException($"The connection is not ready (state: {State})."));
         }
     }
 
     /// <summary>
-    /// Writes a command under the same write gate as <see cref="WriteAndEnqueueAsync"/>,
-    /// but enqueues no <see cref="PendingRequest"/> — for the small set of
-    /// subscription-state commands (<c>SUBSCRIBE</c>/<c>PSUBSCRIBE</c>/<c>SSUBSCRIBE</c>
+    /// Same acceptance path as <see cref="WriteAndEnqueueAsync"/>, but for the small set
+    /// of subscription-state commands (<c>SUBSCRIBE</c>/<c>PSUBSCRIBE</c>/<c>SSUBSCRIBE</c>
     /// and their <c>UN</c>/<c>PUN</c>/<c>SUN</c> counterparts) whose confirmation arrives
     /// as an out-of-band RESP3 Push frame (project spec §1: RESP3 is always negotiated),
-    /// not as the ordinary correlated reply every other command gets. Enqueuing a
-    /// <see cref="PendingRequest"/> for one of these would leave it stuck forever, since
-    /// <see cref="DispatchReply"/> hands a Push frame to <see cref="OnPush"/> and returns
-    /// without ever dequeuing <see cref="_pending"/>. Internal: a specialized primitive
-    /// for <c>ReadUs.PubSub.RedisSubscriber</c>, not a general escape hatch — anything
+    /// not as the ordinary correlated reply every other command gets — so no
+    /// <see cref="PendingRequest"/> is enqueued for one of these;
+    /// <see cref="DispatchReply"/> hands a Push frame to <see cref="OnPush"/> directly,
+    /// never touching <see cref="_pending"/>. Internal: a specialized primitive for
+    /// <c>ReadUs.PubSub.RedisSubscriber</c>, not a general escape hatch — anything
     /// expecting a normal correlated reply must use <see cref="SendAsync"/>.
     /// </summary>
-    internal async ValueTask SendSubscriptionCommandAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken)
+    internal ValueTask SendSubscriptionCommandAsync(ReadOnlyMemory<byte> commandName, ReadOnlyMemory<byte>[] args, CancellationToken cancellationToken)
     {
-        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        ThrowIfNotReady();
+        _writeQueue.Enqueue((commandName, args, null));
+        _flushSignal.Release();
+        return default;
+    }
+
+    /// <summary>
+    /// The sole writer for this connection's entire lifetime (design doc Invariant I7)
+    /// — every other code path only ever enqueues into <see cref="_writeQueue"/> and
+    /// signals <see cref="_flushSignal"/>; nothing else ever touches <see cref="_writer"/>.
+    /// Draining as many currently-queued items as possible before a single
+    /// <see cref="PipeWriter.FlushAsync"/> call (rather than one flush per item, the
+    /// previous design) is what turns concurrent load into genuine pipelining instead of
+    /// N serialized round trips to the socket — see docs/design/state-machines.md's
+    /// "Recorded during implementation of batched connection writes" for the measurements
+    /// that motivated this.
+    /// </summary>
+    private async Task WriteLoopAsync()
+    {
         try
         {
-            ThrowIfNotReady();
-            RespCommandWriter.WriteCommand(_writer, commandName.Span, args);
-            await _writer.FlushAsync(cancellationToken).ConfigureAwait(false);
+            while (true)
+            {
+                await _flushSignal.WaitAsync().ConfigureAwait(false);
+
+                if (State != ConnectionState.Ready)
+                {
+                    // Faulted while we were idle waiting — FaultAsync already drained
+                    // both _pending and _writeQueue as part of that same transition
+                    // (Invariant I4/I8); nothing left for us to do. A fault that
+                    // happens *during* an active batch below is instead discovered the
+                    // ordinary way, via WriteCommand/FlushAsync itself throwing.
+                    return;
+                }
+
+                var batchSize = 0;
+                while (TryClaimNextWriteQueueItem(out var item))
+                {
+                    RespCommandWriter.WriteCommand(_writer, item.CommandName.Span, item.Args);
+                    batchSize++;
+                }
+
+                if (batchSize > 0)
+                {
+                    ReadUsDiagnostics.WriteBatchFlushed(batchSize);
+                    await _writer.FlushAsync().ConfigureAwait(false);
+                }
+            }
         }
         catch (Exception ex)
         {
+            // Any failure here — including partway through a batch — faults the whole
+            // connection, never just one item: RespCommandWriter may have already
+            // written partial command bytes into the pipe for a *later* item in this
+            // same batch, which desyncs RESP framing for every request sharing this
+            // connection's FIFO reply order. There is no such thing as a safely-failed
+            // write. Every item already moved into _pending above will be failed by
+            // FaultAsync's existing drain (Invariant I4); anything still sitting in
+            // _writeQueue (not yet reached by this batch, or enqueued by a racing
+            // caller) is covered by I8's extension of that same drain.
             await FaultAsync(ex).ConfigureAwait(false);
-            throw;
         }
-        finally
+    }
+
+    /// <summary>
+    /// Dequeues one item from <see cref="_writeQueue"/> and, in the same lock-held
+    /// step, claims it into <see cref="_pending"/> (or, for a subscription command
+    /// with no <see cref="PendingRequest"/>, just removes it) — never leaving it
+    /// observable in neither queue, which is exactly the window
+    /// <see cref="_writeQueueMoveLock"/> exists to close (design doc Invariant I8; see
+    /// that field's own remarks for the real, reproduced-under-load hang this fixes).
+    /// <see cref="FaultAsync"/> holds the same lock across its own combined drain of
+    /// both queues, so the two can never observe an item mid-move.
+    /// </summary>
+    private bool TryClaimNextWriteQueueItem(out (ReadOnlyMemory<byte> CommandName, ReadOnlyMemory<byte>[] Args, PendingRequest? Pending) item)
+    {
+        lock (_writeQueueMoveLock)
         {
-            _writeGate.Release();
+            if (!_writeQueue.TryDequeue(out item))
+            {
+                return false;
+            }
+
+            if (item.Pending is not null)
+            {
+                _pending.Enqueue(item.Pending);
+            }
+
+            return true;
         }
     }
 
@@ -503,6 +620,7 @@ public sealed class RedisConnection : IAsyncDisposable
         // keep running (and eventually fault itself via ReadLoopAsync's own catch)
         // long after ConnectAsync's token could legitimately fire or be disposed.
         _readLoopTask = Task.Run(ReadLoopAsync, CancellationToken.None);
+        _writeLoopTask = Task.Run(WriteLoopAsync, CancellationToken.None);
 
         if (options.CredentialsProvider is not null)
         {
@@ -685,12 +803,35 @@ public sealed class RedisConnection : IAsyncDisposable
 
         ReadUsDiagnostics.ConnectionFaulted(wasReady: previous == ConnectionState.Ready);
 
-        while (_pending.TryDequeue(out var request))
+        // Both drains happen as one combined critical section, under the same lock
+        // WriteLoopAsync's TryClaimNextWriteQueueItem briefly holds around its own
+        // "dequeue from _writeQueue, claim into _pending" move (Invariant I8) — without
+        // this, an item could be observed in *neither* queue (already dequeued from
+        // _writeQueue, not yet re-enqueued into _pending) at the exact instant both
+        // loops below run, and be missed by both. Found as a genuine, reproducible hang
+        // under real concurrent fault injection, not by inspection — see
+        // _writeQueueMoveLock's own remarks.
+        lock (_writeQueueMoveLock)
         {
-            request.TryCompleteWithException(new RedisConnectionException("The connection failed.", cause));
+            while (_pending.TryDequeue(out var request))
+            {
+                request.TryCompleteWithException(new RedisConnectionException("The connection failed.", cause));
+            }
+
+            while (_writeQueue.TryDequeue(out var item))
+            {
+                item.Pending?.TryCompleteWithException(new RedisConnectionException("The connection failed.", cause));
+            }
         }
 
         await CloseAsync().ConfigureAwait(false);
+
+        // Wakes a write loop that's currently idle in _flushSignal.WaitAsync() with
+        // nothing queued (e.g. DisposeAsync faulting a connection with no write in
+        // flight) so it observes State != Ready and exits instead of leaking forever —
+        // a loop that instead faults from its own write/flush exception already exits
+        // via its own catch block regardless of this call.
+        _flushSignal.Release();
 
         OnFaulted?.Invoke(cause);
     }
@@ -698,8 +839,33 @@ public sealed class RedisConnection : IAsyncDisposable
     private async ValueTask CloseAsync()
     {
         SetState(ConnectionState.Closed);
-        await _writer.CompleteAsync().ConfigureAwait(false);
-        await _reader.CompleteAsync().ConfigureAwait(false);
+
+        // PipeWriter.CompleteAsync (StreamPipeWriter specifically) tries to flush any
+        // still-buffered bytes before it finishes completing — which throws if the
+        // transport is already broken (e.g. the peer reset the connection while a
+        // write-loop batch still had unflushed bytes sitting in the writer). We're
+        // already tearing down a connection already known to be dead; failing to
+        // gracefully flush its last few bytes is expected and irrelevant here, and
+        // must never prevent the real cleanup below (socket/stream disposal) from
+        // running — an uncaught exception at this point would both crash whichever
+        // caller is awaiting FaultAsync *and* leak the socket, since nothing after the
+        // throwing line would ever execute.
+        try
+        {
+            await _writer.CompleteAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            await _reader.CompleteAsync().ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+
         _stream.Dispose();
         _socket.Dispose();
     }

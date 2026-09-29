@@ -57,6 +57,19 @@ public static class ReadUsDiagnostics
     private static readonly Counter<long> ClusterRedirectsCounter =
         Meter.CreateCounter<long>("readus.cluster.redirects", unit: "{redirect}", description: "Cluster MOVED/ASK/TRYAGAIN redirects followed, by kind.");
 
+    private static readonly Counter<long> WriteFlushesCounter =
+        Meter.CreateCounter<long>("readus.connection.flushes", unit: "{flush}", description: "PipeWriter.FlushAsync calls made by a connection's write loop.");
+
+    /// <summary>
+    /// How many commands a single <see cref="Connections.RedisConnection"/> write-loop
+    /// flush covered (design doc "Recorded during implementation of batched connection
+    /// writes") — the direct, permanent version of the throwaway counters originally
+    /// used to diagnose and validate that change, kept because seeing actual batch
+    /// sizes for a real workload is useful beyond that one investigation.
+    /// </summary>
+    private static readonly Histogram<long> WriteFlushBatchSizeHistogram =
+        Meter.CreateHistogram<long>("readus.connection.flush.batchsize", unit: "{command}", description: "Number of commands written into a single flush by a connection's write loop.");
+
     public static void CommandExecuted(string tier, double elapsedMilliseconds)
     {
         CommandsExecutedCounter.Add(1, new KeyValuePair<string, object?>("tier", tier));
@@ -82,4 +95,10 @@ public static class ReadUsDiagnostics
     public static void Reconnected() => ReconnectsCounter.Add(1);
 
     public static void ClusterRedirect(string kind) => ClusterRedirectsCounter.Add(1, new KeyValuePair<string, object?>("kind", kind));
+
+    public static void WriteBatchFlushed(int batchSize)
+    {
+        WriteFlushesCounter.Add(1);
+        WriteFlushBatchSizeHistogram.Record(batchSize);
+    }
 }

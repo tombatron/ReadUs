@@ -91,6 +91,32 @@ public class StandaloneClientTests(StandaloneRedisFixture fixture)
     }
 
     [Fact]
+    public async Task ManyConcurrentCommandsOnOneConnectionAreNeverCrossedUp()
+    {
+        // The direct regression test for the write loop's batching (design doc
+        // Invariant I7/I8, "Recorded during implementation of batched connection
+        // writes"): many commands sharing one connection get written and flushed
+        // together in whatever batches the write loop assembles, and this proves that
+        // never scrambles which reply belongs to which caller. ECHO makes each
+        // command's own expected reply trivially distinguishable from every other's.
+        await using var client = await RedisClient.ConnectAsync(Options, connectionCount: 1);
+
+        const int concurrency = 500;
+        var tasks = new Task[concurrency];
+        for (var i = 0; i < concurrency; i++)
+        {
+            var expected = $"echo-payload-{i}";
+            tasks[i] = Task.Run(async () =>
+            {
+                var result = await client.ExecuteAsync("ECHO"u8.ToArray(), [Encoding.UTF8.GetBytes(expected)]);
+                Assert.Equal(expected, result.AsString());
+            });
+        }
+
+        await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(30));
+    }
+
+    [Fact]
     public async Task CancellingBeforeTheWriteHappensDoesNotBreakTheConnectionForSubsequentCommands()
     {
         // Covers only the "cancelled before a byte was written" path, which SendAsync

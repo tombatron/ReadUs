@@ -151,7 +151,10 @@ whether the connection died gracefully or violently. There is deliberately no
   part of that same transition (not eventually, not best-effort), walk every
   outstanding awaiter for that connection in original FIFO order and complete
   each exactly once with a well-defined `RedisConnectionException`. This is
-  what makes I3 provable rather than "usually true."
+  what makes I3 provable rather than "usually true." Extended by I8: this
+  walk covers both the FIFO reply-tracking queue *and* the write loop's own
+  not-yet-claimed work queue, since a request can be waiting in either one
+  depending on exactly when the fault happened.
 - **I5 — Clean-boundary pool return.** A connection is only handed back to a
   Tier 2 pool (or left in the Tier 1 rotation) from `Ready`, and only when the
   protocol layer can *prove* — via byte-accounting in the RESP reader, not by
@@ -162,6 +165,23 @@ whether the connection died gracefully or violently. There is deliberately no
 - **I6 — Fresh DNS per connect.** `Connecting` always re-resolves the
   configured endpoint name; no IP is cached across a `Faulted`/`Draining` →
   reconnect cycle (§7 — managed endpoints rotate IPs on failover).
+- **I7 — Single active writer.** At most one execution context is ever
+  inside `RespCommandWriter.WriteCommand`/`PipeWriter.FlushAsync` for a
+  given connection at a time. Enforced structurally, not by a lock: one
+  dedicated write loop (symmetric to the read loop already named in this
+  section's opening paragraph) is the *only* code path that ever touches
+  the connection's `PipeWriter`, for the connection's whole lifetime.
+  Every other caller only ever enqueues work for that loop to pick up.
+- **I8 — No write-queue stranding.** A request accepted for write (queued
+  for the write loop, before I3's "accepted for write while Ready" moment
+  is even reached) is guaranteed to eventually reach the point I3/I4
+  govern — either the write loop's own drain claims it (moving it into
+  the same FIFO-tracked structure I4 already walks) before attempting to
+  write it, so a mid-batch write failure still leaves it correctly
+  tracked for I4's drain; or, if it's still sitting unclaimed when the
+  connection faults, I4's drain is extended to also walk the write queue
+  directly. Together these mean nothing can be accepted and then silently
+  dropped between "enqueued" and "written."
 
 ---
 
@@ -1711,3 +1731,122 @@ can actually verify the rewrite is safe.
   `analyzers/dotnet/cs/*.dll` convention auto-wires for every consumer);
   not worth solving before that, just documented plainly in
   `docs/guides/getting-started.md`.
+
+### Recorded during implementation of batched connection writes
+
+Prompted by `docs/benchmarks.md`'s own honest, previously-unexplained
+finding: ReadUs was faster than StackExchange.Redis on single-command round
+trips but StackExchange.Redis pulled far ahead at high pipeline depth
+(~7.7x at depth 512). Root-caused with real evidence before any code
+changed, not guessed at: temporary instrumentation against a live server
+showed `RedisConnection`'s old design called `PipeWriter.FlushAsync` once
+per command, always, at every concurrency level tested — the single
+`_writeGate` semaphore was held across the *entire* write-and-flush, so no
+two commands were ever coalesced into one flush regardless of how many
+were genuinely in flight at once.
+
+- **A first fix attempt measured as producing zero improvement, and that
+  negative result changed the design.** Letting whoever already held the
+  gate also drain any *other* currently-queued items before flushing
+  (still one shared gate, no new architecture) showed no batching at all
+  in the same instrumented measurement. Root cause: the standard
+  "fire N tasks in a loop, then `Task.WhenAll`" concurrency pattern this
+  project's own benchmarks use doesn't actually produce concurrent
+  *writers* — an uncontended `SemaphoreSlim.WaitAsync()` and a loopback
+  `PipeWriter.FlushAsync()` both usually complete synchronously, so each
+  call's entire write-and-flush finishes before the driving loop even
+  starts the next one. There was nothing for a reactive, "batch whoever's
+  already waiting" scheme to batch with.
+- **The real fix needed a dedicated background write loop, symmetric to
+  the read loop this section's own opening paragraph already described**
+  (line 48 — the original design doc envisioned this shape before any of
+  the current single-semaphore implementation existed; this change is
+  fulfilling that original description, not deviating from it). Producers
+  now only ever enqueue a `(commandName, args, PendingRequest?)` tuple
+  into a `ConcurrentQueue` (`_writeQueue`) and signal a `SemaphoreSlim`
+  (`_flushSignal`); `WriteLoopAsync`, one instance per connection for its
+  whole lifetime, is the *only* code path that ever touches the
+  connection's `PipeWriter` (new Invariant I7), draining everything
+  currently queued before a single flush. Measured directly: depth-512
+  elapsed time dropped from ~5.3ms to ~1.7ms (~3.2x) in the validating
+  prototype, with flush count dropping from 512 to ~358 and batch sizes up
+  to 15 — see `docs/benchmarks.md` for the real, final numbers from the
+  actual shipped implementation.
+- **A genuine TOCTOU race, found by a stress test under real load, not by
+  inspection or code review.** The first complete implementation passed
+  the full test suite repeatedly in isolation, but intermittently
+  (roughly 1 run in 6–10) hung *only* when run as part of the full suite
+  under heavier concurrent Docker load — exactly the situation this
+  project's own precedent (`ClientSideCacheTests`'s poll-budget widening)
+  had already taught to take seriously rather than dismiss as noise.
+  Widening the new test's own timeout to 90 seconds still hung, which
+  ruled out "just slow under load" and confirmed a genuine lost request.
+  Temporary per-request diagnostic tracking (same technique as the
+  Toxiproxy wait-strategy investigation earlier in this document) pinned
+  it to exactly 2 of 200 concurrent requests, never completing. Root
+  cause: `WriteLoopAsync`'s per-item move — `_writeQueue.TryDequeue`
+  followed by `_pending.Enqueue` — has a real (if narrow) window between
+  the two calls where a request is observable in *neither* queue. If
+  `FaultAsync` (triggered concurrently and independently by the read loop
+  detecting the same connection failure) ran its combined drain of both
+  queues during exactly that window, it would miss the request entirely —
+  never in `_writeQueue` (already removed) and not yet in `_pending`
+  (not yet added). A second, related gap existed even before that: a
+  request enqueued into `_writeQueue` after `FaultAsync`'s one-time drain
+  had already fully completed (idempotency guard means it never runs
+  again) had nothing left to ever complete it.
+  - Fixed with two complementary changes, both necessary, neither
+    sufficient alone: (1) a re-check immediately after enqueueing —
+    `WriteAndEnqueueAsync` checks `State` again right after its own
+    enqueue, and self-completes the request with a
+    `RedisConnectionException` if the connection is no longer `Ready`,
+    closing the "enqueued after the one-time drain already ran" gap; and
+    (2) a small `Lock` (`_writeQueueMoveLock`) held only around the
+    "dequeue-then-claim" move itself — never across `WriteCommand`'s
+    batch or `FlushAsync` — with `FaultAsync` holding the *same* lock
+    across its own combined drain of `_pending` and `_writeQueue`, so the
+    two can never observe a request that's transiently in neither. Both
+    are safe to layer on top of each other and on top of `FaultAsync`'s
+    own drains: `PendingRequest.TryCompleteWithException` is already
+    idempotent-safe against being reached by more than one path (the
+    same guarantee the H1/H2 proof for blocking-command cancellation
+    already depends on), so whichever path reaches a given request first
+    simply wins, harmlessly.
+  - Both new invariants — **I7 — Single active writer** and **I8 — No
+    write-queue stranding** — are recorded in §1.5 above, alongside I4's
+    extension to cover this second queue.
+- **A second, unrelated pre-existing bug surfaced by the same stress
+  test, fixed along the way.** `CloseAsync`'s `PipeWriter.CompleteAsync()`
+  call tries to flush any still-buffered bytes as part of completing —
+  which throws if the transport is already broken, a case that got
+  substantially more likely under the new batching design (a batch can
+  legitimately have more unflushed bytes sitting in the writer at any
+  given instant than the old one-flush-per-command design ever did). The
+  exception escaped `CloseAsync` uncaught, crashing whichever caller was
+  awaiting `FaultAsync` (surfacing as an unrelated-looking failure from
+  `RedisClient.DisposeAsync()`) *and* leaking the socket, since disposal
+  never got a chance to run. Fixed by wrapping both `CompleteAsync` calls
+  in `CloseAsync` with a broad, deliberately-silent catch — matching this
+  project's existing precedent (e.g. `ClusterClient.DisposeAsync`'s own
+  node-client cleanup loop) for "a failure during best-effort teardown of
+  an already-dead resource must never prevent the actual disposal it's
+  wrapping."
+- **The new `SendSubscriptionCommandAsync` (Pub/Sub) folds into the same
+  write-loop mechanism rather than keeping its own separate write+flush,
+  a deviation from the original plan for this phase.** Necessary for
+  Invariant I7 to be literally true (only one code path ever touches
+  `_writer`) rather than carrying a documented, narrow exception for
+  subscription traffic. Its confirmation-tracking `TaskCompletionSource`
+  is already registered by `RedisSubscriber` before the send is even
+  attempted, and that type's own `OnFaulted`-driven cleanup already fails
+  every pending confirmation on any connection fault independent of
+  low-level `_writeQueue` mechanics — so unlike an ordinary command's
+  `PendingRequest`, a subscription command has no analogous "stranding"
+  failure mode to close, and needed no equivalent of the
+  `WriteAndEnqueueAsync` post-enqueue re-check.
+- **New, permanent metrics** (`readus.connection.flushes`,
+  `readus.connection.flush.batchsize` — `ReadUsDiagnostics`) are the
+  direct, kept version of the throwaway counters originally used to
+  diagnose and validate this whole investigation, on the reasoning that
+  seeing real batch sizes for a real workload is useful on its own, not
+  just for this one investigation.
