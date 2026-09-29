@@ -1850,3 +1850,73 @@ were genuinely in flight at once.
   diagnose and validate this whole investigation, on the reasoning that
   seeing real batch sizes for a real workload is useful on its own, not
   just for this one investigation.
+
+### Recorded from the follow-up investigation into the residual depth-8/64 gap
+
+`docs/benchmarks.md`'s pipelined-throughput table shows the batched-write
+redesign above closing most, but not all, of the gap with
+StackExchange.Redis: depth 512 flips to ReadUs being faster, but depth 8
+and 64 land at near-parity, still very slightly behind (0.86x, 0.93x).
+This is the real, evidence-based follow-up investigation into that
+residual gap and into the redesign's own new ~88 B/call allocation cost —
+conducted before deciding whether either is worth a further code change,
+per this project's standing rule. Neither investigation below found a
+change worth making; both are recorded as closed findings, not open
+items.
+
+- **Batch-size distribution, measured directly** (a temporary
+  `MeterListener` attached to the already-permanent
+  `readus.connection.flush.batchsize` histogram, driven with the same
+  concurrent-`PingAsync`-fan-out shape the comparative benchmark uses, a
+  4-connection pool, against a real server): depth 8 produced 5 flushes
+  for 8 commands (mean batch size 1.6, max 2); depth 64 produced 23
+  flushes for 64 commands (mean 2.8, max 7); depth 512 produced 202
+  flushes for 512 commands (mean 2.5, with a long tail up to 15). This
+  confirms the hypothesis that a fixed 4-connection pool leaves too little
+  concurrent pile-up *per connection* at depth 8 for the write loop to
+  batch much — and also refines it: even depth 512's win isn't coming
+  from large per-flush batches (the mean batch size there, 2.5, is barely
+  bigger than depth 64's), it's coming from cutting the total number of
+  flush (and therefore syscall) operations roughly in half-to-thirds
+  across the board, which matters more in wall-clock terms at high depth
+  because flush/syscall overhead dominates total time there, and matters
+  less at low depth where other fixed per-command costs already dominate
+  for both libraries. Conclusion: no bug, no missed batching opportunity
+  — the residual depth-8/64 gap is an inherent property of comparing a
+  fixed 4-connection pool at low concurrency-per-connection, not something
+  this design can close further without changing the pool sizing itself
+  (a benchmark-configuration question, not a library defect).
+- **`PendingRequest.RunContinuationsAsynchronously = true`
+  (`src/ReadUs.Core/Connections/PendingRequest.cs:42`), investigated as a
+  candidate cost sitting on every command regardless of depth: confirmed
+  load-bearing, not an oversight.** `RedisConnection.DispatchReply` runs
+  synchronously inside `ReadLoopAsync`'s own per-frame loop, for every
+  frame already sitting in the current read buffer, before the read loop
+  advances to read more from the socket. If `PendingRequest` ran
+  continuations synchronously, a caller's code immediately after `await
+  SendAsync(...)` would execute inline on the read-loop thread, inside
+  `ManualResetValueTaskSourceCore.SetResult`'s own call stack — a slow
+  continuation (or, worse, one that synchronously blocks, or that issues
+  another command on the same connection and waits on it) would stall
+  that connection's entire reply pipeline for every other pending caller,
+  or deadlock outright. This is not a style choice; it is what stands
+  between the read loop and a real head-of-line-blocking / reentrancy
+  hazard. Not changed.
+- **The ~88 B/call allocation increase: root cause not conclusively
+  identified, and not pursued further this round given the cost/benefit.**
+  Two leading candidates were tested in isolation with
+  `GC.GetAllocatedBytesForCurrentThread`, not guessed at: a genuinely-
+  waiting (non-synchronously-completing) `SemaphoreSlim.WaitAsync()`
+  measured at ~4.8 B/call, and a `ConcurrentQueue<(ReadOnlyMemory<byte>,
+  ReadOnlyMemory<byte>[], PendingRequest?)>` enqueue/dequeue cycle
+  measured at effectively 0 B/call (steady-state segment reuse). Neither
+  comes close to explaining the observed ~88 B, so both are ruled out as
+  the dominant source — a real, useful negative result, not a dead end
+  papered over. Identifying the actual source would need a proper
+  allocation-stack profiler run (`dotnet-trace`) against the live
+  two-thread (producer/write-loop) interaction rather than an isolated
+  microbenchmark, which is disproportionate effort for a cost that's
+  already a reasonable trade for the throughput win it buys. Left as a
+  genuinely open item, not a closed one — worth revisiting with a proper
+  profiler if allocation pressure on this path becomes a real problem for
+  a specific workload, but not chased further speculatively here.
